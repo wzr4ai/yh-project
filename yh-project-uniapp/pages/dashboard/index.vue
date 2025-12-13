@@ -162,7 +162,6 @@ export default {
       this.buildCategoryPerf()
     },
     buildInventoryValue() {
-      const categoryLookup = buildCategoryLookup()
       let costTotal = 0
       let retailTotal = 0
       mockInventory.forEach(row => {
