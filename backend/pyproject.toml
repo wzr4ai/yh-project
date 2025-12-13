@@ -1,0 +1,18 @@
+[project]
+name = "yh-backend"
+version = "0.1.0"
+description = "FastAPI backend for 烟花爆竹后台管理系统"
+requires-python = ">=3.14"
+dependencies = [
+  "fastapi>=0.109.0",
+  "uvicorn[standard]>=0.25.0",
+  "pydantic>=2.5.0",
+  "python-multipart>=0.0.9"
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+package = true

@@ -1,0 +1,48 @@
+{
+  "pages": [
+    {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/dashboard/index",
+      "style": {
+        "navigationBarTitleText": "运营总览"
+      }
+    },
+    {
+      "path": "pages/sales/create",
+      "style": {
+        "navigationBarTitleText": "新增销售"
+      }
+    },
+    {
+      "path": "pages/inventory/overview",
+      "style": {
+        "navigationBarTitleText": "库存总览"
+      }
+    },
+    {
+      "path": "pages/purchase/list",
+      "style": {
+        "navigationBarTitleText": "采购与到货"
+      }
+    },
+    {
+      "path": "pages/products/list",
+      "style": {
+        "navigationBarTitleText": "商品目录"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "烟花后台",
+    "navigationBarBackgroundColor": "#0f6a7b",
+    "backgroundColor": "#f7f8fa"
+  },
+  "uniIdRouter": {}
+}
