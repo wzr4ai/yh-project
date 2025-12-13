@@ -19,8 +19,7 @@
 
 <script>
 import { setRole, setToken } from '../../common/auth.js'
-
-const BASE_URL = 'http://localhost:8000'
+import { API_BASE_URL } from '../../common/config.js'
 
 export default {
   data() {
@@ -54,7 +53,7 @@ export default {
     },
     exchangeCode(code) {
       uni.request({
-        url: `${BASE_URL}/api/auth/weapp`,
+        url: `${API_BASE_URL}/api/auth/weapp`,
         method: 'POST',
         data: { code },
         success: (resp) => {
