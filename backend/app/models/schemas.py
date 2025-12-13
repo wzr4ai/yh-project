@@ -1,11 +1,15 @@
 from datetime import date, datetime
 from typing import Literal, Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 Role = Literal["owner", "clerk"]
 PricingBasis = Literal["例外价", "分类系数", "全局系数"]
+
+
+class ORMBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoginRequest(BaseModel):
@@ -37,14 +41,14 @@ class UserOut(BaseModel):
     role: Role
 
 
-class Category(BaseModel):
-    id: str
+class Category(ORMBase):
+    id: Optional[str] = None
     name: str
     retail_multiplier: Optional[float] = None
 
 
-class Product(BaseModel):
-    id: str
+class Product(ORMBase):
+    id: Optional[str] = None
     name: str
     category_id: str
     spec: str
@@ -59,7 +63,7 @@ class PriceCalcResponse(BaseModel):
 
 
 class ProductImportJob(BaseModel):
-    id: str
+    id: Optional[str] = None
     file_name: str
     status: Literal["pending", "processing", "success", "failed"]
     total_rows: int
@@ -74,8 +78,8 @@ class SalesItemPayload(BaseModel):
     actual_price: float
 
 
-class SalesItem(BaseModel):
-    id: str
+class SalesItem(ORMBase):
+    id: Optional[str] = None
     product_id: str
     quantity: int
     snapshot_cost: float
@@ -84,22 +88,22 @@ class SalesItem(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class SalesOrder(BaseModel):
-    id: str
+class SalesOrder(ORMBase):
+    id: Optional[str] = None
     order_date: datetime
     items: List[SalesItem]
     total_actual_amount: float
     created_by: str
 
 
-class InventoryRecord(BaseModel):
+class InventoryRecord(ORMBase):
     product_id: str
     warehouse_id: str = "default"
     current_stock: int
 
 
-class InventoryLog(BaseModel):
-    id: str
+class InventoryLog(ORMBase):
+    id: Optional[str] = None
     product_id: str
     warehouse_id: str
     change_date: datetime
@@ -115,7 +119,8 @@ class InventoryAdjustRequest(BaseModel):
     reason: str
 
 
-class PurchaseItem(BaseModel):
+class PurchaseItem(ORMBase):
+    id: Optional[str] = None
     product_id: str
     quantity: int
     expected_cost: float
@@ -123,8 +128,8 @@ class PurchaseItem(BaseModel):
     actual_cost: Optional[float] = None
 
 
-class PurchaseOrder(BaseModel):
-    id: str
+class PurchaseOrder(ORMBase):
+    id: Optional[str] = None
     status: str
     supplier: str
     expected_date: date

@@ -1,57 +1,74 @@
 from datetime import datetime
 from typing import List
 
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api import deps
+from app.db import get_session
 from app.models import schemas
-from app.services import auth, mock_store
+from app.models.entities import InventoryLog, Product, PurchaseOrder
+from app.services import auth, logic
 
 router = APIRouter(prefix="/api")
 
 
 @router.post("/auth/weapp", response_model=schemas.LoginResponse)
-def login_weapp(payload: schemas.WeappLoginRequest):
-    openid = auth.make_openid_from_code(payload.code)
-    user = mock_store.get_or_create_user_by_openid(openid, payload.nickname)
+async def login_weapp(payload: schemas.WeappLoginRequest, session: AsyncSession = Depends(get_session)):
+    try:
+        openid = await auth.weapp_code_to_openid(payload.code)
+    except ValueError:
+        # fallback: 未配置或微信返回错误时，使用本地 mock，便于开发环境
+        openid = auth.make_openid_from_code(payload.code)
+    user = await logic.get_or_create_user_by_openid(session, openid, payload.nickname)
+    await session.commit()
     token = auth.create_access_token(user)
     return schemas.LoginResponse(token=token, username=user.username, role=user.role)
 
 
 @router.get("/me", response_model=schemas.UserOut)
-def me(current_user=Depends(deps.get_current_user)):
+async def me(current_user=Depends(deps.get_current_user)):
     return current_user
 
 
 @router.get("/price/calculate/{product_id}", response_model=schemas.PriceCalcResponse)
-def calculate_price(product_id: str):
-    product = mock_store.get_product(product_id)
+async def calculate_price(product_id: str, session: AsyncSession = Depends(get_session)):
+    product = await session.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="product not found")
-    return mock_store.calculate_price(product)
+    return await logic.calculate_price_for_product(session, product)
 
 
 @router.post("/products", response_model=schemas.Product)
-def create_product(product: schemas.Product):
-    if mock_store.get_product(product.id):
+async def create_product(product: schemas.Product, session: AsyncSession = Depends(get_session)):
+    exists = await session.get(Product, product.id) if product.id else None
+    if exists:
         raise HTTPException(status_code=400, detail="product id already exists")
-    mock_store.PRODUCTS.append(product)
-    return product
+    created = await logic.create_product(session, product)
+    await session.commit()
+    return schemas.Product(
+        id=created.id,
+        name=created.name,
+        category_id=created.category_id,
+        spec=created.spec,
+        base_cost_price=created.base_cost_price,
+        fixed_retail_price=created.fixed_retail_price,
+        img_url=created.img_url,
+    )
 
 
 @router.put("/categories/{category_id}", response_model=schemas.Category)
-def update_category(category_id: str, category: schemas.Category):
-    for idx, cat in enumerate(mock_store.CATEGORIES):
-        if cat.id == category_id:
-            mock_store.CATEGORIES[idx] = category
-            return category
-    mock_store.CATEGORIES.append(category)
-    return category
+async def update_category(category_id: str, category: schemas.Category, session: AsyncSession = Depends(get_session)):
+    updated = await logic.upsert_category(session, category_id, category)
+    await session.commit()
+    return schemas.Category(id=updated.id, name=updated.name, retail_multiplier=updated.retail_multiplier)
 
 
 @router.post("/import/products", response_model=schemas.ProductImportJob)
-def import_products(file_name: str):
-    # 模拟异步导入任务
+async def import_products(file_name: str):
+    # 仍为占位逻辑
     job = schemas.ProductImportJob(
         id=f"job-{int(datetime.utcnow().timestamp())}",
         file_name=file_name,
@@ -64,7 +81,7 @@ def import_products(file_name: str):
 
 
 @router.get("/import/{job_id}", response_model=schemas.ProductImportJob)
-def get_import_job(job_id: str):
+async def get_import_job(job_id: str):
     return schemas.ProductImportJob(
         id=job_id,
         file_name="mock.xlsx",
@@ -77,44 +94,64 @@ def get_import_job(job_id: str):
 
 
 @router.post("/sales", response_model=schemas.SalesOrder)
-def create_sales(items: List[schemas.SalesItemPayload], username: str = "owner"):
+async def create_sales(
+    items: List[schemas.SalesItemPayload],
+    username: str = "owner",
+    session: AsyncSession = Depends(get_session),
+):
     try:
-        return mock_store.create_sales_order(items, username)
+        order = await logic.create_sales_order(session, items, username)
+        await session.commit()
+        return order
     except ValueError as exc:
+        await session.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/inventory/adjust", response_model=schemas.InventoryRecord)
-def adjust_inventory(req: schemas.InventoryAdjustRequest, username: str = "owner"):
-    return mock_store.adjust_inventory(req, username)
+async def adjust_inventory(
+    req: schemas.InventoryAdjustRequest, username: str = "owner", session: AsyncSession = Depends(get_session)
+):
+    inv = await logic.adjust_inventory(session, req, username)
+    await session.commit()
+    return inv
 
 
 @router.get("/inventory/logs", response_model=List[schemas.InventoryLog])
-def inventory_logs():
-    return mock_store.list_inventory_logs()
+async def inventory_logs(session: AsyncSession = Depends(get_session)):
+    logs = (await session.execute(sa.select(InventoryLog))).scalars().all()
+    return logs
 
 
 @router.get("/purchase-orders", response_model=List[schemas.PurchaseOrder])
-def list_purchase_orders():
-    return mock_store.list_purchase_orders()
+async def list_purchase_orders(session: AsyncSession = Depends(get_session)):
+    orders = (
+        await session.execute(sa.select(PurchaseOrder).options(selectinload(PurchaseOrder.items)))
+    ).scalars().all()
+    return orders
 
 
 @router.post("/purchase-orders", response_model=schemas.PurchaseOrder)
-def create_purchase_order(po: schemas.PurchaseOrder):
-    return mock_store.create_purchase_order(po)
+async def create_purchase_order(po: schemas.PurchaseOrder, session: AsyncSession = Depends(get_session)):
+    order = await logic.create_purchase_order(session, po)
+    await session.commit()
+    return order
 
 
 @router.put("/purchase-orders/{po_id}/receive", response_model=schemas.PurchaseOrder)
-def receive_purchase(po_id: str, items: List[schemas.PurchaseItem]):
+async def receive_purchase(po_id: str, items: List[schemas.PurchaseItem], session: AsyncSession = Depends(get_session)):
     try:
-        return mock_store.receive_purchase_order(po_id, items)
+        order = await logic.receive_purchase(session, po_id, items)
+        await session.commit()
+        return order
     except ValueError as exc:
+        await session.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/dashboard/realtime", response_model=schemas.DashboardRealtime)
-def dashboard_realtime():
-    actual, gp, orders, avg = mock_store.dashboard_realtime()
+async def dashboard_realtime(session: AsyncSession = Depends(get_session)):
+    actual, gp, orders, avg = await logic.dashboard_realtime(session)
     gross_margin = (gp / actual * 100) if actual else 0
     return schemas.DashboardRealtime(
         actual_sales=round(actual, 2),
@@ -126,11 +163,11 @@ def dashboard_realtime():
 
 
 @router.get("/dashboard/inventory_value", response_model=schemas.InventoryValueResponse)
-def dashboard_inventory_value():
-    cost, retail = mock_store.inventory_value()
+async def dashboard_inventory_value(session: AsyncSession = Depends(get_session)):
+    cost, retail = await logic.dashboard_inventory_value(session)
     return schemas.InventoryValueResponse(cost_total=round(cost, 2), retail_total=round(retail, 2))
 
 
 @router.get("/dashboard/performance", response_model=schemas.PerformanceResponse)
-def dashboard_performance():
-    return mock_store.performance()
+async def dashboard_performance(session: AsyncSession = Depends(get_session)):
+    return await logic.dashboard_performance(session)

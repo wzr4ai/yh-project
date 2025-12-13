@@ -17,7 +17,7 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```bash
 cd backend
 python -m pip install --upgrade pip
-pip install fastapi uvicorn[standard] pydantic python-multipart python-jose[cryptography]
+pip install fastapi uvicorn[standard] pydantic python-multipart python-jose[cryptography] sqlalchemy asyncpg
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -39,8 +39,8 @@ docker compose up --build
 ```
 默认端口：后端 8000，Postgres 5432（如不需要外露，可移除端口映射）。
 
-## 主要接口（基于当前内存 mock 数据）
-- `POST /api/auth/weapp`：微信 code 换 JWT（不存在则自动注册为店员）
+## 主要接口（DB 版）
+- `POST /api/auth/weapp`：微信 code 换 JWT（不存在则自动注册为店员，落库）
 - `GET /api/me`：通过 Bearer Token 获取当前用户
 - `GET /api/price/calculate/{product_id}`
 - `POST /api/products`
@@ -58,10 +58,11 @@ docker compose up --build
 - `GET /api/dashboard/performance`
 
 ## 环境变量
-- `DATABASE_URL`：预留给未来接入 PostgreSQL（Compose 中已提供示例）。当前代码使用内存数据，可为空。
+- `DATABASE_URL`：PostgreSQL 连接串。若使用非 async 写法，可写成 `postgresql://...`，程序会自动替换成 `postgresql+asyncpg://...`。
 - `SECRET_KEY`：JWT 密钥；目前代码在 `app/services/auth.py` 内置默认值，生产请改为环境变量。
 - `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB`：Compose 下的数据库配置（见 `.env.example`）。
+- `WECHAT_APPID` / `WECHAT_SECRET`：微信小程序登录所需。若未配置，登录接口会回退为本地 mock openid（仅开发用途）。
 
 ## 注意
-- 当前后端为内存 mock，用于前端联调与接口对齐；接入数据库时，请替换 `app/services/mock_store.py` 为真实仓储实现。
+- 已切换为 Postgres 持久化，启动时自动建表并初始化默认全局系数与默认仓。
 - 宿主机已有 Nginx 负责 SSL/反代时，后端仅需监听内网端口（如 8000），由 Nginx 转发。***
