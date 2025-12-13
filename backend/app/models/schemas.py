@@ -19,6 +19,24 @@ class LoginResponse(BaseModel):
     role: Role
 
 
+class WeappLoginRequest(BaseModel):
+    code: str
+    nickname: Optional[str] = None
+
+
+class User(BaseModel):
+    id: str
+    username: str
+    role: Role
+    openid: str
+
+
+class UserOut(BaseModel):
+    id: str
+    username: str
+    role: Role
+
+
 class Category(BaseModel):
     id: str
     name: str

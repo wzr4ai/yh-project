@@ -16,7 +16,7 @@ RUN apt-get update \
 
 # Install Python deps (no lock yet, keep minimal)
 RUN python -m pip install --upgrade pip \
-    && pip install fastapi uvicorn[standard] pydantic python-multipart
+    && pip install fastapi uvicorn[standard] pydantic python-multipart python-jose[cryptography]
 
 COPY app ${APP_HOME}/app
 

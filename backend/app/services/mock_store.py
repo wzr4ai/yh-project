@@ -16,8 +16,10 @@ from app.models.schemas import (
     SalesItem,
     SalesItemPayload,
     SalesOrder,
+    User,
 )
 from app.services.pricing import calculate_standard_price
+from app.services import auth
 
 
 GLOBAL_MULTIPLIER = 1.5
@@ -86,6 +88,10 @@ SALES_ITEMS: List[SalesItem] = [
     ),
 ]
 
+USERS: List[User] = [
+    User(id="u-owner", username="老板", role="owner", openid="owner"),
+]
+
 PURCHASE_ORDERS: List[PurchaseOrder] = [
     PurchaseOrder(
         id="po-20240201",
@@ -140,6 +146,34 @@ def get_product(product_id: str) -> Product | None:
         if p.id == product_id:
             return p
     return None
+
+
+def get_user_by_openid(openid: str) -> User | None:
+    for u in USERS:
+        if u.openid == openid:
+            return u
+    return None
+
+
+def get_user_by_id(user_id: str) -> User | None:
+    for u in USERS:
+        if u.id == user_id:
+            return u
+    return None
+
+
+def get_or_create_user_by_openid(openid: str, nickname: str | None = None) -> User:
+    existing = get_user_by_openid(openid)
+    if existing:
+        return existing
+    user = User(
+        id=f"u-{len(USERS)+1}",
+        username=nickname or f"店员{len(USERS)+1}",
+        role="clerk",
+        openid=openid,
+    )
+    USERS.append(user)
+    return user
 
 
 def get_inventory_record(product_id: str) -> InventoryRecord:

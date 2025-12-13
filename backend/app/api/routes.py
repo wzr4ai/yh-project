@@ -1,18 +1,26 @@
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.api import deps
 from app.models import schemas
-from app.services import mock_store
+from app.services import auth, mock_store
 
 router = APIRouter(prefix="/api")
 
 
-@router.post("/auth/login", response_model=schemas.LoginResponse)
-def login(payload: schemas.LoginRequest):
-    token = f"mock-token-{payload.role}-{payload.username}"
-    return schemas.LoginResponse(token=token, username=payload.username, role=payload.role)
+@router.post("/auth/weapp", response_model=schemas.LoginResponse)
+def login_weapp(payload: schemas.WeappLoginRequest):
+    openid = auth.make_openid_from_code(payload.code)
+    user = mock_store.get_or_create_user_by_openid(openid, payload.nickname)
+    token = auth.create_access_token(user)
+    return schemas.LoginResponse(token=token, username=user.username, role=user.role)
+
+
+@router.get("/me", response_model=schemas.UserOut)
+def me(current_user=Depends(deps.get_current_user)):
+    return current_user
 
 
 @router.get("/price/calculate/{product_id}", response_model=schemas.PriceCalcResponse)

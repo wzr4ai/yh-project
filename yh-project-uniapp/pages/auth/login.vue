@@ -2,58 +2,82 @@
   <view class="page">
     <view class="hero">
       <view class="brand">烟花后台</view>
-      <view class="tagline">安全合规 · 价格有据 · 销售透明</view>
+      <view class="tagline">微信小程序一键登录 · JWT 自动鉴权</view>
     </view>
     <view class="card">
-      <view class="card-title">选择身份进入</view>
-      <view class="role-row">
-        <view
-          v-for="item in roles"
-          :key="item.value"
-          class="role-tile"
-          :class="{ active: selectedRole === item.value }"
-          @tap="selectedRole = item.value"
-        >
-          <view class="role-name">{{ item.label }}</view>
-          <view class="role-desc">{{ item.desc }}</view>
-        </view>
+      <view class="card-title">正在登录</view>
+      <view class="loading">请稍候，自动获取微信登录态…</view>
+      <view class="hint">若为首次登录将自动注册为店员</view>
+      <view class="divider"></view>
+      <view class="manual">
+        <view class="manual-title">登录异常？点击重试</view>
+        <button class="primary-btn" :loading="loading" @tap="autoWeappLogin">重试登录</button>
       </view>
-      <view class="input-area">
-        <input
-          v-model="username"
-          type="text"
-          placeholder="输入名字，便于记录操作人"
-          placeholder-class="placeholder"
-        />
-      </view>
-      <button class="primary-btn" @tap="handleEnter">进入系统</button>
     </view>
   </view>
 </template>
 
 <script>
-import { setRole } from '../../common/auth.js'
+import { setRole, setToken } from '../../common/auth.js'
+
+const BASE_URL = 'http://localhost:8000'
 
 export default {
   data() {
     return {
-      selectedRole: 'owner',
-      username: '',
-      roles: [
-        { label: '老板', value: 'owner', desc: '查看成本、毛利、报表和配置' },
-        { label: '店员', value: 'clerk', desc: '仅做销售与库存扣减，隐藏成本' }
-      ]
+      loading: false
     }
   },
+  onShow() {
+    const existingToken = uni.getStorageSync('yh-token')
+    const existingRole = uni.getStorageSync('yh-role')
+    if (existingToken && existingRole) {
+      uni.reLaunch({ url: '/pages/dashboard/index' })
+      return
+    }
+    this.autoWeappLogin()
+  },
   methods: {
-    handleEnter() {
-      setRole(this.selectedRole)
-      const name = this.username.trim()
-      if (name) {
-        uni.setStorageSync('yh-username', name)
-      }
-      uni.reLaunch({
-        url: '/pages/dashboard/index'
+    autoWeappLogin() {
+      this.loading = true
+      // 在微信小程序内会返回真实 code，H5/非微信环境用 mock code
+      uni.login({
+        provider: 'weixin',
+        success: (res) => {
+          const code = res.code || 'mock-code'
+          this.exchangeCode(code)
+        },
+        fail: () => {
+          this.exchangeCode('mock-code')
+        }
+      })
+    },
+    exchangeCode(code) {
+      uni.request({
+        url: `${BASE_URL}/api/auth/weapp`,
+        method: 'POST',
+        data: { code },
+        success: (resp) => {
+          const data = resp.data
+          if (data && data.token) {
+            setToken(data.token)
+            setRole(data.role)
+            uni.setStorageSync('yh-username', data.username)
+            uni.reLaunch({ url: '/pages/dashboard/index' })
+          } else {
+            this.failToast()
+          }
+        },
+        fail: () => this.failToast(),
+        complete: () => {
+          this.loading = false
+        }
+      })
+    },
+    failToast() {
+      uni.showToast({
+        title: '登录失败',
+        icon: 'none'
       })
     }
   }
@@ -96,58 +120,32 @@ export default {
 .card-title {
   font-size: 32rpx;
   font-weight: 600;
-  margin-bottom: 24rpx;
+  margin-bottom: 12rpx;
 }
 
-.role-row {
-  display: flex;
-  gap: 20rpx;
+.loading {
+  color: #c7d2fe;
+  font-size: 26rpx;
 }
 
-.role-tile {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1rpx solid rgba(255, 255, 255, 0.1);
-  border-radius: 14rpx;
-  padding: 20rpx;
-  transition: all 0.2s;
-}
-
-.role-tile.active {
-  border-color: #17d9d0;
-  box-shadow: 0 12rpx 24rpx rgba(23, 217, 208, 0.2);
-}
-
-.role-name {
-  font-size: 30rpx;
-  font-weight: 600;
-}
-
-.role-desc {
+.hint {
   margin-top: 8rpx;
-  color: rgba(245, 247, 250, 0.7);
+  color: rgba(245, 247, 250, 0.65);
   font-size: 24rpx;
 }
 
-.input-area {
-  margin-top: 28rpx;
-  margin-bottom: 20rpx;
+.divider {
+  margin: 20rpx 0;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.08);
 }
 
-.input-area input {
-  width: 100%;
-  padding: 20rpx 22rpx;
-  border-radius: 12rpx;
-  background: rgba(255, 255, 255, 0.08);
-  color: #f5f7fa;
-}
-
-.placeholder {
-  color: rgba(255, 255, 255, 0.5);
+.manual-title {
+  color: rgba(245, 247, 250, 0.85);
+  font-size: 26rpx;
+  margin-bottom: 10rpx;
 }
 
 .primary-btn {
-  margin-top: 10rpx;
   background: linear-gradient(135deg, #17d9d0, #0ab8c3);
   color: #0b1f3a;
   font-weight: 700;
