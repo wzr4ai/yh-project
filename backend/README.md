@@ -37,7 +37,7 @@ cp .env.example .env
 # 启动
 docker compose up --build
 ```
-默认端口：后端 8000，Postgres 5432（如不需要外露，可移除端口映射）。
+默认端口：后端 8000，Postgres 5432（如不需要外露，可移除端口映射）。Postgres 18 使用卷挂载到 `/var/lib/postgresql`（见 compose），升级旧卷需按官方指引 pg_upgrade 或清理旧卷后重建。
 
 ## 主要接口（DB 版）
 - `POST /api/auth/weapp`：微信 code 换 JWT（不存在则自动注册为店员，落库）
