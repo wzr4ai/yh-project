@@ -63,7 +63,10 @@ export default {
       pageSize: 20,
       total: 0,
       loading: false,
-      categories: [{ id: '', name: '全部' }],
+      categories: [
+        { id: '', name: '全部' },
+        { id: '__uncategorized__', name: '未分类' }
+      ],
       currentCategoryIds: [],
       tempCategoryIds: [],
       showFilter: false
@@ -79,8 +82,8 @@ export default {
     currentCategoryLabel() {
       if (!this.currentCategoryIds.length) return '全部'
       const names = this.categories.filter(c => this.currentCategoryIds.includes(c.id)).map(c => c.name)
-    return names.length ? names.join('、') : '全部'
-  },
+      return names.length ? names.join('、') : '全部'
+    },
     totalPages() {
       if (!this.total) return 1
       return Math.max(1, Math.ceil(this.total / this.pageSize))
@@ -121,13 +124,17 @@ export default {
       this.showFilter = !this.showFilter
     },
     toggleTemp(cat) {
-      if (!cat || !cat.id) {
+      if (!cat) return
+      if (!cat.id) {
         this.tempCategoryIds = []
+      } else if (cat.id === '__uncategorized__') {
+        this.tempCategoryIds = ['__uncategorized__']
       } else {
         const exists = this.tempCategoryIds.includes(cat.id)
         this.tempCategoryIds = exists
           ? this.tempCategoryIds.filter(x => x !== cat.id)
           : this.tempCategoryIds.concat(cat.id)
+        this.tempCategoryIds = this.tempCategoryIds.filter(id => id !== '__uncategorized__')
       }
     },
     cancelFilter() {
@@ -141,9 +148,15 @@ export default {
     async fetchCategories() {
       try {
         const data = await api.getCategories()
-        this.categories = [{ id: '', name: '全部' }].concat(data || [])
+        this.categories = [
+          { id: '', name: '全部' },
+          { id: '__uncategorized__', name: '未分类' }
+        ].concat(data || [])
       } catch (err) {
-        this.categories = [{ id: '', name: '全部' }]
+        this.categories = [
+          { id: '', name: '全部' },
+          { id: '__uncategorized__', name: '未分类' }
+        ]
       }
     },
     goPage(target) {
