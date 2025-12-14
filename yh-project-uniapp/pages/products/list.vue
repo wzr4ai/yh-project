@@ -267,12 +267,18 @@ export default {
     },
     openEffect(url) {
       if (!url) return
-      // 小程序端可用内置浏览器；这里用复制提示作为兼容
-      #ifdef MP-WEIXIN
-      wx.setClipboardData({ data: url, success: () => wx.showToast({ title: '链接已复制', icon: 'none' }) })
-      #else
-      uni.navigateTo({ url })
-      #endif
+      // 小程序端复制链接提示，其他端尝试直接跳转
+      const platform = uni.getSystemInfoSync().platform
+      if (platform === 'mp-weixin' || typeof wx !== 'undefined') {
+        wx.setClipboardData({ data: url, success: () => wx.showToast({ title: '链接已复制', icon: 'none' }) })
+      } else {
+        try {
+          uni.navigateTo({ url })
+        } catch (err) {
+          uni.setClipboardData({ data: url })
+          uni.showToast({ title: '链接已复制', icon: 'none' })
+        }
+      }
     }
   }
 }
