@@ -92,6 +92,12 @@ export const api = {
       data: { product_ids: productIds }
     })
   },
+  createProduct(payload) {
+    return request('/api/products', {
+      method: 'POST',
+      data: payload
+    })
+  },
   updateProduct(id, payload) {
     return request(`/api/products/${id}`, {
       method: 'PUT',

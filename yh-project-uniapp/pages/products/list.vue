@@ -16,6 +16,9 @@
       />
       <button size="mini" @tap="doSearch">搜索</button>
     </view>
+    <view class="action-bar" v-if="isOwner">
+      <button type="primary" size="mini" @tap="openCreate">新增商品</button>
+    </view>
     <view class="filter-panel" v-if="showFilter">
       <view class="panel-title">选择分类（多选）</view>
       <scroll-view scroll-y style="max-height: 400rpx;">
@@ -183,6 +186,11 @@ export default {
       this.page = target
       this.loadPage()
     },
+    openCreate() {
+      uni.navigateTo({
+        url: '/pages/products/create'
+      })
+    },
     openDetail(id) {
       uni.navigateTo({
         url: `/pages/products/detail?id=${id}`
@@ -234,6 +242,12 @@ export default {
 .filter-label {
   color: #6b7280;
   font-size: 24rpx;
+}
+
+.action-bar {
+  margin: 12rpx 0;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .filter-value {

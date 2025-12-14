@@ -44,6 +44,12 @@
       }
     },
     {
+      "path": "pages/products/create",
+      "style": {
+        "navigationBarTitleText": "新建商品"
+      }
+    },
+    {
       "path": "pages/categories/manage",
       "style": {
         "navigationBarTitleText": "分类管理"

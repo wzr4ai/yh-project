@@ -50,18 +50,6 @@
     </view>
 
     <view class="card">
-      <view class="section-title">价格信息</view>
-      <view class="info-row">
-        <view class="info-label">标准价</view>
-        <view class="info-value">¥{{ price.price?.toFixed(2) || '-' }}</view>
-      </view>
-      <view class="info-row">
-        <view class="info-label">依据</view>
-        <view class="info-value">{{ price.basis || '-' }}</view>
-      </view>
-    </view>
-
-    <view class="card">
       <view class="section-title">库存</view>
       <view class="info-row">
         <view class="info-label">当前库存</view>
