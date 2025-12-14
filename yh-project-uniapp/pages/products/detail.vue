@@ -201,6 +201,9 @@ export default {
           category_id: this.selectedCategoryIds[0] || null,
           pack_price_ref: this.showPackPriceRef ? this.form.pack_price_ref : null
         })
+        if (this.adjustDelta) {
+          await this.adjustInventory(true)
+        }
         uni.showToast({ title: '已保存', icon: 'success' })
         this.fetchPrice()
       } catch (err) {
@@ -221,7 +224,7 @@ export default {
         this.form.category_name = this.categories.find(c => c.id === this.form.category_id)?.name || ''
       }
     },
-    async adjustInventory() {
+    async adjustInventory(skipToast = false) {
       if (!this.adjustDelta) {
         uni.showToast({ title: '请输入调整数量', icon: 'none' })
         return
@@ -235,7 +238,9 @@ export default {
           },
           uni.getStorageSync('yh-username') || ''
         )
-        uni.showToast({ title: '库存已调整', icon: 'success' })
+        if (!skipToast) {
+          uni.showToast({ title: '库存已调整', icon: 'success' })
+        }
         this.adjustDelta = 0
         this.adjustReason = ''
         this.fetchInventory()
