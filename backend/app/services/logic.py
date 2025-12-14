@@ -574,6 +574,7 @@ async def list_products_with_inventory(
         price_info = await calculate_price_for_product(session, product)
         box_qty, loose_qty = inventory_map.get(product.id, (0, 0))
         total_units = box_qty * parse_spec_qty(product.spec) + loose_qty
+        stock = total_units
         retail_total = price_info.price * total_units
         cost_total = product.base_cost_price * total_units
         category_name = None
