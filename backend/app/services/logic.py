@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import List, Tuple
 
@@ -21,6 +22,15 @@ from app.models.entities import (
     Warehouse,
 )
 DEFAULT_GLOBAL_MULTIPLIER = 1.5
+
+
+def normalize_spec(spec: str | None) -> str | None:
+    if not spec:
+        return None
+    match = re.search(r"(\d+(?:\.\d+)?)", str(spec))
+    if match:
+        return match.group(1)
+    return None
 
 
 async def replace_product_categories(session: AsyncSession, product_id: str, category_ids: list[str]):
@@ -128,11 +138,12 @@ async def calculate_price_for_product(session: AsyncSession, product: Product) -
 
 async def create_product(session: AsyncSession, payload: schemas.Product) -> Product:
     fixed_price = payload.fixed_retail_price if (payload.fixed_retail_price or 0) > 0 else None
+    spec_value = normalize_spec(payload.spec)
     product = Product(
         id=payload.id or None,
         name=payload.name,
         category_id=payload.category_id,
-        spec=payload.spec,
+        spec=spec_value,
         base_cost_price=payload.base_cost_price,
         fixed_retail_price=fixed_price,
         retail_multiplier=payload.retail_multiplier,
@@ -150,12 +161,13 @@ async def create_product(session: AsyncSession, payload: schemas.Product) -> Pro
 
 async def update_product(session: AsyncSession, product_id: str, payload: schemas.Product) -> Product:
     fixed_price = payload.fixed_retail_price if (payload.fixed_retail_price or 0) > 0 else None
+    spec_value = normalize_spec(payload.spec)
     product = await session.get(Product, product_id)
     if not product:
         raise ValueError("product not found")
     product.name = payload.name or product.name
     product.category_id = payload.category_id
-    product.spec = payload.spec
+    product.spec = spec_value
     product.base_cost_price = payload.base_cost_price
     product.fixed_retail_price = fixed_price
     product.retail_multiplier = payload.retail_multiplier
@@ -182,6 +194,10 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
     product = await session.get(Product, product_id)
     if not product:
         raise ValueError("product not found")
+    clean_spec = normalize_spec(product.spec)
+    if clean_spec != product.spec:
+        product.spec = clean_spec
+        await session.flush()
     category_name = None
     categories: list[schemas.Category] = []
     if product.category_id:
@@ -466,6 +482,10 @@ async def list_products_with_inventory(
         inventory_map[inv.product_id] = inventory_map.get(inv.product_id, 0) + inv.current_stock
     result: list[schemas.ProductListItem] = []
     for product in products:
+        spec_clean = normalize_spec(product.spec)
+        if spec_clean != product.spec:
+            product.spec = spec_clean
+            await session.flush()
         price_info = await calculate_price_for_product(session, product)
         stock = inventory_map.get(product.id, 0)
         retail_total = price_info.price * stock
@@ -494,7 +514,7 @@ async def list_products_with_inventory(
             schemas.ProductListItem(
                 id=product.id,
                 name=product.name,
-                spec=product.spec,
+                spec=spec_clean,
                 category_name="、".join([n for n in category_names if n]) or category_name,
                 category_ids=category_ids,
                 base_cost_price=product.base_cost_price,
