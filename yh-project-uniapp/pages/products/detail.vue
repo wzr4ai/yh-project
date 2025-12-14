@@ -178,9 +178,8 @@ export default {
     },
     async fetchInventory() {
       try {
-        const inv = await api.getInventoryOverview()
-        const row = (inv || []).find(item => item.product_id === this.id)
-        this.stock = row ? row.stock : 0
+        const inv = await api.getInventory(this.id)
+        this.stock = inv?.current_stock || 0
       } catch (err) {
         this.stock = 0
       }

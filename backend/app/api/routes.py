@@ -171,8 +171,18 @@ async def create_sales(
 async def adjust_inventory(
     req: schemas.InventoryAdjustRequest, username: str = "owner", session: AsyncSession = Depends(get_session)
 ):
-    inv = await logic.adjust_inventory(session, req, username)
-    await session.commit()
+    try:
+        inv = await logic.adjust_inventory(session, req, username)
+        await session.commit()
+        return inv
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/inventory/{product_id}", response_model=schemas.InventoryRecord)
+async def get_inventory(product_id: str, session: AsyncSession = Depends(get_session)):
+    inv = await logic.get_inventory_record(session, product_id)
     return inv
 
 

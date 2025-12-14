@@ -303,6 +303,9 @@ async def create_sales_order(session: AsyncSession, payloads: List[schemas.Sales
 
 
 async def adjust_inventory(session: AsyncSession, req: schemas.InventoryAdjustRequest, username: str) -> Inventory:
+    product = await session.get(Product, req.product_id)
+    if not product:
+        raise ValueError("product not found")
     inv = await get_inventory_record(session, req.product_id)
     inv.current_stock += req.delta
     await log_inventory(session, req.product_id, req.delta, "adjust", ref_id=username)

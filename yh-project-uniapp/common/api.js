@@ -66,6 +66,9 @@ export const api = {
       data
     })
   },
+  getInventory(productId) {
+    return request(`/api/inventory/${productId}`)
+  },
   getProduct(id) {
     return request(`/api/products/${id}`)
   },
