@@ -2,7 +2,7 @@
   <view class="page">
     <view class="card">
       <view class="card-title">新增销售</view>
-      <button class="primary-btn" @tap="openPicker">添加已售货品</button>
+      <button class="primary-btn" @tap="openDialog">添加已售货品</button>
     </view>
 
     <view class="card" v-if="cart.length">
@@ -32,37 +32,37 @@
     </view>
     <view v-else class="empty">请先添加已售货品</view>
 
-    <view class="drawer" v-if="showPicker">
-      <view class="drawer-header">
-        <view class="title">选择商品</view>
-        <view class="actions">
-          <input class="search" v-model="keyword" placeholder="搜索商品" confirm-type="search" @confirm="loadProducts" />
-          <picker mode="selector" :range="categories" range-key="name" @change="onCatChange">
-            <view class="picker">{{ currentCategoryLabel }}</view>
-          </picker>
-          <button size="mini" @tap="closePicker">关闭</button>
+    <view class="dialog" v-if="showDialog">
+      <view class="dialog-content">
+        <view class="dialog-header">
+          <view class="title">选择商品</view>
+          <button size="mini" @tap="closeDialog">关闭</button>
         </view>
+        <view class="search-bar">
+          <input class="search" v-model="keyword" placeholder="输入关键字搜索" confirm-type="search" @confirm="searchProducts" />
+          <button size="mini" @tap="searchProducts">搜索</button>
+        </view>
+        <scroll-view scroll-y class="dialog-body">
+          <view v-for="prod in searchResults" :key="prod.id" class="row">
+            <view class="info">
+              <view class="name">{{ prod.name }}</view>
+              <view class="meta">{{ prod.spec || '—' }} ｜ 库存 {{ prod.stock }}</view>
+            </view>
+            <view class="inputs">
+              <view class="field">
+                <view class="mini-title">箱</view>
+                <input class="input mini" type="number" v-model.number="draft[prod.id].box" />
+              </view>
+              <view class="field" v-if="draft[prod.id].specQty > 1">
+                <view class="mini-title">个</view>
+                <input class="input mini" type="number" v-model.number="draft[prod.id].loose" />
+              </view>
+              <button size="mini" type="primary" @tap="addToCart(prod)">添加</button>
+            </view>
+          </view>
+          <view v-if="!searchResults.length" class="empty">请输入关键字搜索商品</view>
+        </scroll-view>
       </view>
-      <scroll-view scroll-y class="drawer-body">
-        <view v-for="prod in products" :key="prod.id" class="row">
-          <view class="info">
-            <view class="name">{{ prod.name }}</view>
-            <view class="meta">{{ prod.spec || '—' }} ｜ {{ prod.category_name || '—' }} ｜ 库存 {{ prod.stock }}</view>
-          </view>
-          <view class="inputs">
-            <view class="field">
-              <view class="mini-title">箱</view>
-              <input class="input mini" type="number" v-model.number="draft[prod.id].box" />
-            </view>
-            <view class="field" v-if="draft[prod.id].specQty > 1">
-              <view class="mini-title">个</view>
-              <input class="input mini" type="number" v-model.number="draft[prod.id].loose" />
-            </view>
-            <button size="mini" type="primary" @tap="addToCart(prod)">添加</button>
-          </view>
-        </view>
-        <view v-if="!products.length" class="empty">暂无符合条件的商品</view>
-      </scroll-view>
     </view>
   </view>
 </template>
@@ -75,53 +75,44 @@ export default {
   data() {
     return {
       role: getRole(),
-      products: [],
-      categories: [{ id: '', name: '全部' }],
-      selectedCategoryId: '',
+      searchResults: [],
       keyword: '',
       draft: {},
       cart: [],
-      showPicker: false,
+      showDialog: false,
       saving: false
     }
   },
   computed: {
     isOwner() {
       return isOwner(this.role)
-    },
-    currentCategoryLabel() {
-      const found = this.categories.find(c => c.id === this.selectedCategoryId)
-      return found ? found.name : '全部'
     }
   },
   methods: {
-    openPicker() {
-      this.showPicker = true
-      this.loadProducts()
+    openDialog() {
+      this.showDialog = true
+      this.searchResults = []
+      this.keyword = ''
     },
-    closePicker() {
-      this.showPicker = false
+    closeDialog() {
+      this.showDialog = false
     },
-    async loadProducts() {
+    async searchProducts() {
+      const kw = this.keyword.trim()
+      if (!kw) {
+        this.searchResults = []
+        return
+      }
       try {
-        const [cats, list] = await Promise.all([
-          api.getCategories(),
-          api.getProducts({
-            offset: 0,
-            limit: 200,
-            categoryId: this.selectedCategoryId,
-            keyword: this.keyword.trim()
-          })
-        ])
-        this.categories = [{ id: '', name: '全部' }].concat((cats || []).map(c => ({ id: c.id, name: c.name })))
+        const list = await api.getProducts({ offset: 0, limit: 100, keyword: kw })
         const items = list?.items || []
-        this.products = items
+        this.searchResults = items
           .filter(p => (p.stock || 0) > 0)
           .map(p => ({
             ...p,
             specQty: this.parseSpecQty(p.spec)
           }))
-        this.products.forEach(p => {
+        this.searchResults.forEach(p => {
           if (!this.draft[p.id]) {
             this.$set(this.draft, p.id, { box: 0, loose: 0, specQty: p.specQty })
           } else {
@@ -129,13 +120,8 @@ export default {
           }
         })
       } catch (err) {
-        uni.showToast({ title: '加载商品失败', icon: 'none' })
+        uni.showToast({ title: '搜索失败', icon: 'none' })
       }
-    },
-    onCatChange(e) {
-      const idx = Number(e.detail.value)
-      this.selectedCategoryId = this.categories[idx]?.id || ''
-      this.loadProducts()
     },
     parseSpecQty(spec) {
       const match = String(spec || '').match(/(\d+(\.\d+)?)/)
@@ -169,6 +155,7 @@ export default {
       }
       this.$set(this.draft, prod.id, { box: 0, loose: 0, specQty: prod.specQty })
       uni.showToast({ title: '已加入待提交', icon: 'success' })
+      this.showDialog = false
     },
     removeFromCart(idx) {
       this.cart.splice(idx, 1)
@@ -195,7 +182,7 @@ export default {
         await api.createSales(payload, username)
         uni.showToast({ title: '已提交', icon: 'success' })
         this.cart = []
-        this.showPicker = false
+        this.showDialog = false
       } catch (err) {
         uni.showToast({ title: '提交失败', icon: 'none' })
       } finally {
@@ -283,7 +270,7 @@ export default {
   color: #0b1f3a;
 }
 
-.drawer {
+.dialog {
   position: fixed;
   left: 0;
   right: 0;
@@ -292,18 +279,23 @@ export default {
   background: #ffffff;
   z-index: 10;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
 }
 
-.drawer-header {
-  padding: 14rpx 16rpx;
-  border-bottom: 1rpx solid #e5e7eb;
+.dialog-content {
+  width: 92%;
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 12rpx 30rpx rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  padding: 12rpx;
 }
 
-.drawer-header .title {
+.dialog-header .title {
   font-size: 30rpx;
   font-weight: 700;
 }
@@ -328,10 +320,17 @@ export default {
   border-radius: 10rpx;
 }
 
-.drawer-body {
-  flex: 1;
-  padding: 10rpx 16rpx 120rpx 16rpx;
+.search-bar {
+  margin: 10rpx 0;
+  display: flex;
+  gap: 10rpx;
+  align-items: center;
 }
+
+.dialog-body {
+  flex: 1;
+  padding: 10rpx 4rpx 20rpx 4rpx;
+  }
 
 .row {
   display: flex;
