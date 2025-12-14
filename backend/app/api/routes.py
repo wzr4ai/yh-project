@@ -74,6 +74,12 @@ async def get_product(product_id: str, session: AsyncSession = Depends(get_sessi
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get("/categories", response_model=list[schemas.Category])
+async def list_categories(session: AsyncSession = Depends(get_session)):
+    cats = (await session.execute(sa.select(logic.Category))).scalars().all()
+    return cats
+
+
 @router.put("/products/{product_id}", response_model=schemas.Product)
 async def update_product(product_id: str, payload: schemas.Product, session: AsyncSession = Depends(get_session)):
     try:

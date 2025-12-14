@@ -12,10 +12,18 @@
       </view>
       <view class="form-row">
         <view class="label">分类</view>
-        <view class="category-field">
-          <input class="input" v-model="form.category_name" disabled placeholder="分类名称" />
-          <input class="input" v-model="form.category_id" :disabled="!isOwner" placeholder="分类ID" style="margin-top: 8rpx;" />
-        </view>
+        <picker
+          mode="selector"
+          :range="categories"
+          range-key="name"
+          :value="selectedCategoryIndex"
+          @change="onCategoryChange"
+          :disabled="!isOwner"
+        >
+          <view class="picker-field">
+            <view class="picker-text">{{ form.category_name || '选择分类' }}</view>
+          </view>
+        </picker>
       </view>
       <view class="form-row">
         <view class="label">进价</view>
@@ -71,19 +79,34 @@ export default {
         price: null,
         basis: ''
       },
+      categories: [],
       saving: false
     }
   },
   computed: {
     isOwner() {
       return isOwner(this.role)
+    },
+    selectedCategoryIndex() {
+      const idx = this.categories.findIndex(c => c.id === this.form.category_id)
+      return idx >= 0 ? idx : 0
     }
   },
   onLoad(options) {
     this.id = options.id || ''
-    this.fetchDetail()
+    this.fetchCategories().then(() => {
+      this.fetchDetail()
+    })
   },
   methods: {
+    async fetchCategories() {
+      try {
+        const data = await api.getCategories()
+        this.categories = [{ id: '', name: '未分类' }].concat(data || [])
+      } catch (err) {
+        this.categories = [{ id: '', name: '未分类' }]
+      }
+    },
     async fetchDetail() {
       try {
         const data = await api.getProduct(this.id)
@@ -119,6 +142,14 @@ export default {
         uni.showToast({ title: '保存失败', icon: 'none' })
       } finally {
         this.saving = false
+      }
+    },
+    onCategoryChange(e) {
+      const idx = Number(e.detail.value)
+      const cat = this.categories[idx]
+      if (cat) {
+        this.form.category_id = cat.id
+        this.form.category_name = cat.name
       }
     }
   }
@@ -168,10 +199,17 @@ export default {
   font-size: 26rpx;
 }
 
-.category-field {
+.picker-field {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 12rpx;
+  padding: 14rpx;
+  background: #f9fafb;
+}
+
+.picker-text {
+  color: #0b1f3a;
+  font-size: 26rpx;
 }
 
 .info-row {

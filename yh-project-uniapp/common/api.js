@@ -57,6 +57,9 @@ export const api = {
   getProduct(id) {
     return request(`/api/products/${id}`)
   },
+  getCategories() {
+    return request('/api/categories')
+  },
   updateProduct(id, payload) {
     return request(`/api/products/${id}`, {
       method: 'PUT',
