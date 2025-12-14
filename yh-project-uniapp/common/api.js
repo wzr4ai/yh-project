@@ -53,5 +53,14 @@ export const api = {
   },
   getInventoryOverview() {
     return request('/api/inventory/overview')
+  },
+  getProduct(id) {
+    return request(`/api/products/${id}`)
+  },
+  updateProduct(id, payload) {
+    return request(`/api/products/${id}`, {
+      method: 'PUT',
+      data: payload
+    })
   }
 }

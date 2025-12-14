@@ -102,6 +102,20 @@ async def create_product(session: AsyncSession, payload: schemas.Product) -> Pro
     return product
 
 
+async def update_product(session: AsyncSession, product_id: str, payload: schemas.Product) -> Product:
+    product = await session.get(Product, product_id)
+    if not product:
+        raise ValueError("product not found")
+    product.name = payload.name or product.name
+    product.category_id = payload.category_id
+    product.spec = payload.spec
+    product.base_cost_price = payload.base_cost_price
+    product.fixed_retail_price = payload.fixed_retail_price
+    product.img_url = payload.img_url
+    await session.flush()
+    return product
+
+
 async def upsert_category(session: AsyncSession, category_id: str, payload: schemas.Category) -> Category:
     stmt = sa.select(Category).where(Category.id == category_id)
     existing = (await session.execute(stmt)).scalars().first()

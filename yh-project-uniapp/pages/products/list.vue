@@ -9,7 +9,7 @@
     </view>
 
     <view class="list">
-      <view v-for="item in products" :key="item.id" class="card">
+      <view v-for="item in products" :key="item.id" class="card" @tap="openDetail(item.id)">
         <view class="header">
           <view>
             <view class="name">{{ item.name }}</view>
@@ -114,6 +114,11 @@ export default {
       if (target < 1 || target > this.totalPages || target === this.page) return
       this.page = target
       this.loadPage()
+    },
+    openDetail(id) {
+      uni.navigateTo({
+        url: `/pages/products/detail?id=${id}`
+      })
     }
   }
 }
