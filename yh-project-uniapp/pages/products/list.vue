@@ -67,7 +67,11 @@
 
     <view class="pager">
       <button size="mini" :disabled="page <= 1 || loading" @tap="goPage(page - 1)">上一页</button>
-      <view class="page-info">第 {{ page }} / {{ totalPages }} 页</view>
+      <view class="page-info" @tap="openJumpInput">第 {{ page }} / {{ totalPages }} 页</view>
+      <view class="jump" v-if="showJumpInput">
+        <input class="jump-input" type="number" v-model.number="jumpPageInput" placeholder="页码" />
+        <button size="mini" @tap="jumpToPage">跳转</button>
+      </view>
       <button size="mini" :disabled="page >= totalPages || loading" @tap="goPage(page + 1)">下一页</button>
     </view>
   </view>
@@ -96,7 +100,9 @@ export default {
       tempCustomIds: [],
       tempMerchantIds: [],
       showFilter: false,
-      keyword: ''
+      keyword: '',
+      showJumpInput: false,
+      jumpPageInput: ''
     }
   },
   computed: {
@@ -119,11 +125,24 @@ export default {
       return Math.max(1, Math.ceil(this.total / this.pageSize))
     }
   },
+  onLoad() {
+    const saved = uni.getStorageSync('products-page')
+    if (saved) {
+      const num = Number(saved)
+      if (num > 0) this.page = num
+    }
+  },
   onShow() {
     this.role = getRole()
     this.fetchCategories().then(() => {
-      this.resetAndLoad()
+      this.loadPage()
     })
+  },
+  onHide() {
+    uni.setStorageSync('products-page', this.page)
+  },
+  onUnload() {
+    uni.setStorageSync('products-page', this.page)
   },
   methods: {
     resetAndLoad() {
@@ -216,6 +235,19 @@ export default {
       if (target < 1 || target > this.totalPages || target === this.page) return
       this.page = target
       this.loadPage()
+    },
+    openJumpInput() {
+      this.showJumpInput = true
+      this.jumpPageInput = String(this.page)
+    },
+    jumpToPage() {
+      const p = parseInt(this.jumpPageInput, 10)
+      if (!p || p < 1 || p > this.totalPages) {
+        uni.showToast({ title: '页码无效', icon: 'none' })
+        return
+      }
+      this.showJumpInput = false
+      this.goPage(p)
     },
     openCreate() {
       uni.navigateTo({
@@ -450,5 +482,19 @@ export default {
 .page-info {
   color: #0b1f3a;
   font-size: 26rpx;
+}
+
+.jump {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.jump-input {
+  width: 120rpx;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 10rpx;
+  padding: 6rpx 10rpx;
+  font-size: 24rpx;
 }
 </style>
