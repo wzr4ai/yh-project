@@ -275,10 +275,13 @@ async def receive_purchase(po_id: str, items: List[schemas.PurchaseItem], sessio
 
 @router.get("/dashboard/realtime", response_model=schemas.DashboardRealtime)
 async def dashboard_realtime(session: AsyncSession = Depends(get_session)):
-    actual, gp, orders, avg = await logic.dashboard_realtime(session)
+    actual, expected, diff, diff_rate, gp, orders, avg = await logic.dashboard_realtime(session)
     gross_margin = (gp / actual * 100) if actual else 0
     return schemas.DashboardRealtime(
         actual_sales=round(actual, 2),
+        expected_sales=round(expected, 2),
+        receipt_diff=round(diff, 2),
+        receipt_diff_rate=round(diff_rate, 2),
         gross_profit=round(gp, 2),
         orders=orders,
         avg_ticket=round(avg, 2),

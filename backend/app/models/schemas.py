@@ -145,7 +145,10 @@ class PurchaseOrder(ORMBase):
 
 
 class DashboardRealtime(BaseModel):
-    actual_sales: float
+    actual_sales: float  # 实际入账
+    expected_sales: float
+    receipt_diff: float
+    receipt_diff_rate: float
     gross_profit: float
     orders: int
     avg_ticket: float

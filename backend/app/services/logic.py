@@ -445,14 +445,20 @@ async def create_purchase_order(session: AsyncSession, po: schemas.PurchaseOrder
 
 
 async def dashboard_realtime(session: AsyncSession) -> Tuple[float, float, int, float]:
-    stmt = sa.select(SalesItem)
+    from datetime import datetime, timezone
+
+    today = datetime.utcnow().date()
+    stmt = sa.select(SalesItem).where(sa.func.date(SalesItem.created_at) == today)
     items = (await session.execute(stmt)).scalars().all()
     orders = len(items)
     actual = sum(item.actual_sale_price * item.quantity for item in items)
+    expected = sum(item.snapshot_standard_price * item.quantity for item in items)
     cost = sum(item.snapshot_cost * item.quantity for item in items)
     gross_profit = actual - cost
     avg_ticket = actual / orders if orders else 0
-    return actual, gross_profit, orders, avg_ticket
+    receipt_diff = actual - expected
+    diff_rate = (receipt_diff / expected * 100) if expected else 0
+    return actual, expected, receipt_diff, diff_rate, gross_profit, orders, avg_ticket
 
 
 async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float]:

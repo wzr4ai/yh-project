@@ -7,20 +7,20 @@
 
     <view class="grid">
       <view class="card highlight">
-        <view class="card-title">今日销售额</view>
+        <view class="card-title">今日入账</view>
         <view class="card-value">¥{{ metrics.actualSales.toFixed(2) }}</view>
         <view class="card-sub">订单数 {{ metrics.orders }} ｜ 客单价 ¥{{ metrics.avgTicket.toFixed(2) }}</view>
       </view>
       <view class="card" v-if="isOwner">
-        <view class="card-title">今日毛利</view>
-        <view class="card-value positive">¥{{ metrics.grossProfit.toFixed(2) }}</view>
-        <view class="card-sub">毛利率 {{ metrics.grossMargin }}%</view>
+        <view class="card-title">预期销售额</view>
+        <view class="card-value">¥{{ metrics.expectedSales.toFixed(2) }}</view>
+        <view class="card-sub">与入账差值 {{ diffLabel }}</view>
       </view>
       <view class="card">
-        <view class="card-title">销售差值 (溢价/折扣)</view>
-        <view class="card-value">{{ metrics.diffSign }}¥{{ metrics.priceDiffAbs.toFixed(2) }}</view>
-        <view class="card-sub" :class="{ positive: metrics.priceDiff >= 0, negative: metrics.priceDiff < 0 }">
-          {{ metrics.priceDiff >= 0 ? '溢价' : '折扣' }} {{ metrics.priceDiffRate }}%
+        <view class="card-title">销售偏差</view>
+        <view class="card-value">{{ metrics.receiptDiff >= 0 ? '+' : '-' }}¥{{ Math.abs(metrics.receiptDiff).toFixed(2) }}</view>
+        <view class="card-sub" :class="{ positive: metrics.receiptDiff >= 0, negative: metrics.receiptDiff < 0 }">
+          {{ metrics.receiptDiff >= 0 ? '溢价' : '折扣' }} {{ metrics.receiptDiffRate }}%
         </view>
       </view>
       <view class="card" v-if="isOwner">
@@ -102,12 +102,11 @@ export default {
       role: getRole(),
       metrics: {
         actualSales: 0,
+        expectedSales: 0,
+        receiptDiff: 0,
+        receiptDiffRate: 0,
         grossProfit: 0,
         grossMargin: 0,
-        priceDiff: 0,
-        priceDiffAbs: 0,
-        priceDiffRate: 0,
-        diffSign: '',
         orders: 0,
         avgTicket: 0
       },
@@ -126,6 +125,11 @@ export default {
     },
     roleLabel() {
       return this.role === 'owner' ? '老板' : '店员'
+    },
+    diffLabel() {
+      const diff = this.metrics.receiptDiff || 0
+      const sign = diff >= 0 ? '+' : '-'
+      return `${sign}¥${Math.abs(diff).toFixed(2)}`
     }
   },
   onShow() {
@@ -141,15 +145,13 @@ export default {
           api.getInventoryValue(),
           api.getPerformance()
         ])
-        const priceDiff = perf.price_diff || 0
         this.metrics = {
           actualSales: realtime.actual_sales || 0,
+          expectedSales: realtime.expected_sales || 0,
+          receiptDiff: realtime.receipt_diff || 0,
+          receiptDiffRate: realtime.receipt_diff_rate || 0,
           grossProfit: realtime.gross_profit || 0,
           grossMargin: realtime.gross_margin || 0,
-          priceDiff,
-          priceDiffAbs: Math.abs(priceDiff),
-          priceDiffRate: perf.price_diff_rate || 0,
-          diffSign: priceDiff >= 0 ? '+' : '-',
           orders: realtime.orders || 0,
           avgTicket: realtime.avg_ticket || 0
         }
