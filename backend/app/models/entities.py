@@ -87,6 +87,7 @@ class Inventory(Base):
     product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
     warehouse_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("warehouse.id"), nullable=False, default="default")
     current_stock: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    loose_units: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
 
 
 class InventoryLog(Base):
