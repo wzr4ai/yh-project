@@ -51,6 +51,7 @@ class Product(ORMBase):
     id: Optional[str] = None
     name: str
     category_id: str
+    category_name: Optional[str] = None
     spec: str
     base_cost_price: float
     fixed_retail_price: Optional[float] = None

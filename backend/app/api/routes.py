@@ -68,10 +68,10 @@ async def list_products(offset: int = 0, limit: int = 20, session: AsyncSession 
 
 @router.get("/products/{product_id}", response_model=schemas.Product)
 async def get_product(product_id: str, session: AsyncSession = Depends(get_session)):
-    product = await session.get(Product, product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="product not found")
-    return product
+    try:
+        return await logic.product_with_category(session, product_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.put("/products/{product_id}", response_model=schemas.Product)

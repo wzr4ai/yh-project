@@ -12,7 +12,10 @@
       </view>
       <view class="form-row">
         <view class="label">分类</view>
-        <input class="input" v-model="form.category_id" :disabled="!isOwner" placeholder="分类ID或名称" />
+        <view class="category-field">
+          <input class="input" v-model="form.category_name" disabled placeholder="分类名称" />
+          <input class="input" v-model="form.category_id" :disabled="!isOwner" placeholder="分类ID" style="margin-top: 8rpx;" />
+        </view>
       </view>
       <view class="form-row">
         <view class="label">进价</view>
@@ -59,6 +62,7 @@ export default {
         name: '',
         spec: '',
         category_id: '',
+        category_name: '',
         base_cost_price: null,
         fixed_retail_price: null,
         img_url: ''
@@ -87,6 +91,7 @@ export default {
           name: data.name,
           spec: data.spec,
           category_id: data.category_id,
+          category_name: data.category_name || '',
           base_cost_price: data.base_cost_price,
           fixed_retail_price: data.fixed_retail_price,
           img_url: data.img_url
@@ -161,6 +166,12 @@ export default {
   border-radius: 12rpx;
   padding: 14rpx;
   font-size: 26rpx;
+}
+
+.category-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .info-row {
