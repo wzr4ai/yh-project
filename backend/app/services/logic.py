@@ -23,6 +23,14 @@ from app.models.entities import (
 DEFAULT_GLOBAL_MULTIPLIER = 1.5
 
 
+async def replace_product_categories(session: AsyncSession, product_id: str, category_ids: list[str]):
+    await session.execute(sa.delete(ProductCategory).where(ProductCategory.product_id == product_id))
+    unique_ids = [cid for cid in dict.fromkeys(category_ids) if cid]
+    if unique_ids:
+        session.add_all([ProductCategory(product_id=product_id, category_id=cid) for cid in unique_ids])
+    await session.flush()
+
+
 async def ensure_defaults(session: AsyncSession):
     await ensure_default_config(session)
     await ensure_default_warehouse(session)
@@ -75,7 +83,7 @@ async def get_user_by_id(session: AsyncSession, user_id: str) -> User | None:
 
 
 async def calculate_price_for_product(session: AsyncSession, product: Product) -> schemas.PriceCalcResponse:
-    if product.fixed_retail_price is not None:
+    if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
         return schemas.PriceCalcResponse(price=product.fixed_retail_price, basis="例外价")
 
     if product.retail_multiplier:
@@ -107,13 +115,14 @@ async def calculate_price_for_product(session: AsyncSession, product: Product) -
 
 
 async def create_product(session: AsyncSession, payload: schemas.Product) -> Product:
+    fixed_price = payload.fixed_retail_price if (payload.fixed_retail_price or 0) > 0 else None
     product = Product(
         id=payload.id or None,
         name=payload.name,
         category_id=payload.category_id,
         spec=payload.spec,
         base_cost_price=payload.base_cost_price,
-        fixed_retail_price=payload.fixed_retail_price,
+        fixed_retail_price=fixed_price,
         retail_multiplier=payload.retail_multiplier,
         pack_price_ref=payload.pack_price_ref,
         img_url=payload.img_url,
@@ -127,6 +136,7 @@ async def create_product(session: AsyncSession, payload: schemas.Product) -> Pro
 
 
 async def update_product(session: AsyncSession, product_id: str, payload: schemas.Product) -> Product:
+    fixed_price = payload.fixed_retail_price if (payload.fixed_retail_price or 0) > 0 else None
     product = await session.get(Product, product_id)
     if not product:
         raise ValueError("product not found")
@@ -134,7 +144,7 @@ async def update_product(session: AsyncSession, product_id: str, payload: schema
     product.category_id = payload.category_id
     product.spec = payload.spec
     product.base_cost_price = payload.base_cost_price
-    product.fixed_retail_price = payload.fixed_retail_price
+    product.fixed_retail_price = fixed_price
     product.retail_multiplier = payload.retail_multiplier
     product.pack_price_ref = payload.pack_price_ref
     product.img_url = payload.img_url
