@@ -25,9 +25,9 @@
         </view>
       </view>
       <view class="card" v-if="isOwner">
-        <view class="card-title">库存成本</view>
-        <view class="card-value">¥{{ inventoryCost.toFixed(2) }}</view>
-        <view class="card-sub">当前库存总成本</view>
+        <view class="card-title">总营业额</view>
+        <view class="card-value">¥{{ receiptTotal.toFixed(2) }}</view>
+        <view class="card-sub">累计真实入账</view>
       </view>
     </view>
 
@@ -84,6 +84,10 @@
           <view class="action-title">分类管理</view>
           <view class="action-desc">增删改查分类</view>
         </view>
+        <view class="action" v-if="isOwner" @tap="openReceiptDialog">
+          <view class="action-title">录入今日入账</view>
+          <view class="action-desc">输入今日真实入账</view>
+        </view>
         <view class="action" @tap="go('/pages/products/list')">
           <view class="action-title">商品目录</view>
           <view class="action-desc">价格体系与库存分布</view>
@@ -123,6 +127,7 @@ export default {
         avgTicket: 0
       },
       inventoryCost: 0,
+      receiptTotal: 0,
       inventoryRetail: 0,
       categoryPerf: {
         cracker: '—',
@@ -154,10 +159,11 @@ export default {
     async fetchMetrics() {
       this.loading = true
       try {
-        const [realtime, inv, perf] = await Promise.all([
+        const [realtime, inv, perf, totalReceipt] = await Promise.all([
           api.getRealtime(),
           api.getInventoryValue(),
-          api.getPerformance()
+          api.getPerformance(),
+          api.getReceiptTotal()
         ])
         this.metrics = {
           actualSales: realtime.actual_sales || 0,
@@ -171,6 +177,7 @@ export default {
         }
         this.inventoryCost = inv.cost_total || 0
         this.inventoryRetail = inv.retail_total || 0
+        this.receiptTotal = totalReceipt?.total || 0
         if (realtime.manual_receipt !== null && realtime.manual_receipt !== undefined) {
           this.manualReceiptInput = String(realtime.manual_receipt)
         }

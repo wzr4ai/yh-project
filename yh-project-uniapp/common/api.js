@@ -29,6 +29,9 @@ export const api = {
   getRealtime() {
     return request('/api/dashboard/realtime')
   },
+  getReceiptTotal() {
+    return request('/api/dashboard/receipt_total')
+  },
   setManualReceipt(value) {
     return request('/api/dashboard/manual_receipt', { method: 'POST', data: { value } })
   },

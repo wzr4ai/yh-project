@@ -307,6 +307,11 @@ async def dashboard_inventory_value(session: AsyncSession = Depends(get_session)
     cost, retail = await logic.dashboard_inventory_value(session)
     return schemas.InventoryValueResponse(cost_total=round(cost, 2), retail_total=round(retail, 2))
 
+@router.get("/dashboard/receipt_total")
+async def dashboard_receipt_total(session: AsyncSession = Depends(get_session)):
+    total = await logic.total_receipts(session)
+    return {"total": round(total, 2)}
+
 
 @router.get("/dashboard/performance", response_model=schemas.PerformanceResponse)
 async def dashboard_performance(session: AsyncSession = Depends(get_session)):

@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.models import schemas
 from app.models.entities import (
     Category,
+    DailyReceipt,
     Inventory,
     InventoryLog,
     Product,
@@ -535,6 +536,11 @@ async def dashboard_performance(session: AsyncSession) -> schemas.PerformanceRes
         expected_sales=round(expected, 2),
         actual_sales=round(actual, 2),
     )
+
+
+async def total_receipts(session: AsyncSession) -> float:
+    total = (await session.execute(sa.select(sa.func.coalesce(sa.func.sum(DailyReceipt.amount), 0)))).scalar_one()
+    return float(total or 0)
 
 
 def round2(value: float) -> float:
