@@ -23,6 +23,11 @@
           {{ metrics.priceDiff >= 0 ? '溢价' : '折扣' }} {{ metrics.priceDiffRate }}%
         </view>
       </view>
+      <view class="card" v-if="isOwner">
+        <view class="card-title">库存成本</view>
+        <view class="card-value">¥{{ inventoryCost.toFixed(2) }}</view>
+        <view class="card-sub">当前库存总成本</view>
+      </view>
     </view>
 
     <view class="grid">
