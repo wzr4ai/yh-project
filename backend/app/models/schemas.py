@@ -105,6 +105,7 @@ class InventoryRecord(ORMBase):
     product_id: str
     warehouse_id: str = "default"
     current_stock: int
+    loose_units: int | None = 0
 
 
 class InventoryLog(ORMBase):

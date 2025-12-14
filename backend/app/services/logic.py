@@ -310,10 +310,26 @@ async def get_inventory_record(
         return inv
     if not create_if_missing:
         return None
-    inv = Inventory(product_id=product_id, warehouse_id=warehouse_id, current_stock=0)
+    inv = Inventory(product_id=product_id, warehouse_id=warehouse_id, current_stock=0, loose_units=0)
     session.add(inv)
     await session.flush()
     return inv
+
+
+def apply_unit_delta(inv: Inventory, product: Product, delta_units: int) -> None:
+    spec_qty = parse_spec_qty(product.spec)
+    if spec_qty <= 0:
+        spec_qty = 1
+    total_units = inv.current_stock * spec_qty + (inv.loose_units or 0)
+    total_units += delta_units
+    if total_units < 0:
+        total_units = 0
+    if spec_qty == 1:
+        inv.current_stock = int(total_units)
+        inv.loose_units = 0
+    else:
+        inv.current_stock = int(total_units // spec_qty)
+        inv.loose_units = int(total_units % spec_qty)
 
 
 async def log_inventory(session: AsyncSession, product_id: str, qty: int, ref_type: str, ref_id: str, warehouse_id: str = "default"):
@@ -349,7 +365,7 @@ async def create_sales_order(session: AsyncSession, payloads: List[schemas.Sales
 
         # deduct inventory
         inv = await get_inventory_record(session, payload.product_id, create_if_missing=True)
-        inv.current_stock = max(0, inv.current_stock - payload.quantity)
+        apply_unit_delta(inv, product, -payload.quantity)
         await log_inventory(session, payload.product_id, -payload.quantity, "sales", ref_id="auto")
 
     order = SalesOrder(total_actual_amount=total_actual, created_by=username)
@@ -364,7 +380,7 @@ async def adjust_inventory(session: AsyncSession, req: schemas.InventoryAdjustRe
     if not product:
         raise ValueError("product not found")
     inv = await get_inventory_record(session, req.product_id, create_if_missing=True)
-    inv.current_stock += req.delta
+    apply_unit_delta(inv, product, req.delta)
     await log_inventory(session, req.product_id, req.delta, "adjust", ref_id=username)
     return inv
 
@@ -448,8 +464,10 @@ async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float
         if not product:
             continue
         price_info = await calculate_price_for_product(session, product)
-        cost_total += product.base_cost_price * inv.current_stock
-        retail_total += price_info.price * inv.current_stock
+        spec_qty = parse_spec_qty(product.spec)
+        total_units = inv.current_stock * spec_qty + (inv.loose_units or 0)
+        cost_total += product.base_cost_price * total_units
+        retail_total += price_info.price * total_units
     return cost_total, retail_total
 
 
@@ -522,12 +540,12 @@ async def list_products_with_inventory(
     # 批量获取库存聚合
     inventory_map: dict[str, int] = {}
     inv_stmt = (
-        sa.select(Inventory.product_id, sa.func.sum(Inventory.current_stock))
+        sa.select(Inventory.product_id, sa.func.sum(Inventory.current_stock), sa.func.sum(Inventory.loose_units))
         .where(Inventory.product_id.in_(product_ids))
         .group_by(Inventory.product_id)
     )
-    for pid, qty in (await session.execute(inv_stmt)).all():
-        inventory_map[pid] = int(qty or 0)
+    for pid, box_qty, loose_qty in (await session.execute(inv_stmt)).all():
+        inventory_map[pid] = (int(box_qty or 0), int(loose_qty or 0))
 
     # 批量获取分类关联
     pc_stmt = sa.select(ProductCategory.product_id, ProductCategory.category_id).where(
@@ -554,9 +572,10 @@ async def list_products_with_inventory(
     for product in products:
         spec_clean = normalize_spec(product.spec)
         price_info = await calculate_price_for_product(session, product)
-        stock = inventory_map.get(product.id, 0)
-        retail_total = price_info.price * stock
-        cost_total = product.base_cost_price * stock
+        box_qty, loose_qty = inventory_map.get(product.id, (0, 0))
+        total_units = box_qty * parse_spec_qty(product.spec) + loose_qty
+        retail_total = price_info.price * total_units
+        cost_total = product.base_cost_price * total_units
         category_name = None
         category_names: list[str] = []
         category_ids: list[str] = []
