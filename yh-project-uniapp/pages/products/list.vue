@@ -53,6 +53,12 @@
         </view>
         <view class="tags">
           <view class="tag">{{ item.price_basis }}</view>
+          <button
+            v-if="item.effect_url"
+            size="mini"
+            type="primary"
+            @tap.stop="openEffect(item.effect_url)"
+          >效果</button>
         </view>
         <view class="footer">
           <view class="footer-item" v-if="isOwner">成本 ¥{{ item.base_cost_price }}</view>
@@ -258,6 +264,15 @@ export default {
       uni.navigateTo({
         url: `/pages/products/detail?id=${id}`
       })
+    },
+    openEffect(url) {
+      if (!url) return
+      // 小程序端可用内置浏览器；这里用复制提示作为兼容
+      #ifdef MP-WEIXIN
+      wx.setClipboardData({ data: url, success: () => wx.showToast({ title: '链接已复制', icon: 'none' }) })
+      #else
+      uni.navigateTo({ url })
+      #endif
     }
   }
 }

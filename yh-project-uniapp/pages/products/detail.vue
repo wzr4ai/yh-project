@@ -53,6 +53,10 @@
         <view class="label">图片</view>
         <input class="input" v-model="form.img_url" :disabled="!isOwner" placeholder="图片 URL (可选)" />
       </view>
+      <view class="form-row">
+        <view class="label">效果链接</view>
+        <input class="input" v-model="form.effect_url" :disabled="!isOwner" placeholder="烟花效果展示链接 (可选)" />
+      </view>
     </view>
 
     <view class="card">
@@ -102,7 +106,8 @@ export default {
         base_cost_price: null,
         fixed_retail_price: null,
         pack_price_ref: null,
-        img_url: ''
+        img_url: '',
+        effect_url: ''
       },
       price: {
         price: null,
@@ -181,7 +186,8 @@ export default {
           base_cost_price: data.base_cost_price,
           fixed_retail_price: data.fixed_retail_price,
           pack_price_ref: data.pack_price_ref,
-          img_url: data.img_url
+          img_url: data.img_url,
+          effect_url: data.effect_url
         }
         const custom = (data.categories || []).filter(c => c.is_custom).map(c => c.id).filter(Boolean)
         this.selectedCustomIds = custom
