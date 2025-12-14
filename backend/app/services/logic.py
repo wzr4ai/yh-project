@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -195,9 +195,6 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
     if not product:
         raise ValueError("product not found")
     clean_spec = normalize_spec(product.spec)
-    if clean_spec != product.spec:
-        product.spec = clean_spec
-        await session.flush()
     category_name = None
     categories: list[schemas.Category] = []
     if product.category_id:
@@ -219,7 +216,7 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
         category_id=product.category_id,
         category_name=category_name,
         categories=categories,
-        spec=product.spec,
+        spec=clean_spec,
         base_cost_price=product.base_cost_price,
         fixed_retail_price=product.fixed_retail_price,
         retail_multiplier=product.retail_multiplier,
@@ -477,15 +474,45 @@ async def list_products_with_inventory(
         stmt = stmt.where(*where_clause)
     stmt = stmt.offset(offset).limit(limit)
     products = (await session.execute(stmt)).scalars().all()
+    if not products:
+        return [], 0
+
+    product_ids = [p.id for p in products]
+
+    # 批量获取库存聚合
     inventory_map: dict[str, int] = {}
-    for inv in (await session.execute(sa.select(Inventory))).scalars().all():
-        inventory_map[inv.product_id] = inventory_map.get(inv.product_id, 0) + inv.current_stock
+    inv_stmt = (
+        sa.select(Inventory.product_id, sa.func.sum(Inventory.current_stock))
+        .where(Inventory.product_id.in_(product_ids))
+        .group_by(Inventory.product_id)
+    )
+    for pid, qty in (await session.execute(inv_stmt)).all():
+        inventory_map[pid] = int(qty or 0)
+
+    # 批量获取分类关联
+    pc_stmt = sa.select(ProductCategory.product_id, ProductCategory.category_id).where(
+        ProductCategory.product_id.in_(product_ids)
+    )
+    pc_rows = (await session.execute(pc_stmt)).all()
+    product_to_category_ids: dict[str, list[str]] = {}
+    for pid, cid in pc_rows:
+        product_to_category_ids.setdefault(pid, []).append(cid)
+
+    # 收集需要的分类 ID
+    category_ids_needed = set()
+    for p in products:
+        if p.category_id:
+            category_ids_needed.add(p.category_id)
+        for cid in product_to_category_ids.get(p.id, []):
+            category_ids_needed.add(cid)
+    category_map: dict[str, Category] = {}
+    if category_ids_needed:
+        cats = (await session.execute(sa.select(Category).where(Category.id.in_(category_ids_needed)))).scalars().all()
+        category_map = {c.id: c for c in cats}
+
     result: list[schemas.ProductListItem] = []
     for product in products:
         spec_clean = normalize_spec(product.spec)
-        if spec_clean != product.spec:
-            product.spec = spec_clean
-            await session.flush()
         price_info = await calculate_price_for_product(session, product)
         stock = inventory_map.get(product.id, 0)
         retail_total = price_info.price * stock
@@ -493,23 +520,19 @@ async def list_products_with_inventory(
         category_name = None
         category_names: list[str] = []
         category_ids: list[str] = []
-        if product.category_id:
-            category = await session.get(Category, product.category_id)
-            if category:
-                category_name = category.name
-                category_names.append(category.name)
-                category_ids.append(category.id)
-        stmt_pc = (
-            sa.select(Category)
-            .join(ProductCategory, Category.id == ProductCategory.category_id)
-            .where(ProductCategory.product_id == product.id)
-        )
-        extra = (await session.execute(stmt_pc)).scalars().all()
-        for c in extra:
-            if c.name not in category_names:
-                category_names.append(c.name)
-            if c.id not in category_ids:
-                category_ids.append(c.id)
+        if product.category_id and product.category_id in category_map:
+            category = category_map[product.category_id]
+            category_name = category.name
+            category_names.append(category.name)
+            category_ids.append(category.id)
+        for cid in product_to_category_ids.get(product.id, []):
+            cat = category_map.get(cid)
+            if not cat:
+                continue
+            if cat.name not in category_names:
+                category_names.append(cat.name)
+            if cat.id not in category_ids:
+                category_ids.append(cat.id)
         result.append(
             schemas.ProductListItem(
                 id=product.id,
