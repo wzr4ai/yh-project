@@ -66,3 +66,17 @@ docker compose up --build
 ## 注意
 - 已切换为 Postgres 持久化，启动时自动建表并初始化默认全局系数与默认仓。
 - 宿主机已有 Nginx 负责 SSL/反代时，后端仅需监听内网端口（如 8000），由 Nginx 转发。***
+
+## 轻量迁移脚本
+- 针对当前模型新增的列/表，可运行：
+```bash
+cd backend
+set -a; source .env; set +a
+uv run python backend/utils/schema_migrate.py
+```
+该脚本会：
+- 创建缺失表（基于模型 metadata）
+- 补充 `product.retail_multiplier`、`product.pack_price_ref` 列
+- 创建 `product_category` 关联表
+
+复杂结构变更请使用 Alembic 等正式迁移工具。***

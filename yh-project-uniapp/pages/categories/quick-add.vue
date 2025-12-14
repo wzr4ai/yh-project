@@ -15,7 +15,7 @@
           class="add-btn"
           :class="{ active: selectedIds.includes(item.id) }"
           @tap="toggle(item.id)"
-        >+</view>
+        >{{ selectedIds.includes(item.id) ? '✔' : '+' }}</view>
       </view>
       <view class="loadmore" v-if="loading">加载中...</view>
       <view class="loadmore" v-else-if="finished">没有更多了</view>
@@ -43,6 +43,7 @@ export default {
       categoryName: '',
       products: [],
       selectedIds: [],
+      seen: [],
       page: 1,
       pageSize: 20,
       total: 0,
@@ -72,7 +73,17 @@ export default {
           offset: (this.page - 1) * this.pageSize,
           limit: this.pageSize
         })
-        this.products = data?.items || []
+        const items = data?.items || []
+        // 初始化选中状态：首次看到的商品，如果已在分类则默认选中
+        items.forEach(item => {
+          if (!this.seen.includes(item.id)) {
+            this.seen.push(item.id)
+            if ((item.category_ids || []).includes(this.categoryId) && !this.selectedIds.includes(item.id)) {
+              this.selectedIds.push(item.id)
+            }
+          }
+        })
+        this.products = items
         this.total = data?.total || 0
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
@@ -100,9 +111,12 @@ export default {
       }
       this.saving = true
       try {
-        await api.batchAddProductsToCategory(this.categoryId, this.selectedIds)
-        uni.showToast({ title: '已加入分类', icon: 'success' })
+        await api.replaceCategoryProducts(this.categoryId, this.selectedIds)
+        uni.showToast({ title: '已保存分类', icon: 'success' })
         this.selectedIds = []
+        this.seen = []
+        this.page = 1
+        this.loadPage()
       } catch (err) {
         uni.showToast({ title: '保存失败', icon: 'none' })
       } finally {

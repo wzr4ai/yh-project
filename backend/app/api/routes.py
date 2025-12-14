@@ -107,8 +107,8 @@ async def delete_category(category_id: str, force: bool = False, session: AsyncS
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/categories/{category_id}/products")
-async def add_products_to_category(category_id: str, data: dict, session: AsyncSession = Depends(get_session)):
+@router.put("/categories/{category_id}/products")
+async def replace_products_in_category(category_id: str, data: dict, session: AsyncSession = Depends(get_session)):
     product_ids = data.get("product_ids") or []
     if not isinstance(product_ids, list):
         raise HTTPException(status_code=400, detail="product_ids must be list")
@@ -117,12 +117,12 @@ async def add_products_to_category(category_id: str, data: dict, session: AsyncS
     if not cat:
         raise HTTPException(status_code=404, detail="category not found")
     unique_ids = [pid for pid in dict.fromkeys(product_ids) if pid]
-    # remove existing to avoid duplicates
+    # remove all existing mappings for this category, then insert selected
+    await session.execute(sa.delete(ProductCategory).where(ProductCategory.category_id == category_id))
     if unique_ids:
-        await session.execute(sa.delete(ProductCategory).where(ProductCategory.product_id.in_(unique_ids), ProductCategory.category_id == category_id))
         session.add_all([ProductCategory(product_id=pid, category_id=category_id) for pid in unique_ids])
     await session.commit()
-    return {"added": len(unique_ids)}
+    return {"count": len(unique_ids)}
 
 
 @router.put("/products/{product_id}", response_model=schemas.Product)

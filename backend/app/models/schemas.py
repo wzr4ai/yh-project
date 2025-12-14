@@ -167,6 +167,7 @@ class ProductListItem(BaseModel):
     name: str
     spec: Optional[str] = None
     category_name: Optional[str] = None
+    category_ids: List[str] = []
     base_cost_price: float
     standard_price: float
     price_basis: PricingBasis

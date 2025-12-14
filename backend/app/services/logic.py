@@ -454,11 +454,13 @@ async def list_products_with_inventory(
         cost_total = product.base_cost_price * stock
         category_name = None
         category_names: list[str] = []
+        category_ids: list[str] = []
         if product.category_id:
             category = await session.get(Category, product.category_id)
             if category:
                 category_name = category.name
                 category_names.append(category.name)
+                category_ids.append(category.id)
         stmt_pc = (
             sa.select(Category)
             .join(ProductCategory, Category.id == ProductCategory.category_id)
@@ -468,12 +470,15 @@ async def list_products_with_inventory(
         for c in extra:
             if c.name not in category_names:
                 category_names.append(c.name)
+            if c.id not in category_ids:
+                category_ids.append(c.id)
         result.append(
             schemas.ProductListItem(
                 id=product.id,
                 name=product.name,
                 spec=product.spec,
                 category_name="、".join([n for n in category_names if n]) or category_name,
+                category_ids=category_ids,
                 base_cost_price=product.base_cost_price,
                 standard_price=price_info.price,
                 price_basis=price_info.basis,
