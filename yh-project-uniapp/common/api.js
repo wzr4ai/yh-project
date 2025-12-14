@@ -48,12 +48,13 @@ export const api = {
   calculatePrice(productId) {
     return request(`/api/price/calculate/${productId}`)
   },
-  getProducts({ offset = 0, limit = 20, categoryId = '', categoryIds = [] } = {}) {
+  getProducts({ offset = 0, limit = 20, categoryId = '', categoryIds = [], keyword = '' } = {}) {
     const params = []
     params.push(`offset=${offset}`)
     params.push(`limit=${limit}`)
     if (categoryId) params.push(`category_id=${encodeURIComponent(categoryId)}`)
     if (categoryIds.length) params.push(`category_ids=${categoryIds.map(encodeURIComponent).join(',')}`)
+    if (keyword) params.push(`keyword=${encodeURIComponent(keyword)}`)
     return request(`/api/products?${params.join('&')}`)
   },
   getInventoryOverview() {

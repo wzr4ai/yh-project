@@ -5,6 +5,18 @@
       <view class="subtitle">选中商品后点击保存一次性提交</view>
     </view>
 
+    <view class="search-bar">
+      <input
+        class="search-input"
+        v-model="keyword"
+        type="text"
+        placeholder="搜索商品名称"
+        confirm-type="search"
+        @confirm="doSearch"
+      />
+      <button size="mini" @tap="doSearch">搜索</button>
+    </view>
+
     <view class="list">
       <view v-for="item in products" :key="item.id" class="row">
         <view class="info">
@@ -48,7 +60,8 @@ export default {
       pageSize: 20,
       total: 0,
       loading: false,
-      saving: false
+      saving: false,
+      keyword: ''
     }
   },
   computed: {
@@ -71,7 +84,8 @@ export default {
       try {
         const data = await api.getProducts({
           offset: (this.page - 1) * this.pageSize,
-          limit: this.pageSize
+          limit: this.pageSize,
+          keyword: this.keyword.trim()
         })
         const items = data?.items || []
         // 初始化选中状态：首次看到的商品，如果已在分类则默认选中
@@ -98,6 +112,13 @@ export default {
     goPage(target) {
       if (target < 1 || target > this.totalPages || target === this.page) return
       this.page = target
+      this.loadPage()
+    },
+    onSearchInput(e) {
+      this.keyword = e.detail.value
+    },
+    doSearch() {
+      this.page = 1
       this.loadPage()
     },
     async save() {
@@ -150,6 +171,21 @@ export default {
   color: #6b7280;
   font-size: 24rpx;
   margin-top: 4rpx;
+}
+
+.search-bar {
+  margin: 10rpx 0;
+  display: flex;
+  gap: 10rpx;
+}
+
+.search-input {
+  flex: 1;
+  background: #fff;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 12rpx;
+  padding: 12rpx;
+  font-size: 26rpx;
 }
 
 .list {

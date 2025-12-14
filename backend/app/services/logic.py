@@ -420,7 +420,12 @@ def round2(value: float) -> float:
 
 
 async def list_products_with_inventory(
-    session: AsyncSession, offset: int = 0, limit: int = 50, category_id: str | None = None, category_ids: list[str] | None = None
+    session: AsyncSession,
+    offset: int = 0,
+    limit: int = 50,
+    category_id: str | None = None,
+    category_ids: list[str] | None = None,
+    keyword: str | None = None,
 ) -> tuple[list[schemas.ProductListItem], int]:
     where_clause = []
     all_category_ids: list[str] = []
@@ -432,6 +437,9 @@ async def list_products_with_inventory(
         # 产品主分类命中或多分类关联命中
         subq = sa.select(ProductCategory.product_id).where(ProductCategory.category_id.in_(all_category_ids))
         where_clause.append(sa.or_(Product.category_id.in_(all_category_ids), Product.id.in_(subq)))
+    if keyword:
+        like = f"%{keyword}%"
+        where_clause.append(Product.name.ilike(like))
 
     count_stmt = sa.select(sa.func.count()).select_from(Product)
     if where_clause:

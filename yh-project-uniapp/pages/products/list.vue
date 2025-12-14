@@ -5,6 +5,17 @@
       <view class="filter-value">{{ currentCategoryLabel }}</view>
       <view :class="['arrow', showFilter ? 'up' : 'down']"></view>
     </view>
+    <view class="search-bar">
+      <input
+        class="search-input"
+        type="text"
+        v-model="keyword"
+        placeholder="搜索商品名称"
+        confirm-type="search"
+        @confirm="doSearch"
+      />
+      <button size="mini" @tap="doSearch">搜索</button>
+    </view>
     <view class="filter-panel" v-if="showFilter">
       <view class="panel-title">选择分类（多选）</view>
       <scroll-view scroll-y style="max-height: 400rpx;">
@@ -69,7 +80,8 @@ export default {
       ],
       currentCategoryIds: [],
       tempCategoryIds: [],
-      showFilter: false
+      showFilter: false,
+      keyword: ''
     }
   },
   computed: {
@@ -108,7 +120,8 @@ export default {
         const data = await api.getProducts({
           offset: (this.page - 1) * this.pageSize,
           limit: this.pageSize,
-          categoryIds: this.currentCategoryIds
+          categoryIds: this.currentCategoryIds,
+          keyword: this.keyword.trim()
         })
         const items = (data && data.items) || []
         this.total = data?.total || 0
@@ -118,6 +131,12 @@ export default {
       } finally {
         this.loading = false
       }
+    },
+    onSearchInput(e) {
+      this.keyword = e.detail.value
+    },
+    doSearch() {
+      this.resetAndLoad()
     },
     toggleFilter() {
       this.tempCategoryIds = [...this.currentCategoryIds]
@@ -194,6 +213,22 @@ export default {
   border-radius: 12rpx;
   border: 1rpx solid #e5e7eb;
   box-shadow: 0 6rpx 12rpx rgba(0, 0, 0, 0.03);
+}
+
+.search-bar {
+  margin-top: 10rpx;
+  display: flex;
+  gap: 10rpx;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  background: #fff;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 12rpx;
+  padding: 14rpx;
+  font-size: 26rpx;
 }
 
 .filter-label {
