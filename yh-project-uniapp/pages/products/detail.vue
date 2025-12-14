@@ -27,6 +27,18 @@
         <view class="label">进价</view>
         <input class="input" type="digit" v-model.number="form.base_cost_price" :disabled="!isOwner" placeholder="进价" />
       </view>
+      <view class="info-row">
+        <view class="info-label">一件数量</view>
+        <view class="info-value">{{ specQty }}</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">一件价格</view>
+        <view class="info-value">¥{{ packPriceCalc.toFixed(2) }}</view>
+      </view>
+      <view class="form-row" v-if="showPackPriceRef">
+        <view class="label">一件价格(参考)</view>
+        <input class="input" type="digit" v-model.number="form.pack_price_ref" :disabled="!isOwner" placeholder="参考箱价" />
+      </view>
       <view class="form-row">
         <view class="label">固定零售价</view>
         <input class="input" type="digit" v-model.number="form.fixed_retail_price" :disabled="!isOwner" placeholder="为空则按分类/全局系数计算" />
@@ -71,6 +83,7 @@ export default {
         category_name: '',
         base_cost_price: null,
         fixed_retail_price: null,
+        pack_price_ref: null,
         img_url: ''
       },
       price: {
@@ -86,9 +99,19 @@ export default {
     isOwner() {
       return isOwner(this.role)
     },
-    selectedCategoryIndex() {
-      const idx = this.categories.findIndex(c => c.id === this.form.category_id)
-      return idx >= 0 ? idx : 0
+    specQty() {
+      const match = String(this.form.spec || '').match(/(\d+(\.\d+)?)/)
+      const val = match ? parseFloat(match[1]) : 1
+      return val > 0 ? val : 1
+    },
+    packPriceCalc() {
+      const qty = this.specQty
+      const single = Number(this.form.base_cost_price) || 0
+      return single * qty
+    },
+    showPackPriceRef() {
+      if (this.form.pack_price_ref === null || this.form.pack_price_ref === undefined) return false
+      return Math.abs((Number(this.form.pack_price_ref) || 0) - this.packPriceCalc) > 0.01
     }
   },
   onLoad(options) {
@@ -101,9 +124,9 @@ export default {
     async fetchCategories() {
       try {
         const data = await api.getCategories()
-        this.categories = [{ id: '', name: '未分类' }].concat(data || [])
+        this.categories = data || []
       } catch (err) {
-        this.categories = [{ id: '', name: '未分类' }]
+        this.categories = []
       }
     },
     async fetchDetail() {
@@ -116,9 +139,15 @@ export default {
           category_name: data.category_name || '',
           base_cost_price: data.base_cost_price,
           fixed_retail_price: data.fixed_retail_price,
+          pack_price_ref: data.pack_price_ref,
           img_url: data.img_url
         }
         this.selectedCategoryIds = (data.categories || []).map(c => c.id).filter(Boolean)
+        // 确保有主分类名称可显示
+        if (this.selectedCategoryIds.length && !this.form.category_name) {
+          const first = this.categories.find(c => c.id === this.selectedCategoryIds[0])
+          this.form.category_name = first?.name || ''
+        }
         this.fetchPrice()
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
@@ -138,7 +167,8 @@ export default {
         await api.updateProduct(this.id, {
           ...this.form,
           categories: this.selectedCategoryIds.map(id => ({ id })),
-          category_id: this.selectedCategoryIds[0] || null
+          category_id: this.selectedCategoryIds[0] || null,
+          pack_price_ref: this.showPackPriceRef ? this.form.pack_price_ref : null
         })
         uni.showToast({ title: '已保存', icon: 'success' })
         this.fetchPrice()

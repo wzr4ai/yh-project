@@ -38,6 +38,7 @@ class Product(Base):
     base_cost_price: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
     fixed_retail_price: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     retail_multiplier: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
+    pack_price_ref: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     img_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
 
     category: Mapped[Category | None] = relationship(back_populates="products")

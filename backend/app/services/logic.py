@@ -115,6 +115,7 @@ async def create_product(session: AsyncSession, payload: schemas.Product) -> Pro
         base_cost_price=payload.base_cost_price,
         fixed_retail_price=payload.fixed_retail_price,
         retail_multiplier=payload.retail_multiplier,
+        pack_price_ref=payload.pack_price_ref,
         img_url=payload.img_url,
     )
     session.add(product)
@@ -135,6 +136,7 @@ async def update_product(session: AsyncSession, product_id: str, payload: schema
     product.base_cost_price = payload.base_cost_price
     product.fixed_retail_price = payload.fixed_retail_price
     product.retail_multiplier = payload.retail_multiplier
+    product.pack_price_ref = payload.pack_price_ref
     product.img_url = payload.img_url
     if payload.categories is not None:
         await replace_product_categories(session, product_id, [c.id for c in payload.categories])
@@ -171,6 +173,7 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
         base_cost_price=product.base_cost_price,
         fixed_retail_price=product.fixed_retail_price,
         retail_multiplier=product.retail_multiplier,
+        pack_price_ref=product.pack_price_ref,
         img_url=product.img_url,
     )
 

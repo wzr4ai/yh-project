@@ -57,6 +57,7 @@ class Product(ORMBase):
     base_cost_price: float
     fixed_retail_price: Optional[float] = None
     retail_multiplier: Optional[float] = None
+    pack_price_ref: Optional[float] = None
     img_url: Optional[str] = None
 
 
