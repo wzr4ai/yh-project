@@ -10,7 +10,6 @@
         <view class="card-title">今日入账</view>
         <view class="card-value">¥{{ metrics.actualSales.toFixed(2) }}</view>
         <view class="card-sub">订单数 {{ metrics.orders }} ｜ 客单价 ¥{{ metrics.avgTicket.toFixed(2) }}</view>
-        <button size="mini" v-if="isOwner" @tap="openReceiptDialog">录入今日入账</button>
       </view>
       <view class="card" v-if="isOwner">
         <view class="card-title">预期销售额</view>
