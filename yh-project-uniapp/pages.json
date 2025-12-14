@@ -66,6 +66,12 @@
       "style": {
         "navigationBarTitleText": "快速分类"
       }
+    },
+    {
+      "path": "pages/webview/view",
+      "style": {
+        "navigationBarTitleText": "页面预览"
+      }
     }
   ],
   "globalStyle": {
