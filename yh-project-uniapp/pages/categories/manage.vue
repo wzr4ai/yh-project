@@ -17,11 +17,14 @@
       <view v-for="cat in categories" :key="cat.id" class="card item">
         <view class="item-header">
           <view class="item-name">{{ cat.name }}</view>
-          <view class="item-meta">系数：{{ cat.retail_multiplier || '—' }}</view>
+          <view class="item-meta">
+            <text>系数：{{ cat.retail_multiplier || '—' }}</text>
+            <text class="flag" :class="cat.is_custom ? 'custom' : 'merchant'">{{ cat.is_custom ? '自定义' : '商家' }}</text>
+          </view>
         </view>
         <view class="actions">
           <button size="mini" @tap="edit(cat)">编辑</button>
-          <button size="mini" @tap="quickAdd(cat)">快速分类</button>
+          <button size="mini" v-if="cat.is_custom" @tap="quickAdd(cat)">快速分类</button>
           <button size="mini" type="warn" @tap="remove(cat)">删除</button>
         </view>
       </view>
@@ -41,7 +44,8 @@ export default {
       form: {
         id: '',
         name: '',
-        retail_multiplier: null
+        retail_multiplier: null,
+        is_custom: true
       },
       saving: false
     }
@@ -53,7 +57,11 @@ export default {
     async loadCategories() {
       try {
         const data = await api.getCategories()
-        this.categories = data || []
+        const list = data || []
+        this.categories = list.sort((a, b) => {
+          if (a.is_custom === b.is_custom) return (a.name || '').localeCompare(b.name || '')
+          return a.is_custom ? -1 : 1
+        })
       } catch (err) {
         uni.showToast({ title: '加载分类失败', icon: 'none' })
       }
@@ -71,16 +79,18 @@ export default {
         if (this.form.id) {
           await api.updateCategory(this.form.id, {
             name: this.form.name,
-            retail_multiplier: this.form.retail_multiplier
+            retail_multiplier: this.form.retail_multiplier,
+            is_custom: this.form.is_custom
           })
         } else {
           await api.createCategory({
             name: this.form.name,
-            retail_multiplier: this.form.retail_multiplier
+            retail_multiplier: this.form.retail_multiplier,
+            is_custom: this.form.is_custom
           })
         }
         uni.showToast({ title: '已保存', icon: 'success' })
-        this.form = { id: '', name: '', retail_multiplier: null }
+        this.form = { id: '', name: '', retail_multiplier: null, is_custom: true }
         this.loadCategories()
       } catch (err) {
         uni.showToast({ title: '保存失败', icon: 'none' })
@@ -176,12 +186,31 @@ export default {
 .item-meta {
   color: #6b7280;
   font-size: 24rpx;
+  display: flex;
+  gap: 12rpx;
+  align-items: center;
 }
 
 .actions {
   margin-top: 12rpx;
   display: flex;
   gap: 12rpx;
+}
+
+.flag {
+  padding: 4rpx 8rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+}
+
+.flag.custom {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.flag.merchant {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .empty {
