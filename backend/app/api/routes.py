@@ -182,7 +182,9 @@ async def adjust_inventory(
 
 @router.get("/inventory/{product_id}", response_model=schemas.InventoryRecord)
 async def get_inventory(product_id: str, session: AsyncSession = Depends(get_session)):
-    inv = await logic.get_inventory_record(session, product_id)
+    inv = await logic.get_inventory_record(session, product_id, create_if_missing=False)
+    if not inv:
+        raise HTTPException(status_code=404, detail="product not found")
     return inv
 
 
