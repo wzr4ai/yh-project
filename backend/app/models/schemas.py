@@ -182,3 +182,8 @@ class InventoryOverviewItem(BaseModel):
     retail_total: float
     base_cost_price: float
     cost_total: float
+
+
+class ProductListResponse(BaseModel):
+    items: List[ProductListItem]
+    total: int

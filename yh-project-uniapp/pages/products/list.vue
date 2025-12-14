@@ -24,6 +24,8 @@
           <view class="footer-item">潜在总价 ¥{{ item.retail_total.toFixed(2) }}</view>
         </view>
       </view>
+      <view class="loadmore" v-if="loading">加载中...</view>
+      <view class="loadmore" v-else-if="finished">没有更多了</view>
       <view v-if="!products.length" class="empty">暂无商品</view>
     </view>
   </view>
@@ -37,26 +39,54 @@ export default {
   data() {
     return {
       role: getRole(),
-      products: []
+      products: [],
+      offset: 0,
+      pageSize: 20,
+      total: 0,
+      loading: false
     }
   },
   computed: {
     isOwner() {
       return isOwner(this.role)
+    },
+    finished() {
+      return this.products.length >= this.total && this.total > 0
     }
   },
   onShow() {
     this.role = getRole()
-    this.fetchProducts()
+    this.resetAndLoad()
+  },
+  onReachBottom() {
+    if (!this.finished && !this.loading) {
+      this.loadMore()
+    }
   },
   methods: {
-    async fetchProducts() {
+    resetAndLoad() {
+      this.offset = 0
+      this.products = []
+      this.total = 0
+      this.loadMore()
+    },
+    async loadMore() {
+      this.loading = true
       try {
-        const data = await api.getProducts()
-        this.products = data || []
+        const data = await api.getProducts({ offset: this.offset, limit: this.pageSize })
+        const items = (data && data.items) || []
+        this.total = data?.total || 0
+        this.products = this.products.concat(items)
+        this.offset += this.pageSize
       } catch (err) {
         uni.showToast({ title: '加载商品失败', icon: 'none' })
+      } finally {
+        this.loading = false
       }
+    },
+    async fetchProducts() {
+      // deprecated, kept for compatibility
+      return this.resetAndLoad()
     },
     showImportHint() {
       uni.showModal({

@@ -289,8 +289,12 @@ def round2(value: float) -> float:
     return round(value + 1e-9, 2)
 
 
-async def list_products_with_inventory(session: AsyncSession) -> list[schemas.ProductListItem]:
-    products = (await session.execute(sa.select(Product))).scalars().all()
+async def list_products_with_inventory(session: AsyncSession, offset: int = 0, limit: int = 50) -> tuple[list[schemas.ProductListItem], int]:
+    count_stmt = sa.select(sa.func.count()).select_from(Product)
+    total = (await session.execute(count_stmt)).scalar_one()
+
+    stmt = sa.select(Product).offset(offset).limit(limit)
+    products = (await session.execute(stmt)).scalars().all()
     inventory_map: dict[str, int] = {}
     for inv in (await session.execute(sa.select(Inventory))).scalars().all():
         inventory_map[inv.product_id] = inventory_map.get(inv.product_id, 0) + inv.current_stock
@@ -318,7 +322,7 @@ async def list_products_with_inventory(session: AsyncSession) -> list[schemas.Pr
                 cost_total=round2(cost_total),
             )
         )
-    return result
+    return result, total
 
 
 async def inventory_overview(session: AsyncSession) -> list[schemas.InventoryOverviewItem]:

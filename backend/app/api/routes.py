@@ -59,9 +59,11 @@ async def create_product(product: schemas.Product, session: AsyncSession = Depen
     )
 
 
-@router.get("/products", response_model=list[schemas.ProductListItem])
-async def list_products(session: AsyncSession = Depends(get_session)):
-    return await logic.list_products_with_inventory(session)
+@router.get("/products", response_model=schemas.ProductListResponse)
+async def list_products(offset: int = 0, limit: int = 20, session: AsyncSession = Depends(get_session)):
+    limit = max(1, min(limit, 100))
+    items, total = await logic.list_products_with_inventory(session, offset=offset, limit=limit)
+    return schemas.ProductListResponse(items=items, total=total)
 
 
 @router.put("/categories/{category_id}", response_model=schemas.Category)

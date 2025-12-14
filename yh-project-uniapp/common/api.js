@@ -48,8 +48,8 @@ export const api = {
   calculatePrice(productId) {
     return request(`/api/price/calculate/${productId}`)
   },
-  getProducts() {
-    return request('/api/products')
+  getProducts({ offset = 0, limit = 20 } = {}) {
+    return request(`/api/products?offset=${offset}&limit=${limit}`)
   },
   getInventoryOverview() {
     return request('/api/inventory/overview')
