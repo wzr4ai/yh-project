@@ -228,6 +228,11 @@ async def adjust_inventory(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get("/inventory/overview", response_model=list[schemas.InventoryOverviewItem])
+async def inventory_overview(session: AsyncSession = Depends(get_session)):
+    return await logic.inventory_overview(session)
+
+
 @router.get("/inventory/{product_id}", response_model=schemas.InventoryRecord)
 async def get_inventory(product_id: str, session: AsyncSession = Depends(get_session)):
     inv = await logic.get_inventory_record(session, product_id, create_if_missing=False)
@@ -290,8 +295,3 @@ async def dashboard_inventory_value(session: AsyncSession = Depends(get_session)
 @router.get("/dashboard/performance", response_model=schemas.PerformanceResponse)
 async def dashboard_performance(session: AsyncSession = Depends(get_session)):
     return await logic.dashboard_performance(session)
-
-
-@router.get("/inventory/overview", response_model=list[schemas.InventoryOverviewItem])
-async def inventory_overview(session: AsyncSession = Depends(get_session)):
-    return await logic.inventory_overview(session)
