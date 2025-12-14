@@ -98,6 +98,9 @@ export const api = {
       data: payload
     })
   },
+  deleteProduct(id) {
+    return request(`/api/products/${id}`, { method: 'DELETE' })
+  },
   updateProduct(id, payload) {
     return request(`/api/products/${id}`, {
       method: 'PUT',

@@ -1,23 +1,25 @@
 <template>
   <view class="page">
-    <view class="filter-bar" @tap="toggleFilter">
-      <view class="filter-label">分类</view>
-      <view class="filter-value">{{ currentCategoryLabel }}</view>
-      <view :class="['arrow', showFilter ? 'up' : 'down']"></view>
-    </view>
-    <view class="search-bar">
-      <input
-        class="search-input"
-        type="text"
-        v-model="keyword"
-        placeholder="搜索商品名称"
-        confirm-type="search"
-        @confirm="doSearch"
-      />
-      <button size="mini" @tap="doSearch">搜索</button>
-    </view>
-    <view class="action-bar" v-if="isOwner">
-      <button type="primary" size="mini" @tap="openCreate">新增商品</button>
+    <view class="toolbar">
+      <view class="filter-bar" @tap="toggleFilter">
+        <view class="filter-label">分类</view>
+        <view class="filter-value">{{ currentCategoryLabel }}</view>
+        <view :class="['arrow', showFilter ? 'up' : 'down']"></view>
+      </view>
+      <view class="search-bar">
+        <input
+          class="search-input"
+          type="text"
+          v-model="keyword"
+          placeholder="搜索商品"
+          confirm-type="search"
+          @confirm="doSearch"
+        />
+        <button size="mini" @tap="doSearch">搜</button>
+      </view>
+      <view class="action-bar" v-if="isOwner">
+        <button type="primary" size="mini" @tap="openCreate">新增</button>
+      </view>
     </view>
     <view class="filter-panel" v-if="showFilter">
       <view class="panel-title">选择分类（多选）</view>
@@ -209,14 +211,20 @@ export default {
   padding-bottom: 120rpx; /* 给底部分页栏留空间 */
 }
 
-.filter {
-  margin-bottom: 16rpx;
+.toolbar {
+  display: flex;
+  gap: 10rpx;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12rpx;
 }
 
 .filter-bar {
+  flex: 1;
+  min-width: 220rpx;
   display: flex;
   align-items: center;
-  padding: 14rpx 16rpx;
+  padding: 12rpx 14rpx;
   background: #fff;
   border-radius: 12rpx;
   border: 1rpx solid #e5e7eb;
@@ -224,9 +232,10 @@ export default {
 }
 
 .search-bar {
-  margin-top: 10rpx;
+  flex: 2;
+  min-width: 280rpx;
   display: flex;
-  gap: 10rpx;
+  gap: 8rpx;
   align-items: center;
 }
 
@@ -245,9 +254,7 @@ export default {
 }
 
 .action-bar {
-  margin: 12rpx 0;
-  display: flex;
-  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .filter-value {

@@ -70,6 +70,7 @@
 
     <view class="actions" v-if="isOwner">
       <button type="primary" :loading="saving" @tap="save">保存</button>
+      <button class="delete-btn" size="mini" @tap="confirmDelete">删除商品</button>
     </view>
   </view>
 </template>
@@ -235,6 +236,30 @@ export default {
       } catch (err) {
         uni.showToast({ title: '调整失败', icon: 'none' })
       }
+    },
+    confirmDelete() {
+      uni.showModal({
+        title: '删除确认',
+        content: '确定删除该商品？相关库存与分类关联将一并清理。',
+        confirmText: '删除',
+        confirmColor: '#d14343',
+        success: async (res) => {
+          if (res.confirm) {
+            await this.deleteProduct()
+          }
+        }
+      })
+    },
+    async deleteProduct() {
+      try {
+        await api.deleteProduct(this.id)
+        uni.showToast({ title: '已删除', icon: 'success' })
+        setTimeout(() => {
+          uni.navigateBack()
+        }, 400)
+      } catch (err) {
+        uni.showToast({ title: '删除失败', icon: 'none' })
+      }
     }
   }
 }
@@ -330,5 +355,13 @@ export default {
   background: #ffffff;
   padding: 12rpx 20rpx env(safe-area-inset-bottom);
   box-shadow: 0 -6rpx 12rpx rgba(0, 0, 0, 0.05);
+  display: flex;
+  gap: 12rpx;
+}
+
+.delete-btn {
+  background: #fff;
+  color: #d14343;
+  border: 1rpx solid #f3b6b6;
 }
 </style>

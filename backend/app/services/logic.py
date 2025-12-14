@@ -168,6 +168,16 @@ async def update_product(session: AsyncSession, product_id: str, payload: schema
     return product
 
 
+async def delete_product(session: AsyncSession, product_id: str):
+    product = await session.get(Product, product_id)
+    if not product:
+        raise ValueError("product not found")
+    await session.execute(sa.delete(ProductCategory).where(ProductCategory.product_id == product_id))
+    await session.execute(sa.delete(Inventory).where(Inventory.product_id == product_id))
+    await session.delete(product)
+    await session.flush()
+
+
 async def product_with_category(session: AsyncSession, product_id: str) -> schemas.Product:
     product = await session.get(Product, product_id)
     if not product:

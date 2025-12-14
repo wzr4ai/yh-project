@@ -137,6 +137,17 @@ async def update_product(product_id: str, payload: schemas.Product, session: Asy
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.delete("/products/{product_id}")
+async def delete_product(product_id: str, session: AsyncSession = Depends(get_session)):
+    try:
+        await logic.delete_product(session, product_id)
+        await session.commit()
+        return {"status": "ok"}
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.put("/categories/{category_id}", response_model=schemas.Category)
 async def update_category(category_id: str, category: schemas.Category, session: AsyncSession = Depends(get_session)):
     updated = await logic.upsert_category(session, category_id, category)
