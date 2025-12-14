@@ -444,7 +444,7 @@ async def create_purchase_order(session: AsyncSession, po: schemas.PurchaseOrder
     return order
 
 
-async def dashboard_realtime(session: AsyncSession) -> Tuple[float, float, int, float]:
+async def dashboard_realtime(session: AsyncSession) -> Tuple[float, float, float, float, float, int, float, float | None]:
     from datetime import datetime, timezone
 
     today = datetime.utcnow().date()
@@ -458,7 +458,35 @@ async def dashboard_realtime(session: AsyncSession) -> Tuple[float, float, int, 
     avg_ticket = actual / orders if orders else 0
     receipt_diff = actual - expected
     diff_rate = (receipt_diff / expected * 100) if expected else 0
-    return actual, expected, receipt_diff, diff_rate, gross_profit, orders, avg_ticket
+    manual = await get_manual_receipt(session)
+    actual_display = manual if manual is not None else actual
+    return actual_display, expected, receipt_diff, diff_rate, gross_profit, orders, avg_ticket, manual
+
+
+async def get_manual_receipt(session: AsyncSession) -> float | None:
+    today_str = datetime.utcnow().date().isoformat()
+    stmt = sa.select(SystemConfig).where(SystemConfig.key == MANUAL_RECEIPT_KEY)
+    cfg = (await session.execute(stmt)).scalars().first()
+    if not cfg:
+        return None
+    try:
+        stored_date, stored_val = cfg.value.split("|", 1)
+        if stored_date == today_str:
+            return float(stored_val)
+    except Exception:
+        return None
+    return None
+
+
+async def set_manual_receipt(session: AsyncSession, value: float):
+    today_str = datetime.utcnow().date().isoformat()
+    stmt = sa.select(SystemConfig).where(SystemConfig.key == MANUAL_RECEIPT_KEY)
+    cfg = (await session.execute(stmt)).scalars().first()
+    if cfg:
+        cfg.value = f"{today_str}|{value}"
+    else:
+        session.add(SystemConfig(key=MANUAL_RECEIPT_KEY, value=f"{today_str}|{value}"))
+    await session.flush()
 
 
 async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float]:

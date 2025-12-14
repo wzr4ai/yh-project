@@ -275,7 +275,7 @@ async def receive_purchase(po_id: str, items: List[schemas.PurchaseItem], sessio
 
 @router.get("/dashboard/realtime", response_model=schemas.DashboardRealtime)
 async def dashboard_realtime(session: AsyncSession = Depends(get_session)):
-    actual, expected, diff, diff_rate, gp, orders, avg = await logic.dashboard_realtime(session)
+    actual, expected, diff, diff_rate, gp, orders, avg, manual = await logic.dashboard_realtime(session)
     gross_margin = (gp / actual * 100) if actual else 0
     return schemas.DashboardRealtime(
         actual_sales=round(actual, 2),
@@ -286,7 +286,20 @@ async def dashboard_realtime(session: AsyncSession = Depends(get_session)):
         orders=orders,
         avg_ticket=round(avg, 2),
         gross_margin=round(gross_margin, 2),
+        manual_receipt=manual,
     )
+
+
+@router.post("/dashboard/manual_receipt")
+async def set_manual_receipt(payload: dict, session: AsyncSession = Depends(get_session)):
+    val = payload.get("value")
+    try:
+        amount = float(val)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid value")
+    await logic.set_manual_receipt(session, amount)
+    await session.commit()
+    return {"status": "ok", "value": amount}
 
 
 @router.get("/dashboard/inventory_value", response_model=schemas.InventoryValueResponse)

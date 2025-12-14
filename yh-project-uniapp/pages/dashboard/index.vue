@@ -10,6 +10,7 @@
         <view class="card-title">今日入账</view>
         <view class="card-value">¥{{ metrics.actualSales.toFixed(2) }}</view>
         <view class="card-sub">订单数 {{ metrics.orders }} ｜ 客单价 ¥{{ metrics.avgTicket.toFixed(2) }}</view>
+        <button size="mini" v-if="isOwner" @tap="openReceiptDialog">录入今日入账</button>
       </view>
       <view class="card" v-if="isOwner">
         <view class="card-title">预期销售额</view>
@@ -90,6 +91,17 @@
       </view>
     </view>
   </view>
+
+  <view class="receipt-dialog" v-if="showReceiptDialog">
+    <view class="receipt-box">
+      <view class="title">录入今日入账</view>
+      <input class="receipt-input" type="digit" v-model="manualReceiptInput" placeholder="请输入今日入账金额" />
+      <view class="receipt-actions">
+        <button size="mini" @tap="closeReceiptDialog">取消</button>
+        <button size="mini" type="primary" @tap="saveReceipt">保存</button>
+      </view>
+    </view>
+  </view>
 </template>
 
 <script>
@@ -117,6 +129,8 @@ export default {
         sparkler: '—'
       },
       loading: false
+      showReceiptDialog: false,
+      manualReceiptInput: ''
     }
   },
   computed: {
@@ -157,10 +171,34 @@ export default {
         }
         this.inventoryCost = inv.cost_total || 0
         this.inventoryRetail = inv.retail_total || 0
+        if (realtime.manual_receipt !== null && realtime.manual_receipt !== undefined) {
+          this.manualReceiptInput = String(realtime.manual_receipt)
+        }
       } catch (err) {
         uni.showToast({ title: '加载数据失败', icon: 'none' })
       } finally {
         this.loading = false
+      }
+    },
+    openReceiptDialog() {
+      this.showReceiptDialog = true
+    },
+    closeReceiptDialog() {
+      this.showReceiptDialog = false
+    },
+    async saveReceipt() {
+      const val = parseFloat(this.manualReceiptInput)
+      if (isNaN(val)) {
+        uni.showToast({ title: '请输入数字', icon: 'none' })
+        return
+      }
+      try {
+        await api.setManualReceipt(val)
+        uni.showToast({ title: '已录入', icon: 'success' })
+        this.showReceiptDialog = false
+        this.fetchMetrics()
+      } catch (err) {
+        uni.showToast({ title: '保存失败', icon: 'none' })
       }
     },
     go(url) {
@@ -228,6 +266,48 @@ export default {
   margin-top: 6rpx;
   color: #6b7280;
   font-size: 24rpx;
+}
+
+.receipt-dialog {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.receipt-box {
+  width: 80%;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+.receipt-box .title {
+  font-size: 30rpx;
+  font-weight: 700;
+  margin-bottom: 12rpx;
+}
+
+.receipt-actions {
+  display: flex;
+  gap: 10rpx;
+  margin-top: 12rpx;
+  justify-content: flex-end;
+}
+
+.receipt-input {
+  width: 100%;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 12rpx;
+  padding: 12rpx;
+  font-size: 28rpx;
+  margin-top: 6rpx;
 }
 
 .card-sub.positive {

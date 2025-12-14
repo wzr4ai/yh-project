@@ -153,6 +153,7 @@ class DashboardRealtime(BaseModel):
     orders: int
     avg_ticket: float
     gross_margin: float
+    manual_receipt: float | None = None
 
 
 class InventoryValueResponse(BaseModel):
