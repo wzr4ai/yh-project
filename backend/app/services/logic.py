@@ -467,18 +467,28 @@ async def list_products_with_inventory(
     limit: int = 50,
     category_id: str | None = None,
     category_ids: list[str] | None = None,
+    custom_category_ids: list[str] | None = None,
+    merchant_category_ids: list[str] | None = None,
     keyword: str | None = None,
 ) -> tuple[list[schemas.ProductListItem], int]:
     where_clause = []
-    all_category_ids: list[str] = []
-    if category_id:
-        all_category_ids.append(category_id)
+    custom_ids = set([c for c in (custom_category_ids or []) if c])
     if category_ids:
-        all_category_ids.extend([c for c in category_ids if c])
-    if all_category_ids:
-        # 产品主分类命中或多分类关联命中
-        subq = sa.select(ProductCategory.product_id).where(ProductCategory.category_id.in_(all_category_ids))
-        where_clause.append(sa.or_(Product.category_id.in_(all_category_ids), Product.id.in_(subq)))
+        custom_ids.update([c for c in category_ids if c])
+    merchant_ids = set([c for c in (merchant_category_ids or []) if c])
+    if category_id:
+        merchant_ids.add(category_id)
+
+    if merchant_ids:
+        if "__uncategorized__" in merchant_ids:
+            where_clause.append(
+                sa.or_(Product.category_id.is_(None), Product.category_id.in_([m for m in merchant_ids if m != "__uncategorized__"]))
+            )
+        else:
+            where_clause.append(Product.category_id.in_(list(merchant_ids)))
+    if custom_ids:
+        subq = sa.select(ProductCategory.product_id).where(ProductCategory.category_id.in_(list(custom_ids)))
+        where_clause.append(Product.id.in_(subq))
     if keyword:
         like = f"%{keyword}%"
         where_clause.append(Product.name.ilike(like))

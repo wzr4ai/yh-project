@@ -65,13 +65,27 @@ async def list_products(
     limit: int = 20,
     category_id: str | None = None,
     category_ids: str | None = None,
+    custom_category_ids: str | None = None,
+    merchant_category_ids: str | None = None,
     keyword: str | None = None,
     session: AsyncSession = Depends(get_session),
 ):
     limit = max(1, min(limit, 100))
     ids_list = [c for c in (category_ids.split(",") if category_ids else []) if c]
+    custom_ids_list = [c for c in (custom_category_ids.split(",") if custom_category_ids else []) if c]
+    merchant_ids_list = [c for c in (merchant_category_ids.split(",") if merchant_category_ids else []) if c]
+    if custom_ids_list and not ids_list:
+        # 兼容老参数，若未使用 category_ids 则使用 custom_category_ids
+        ids_list = custom_ids_list
     items, total = await logic.list_products_with_inventory(
-        session, offset=offset, limit=limit, category_id=category_id, category_ids=ids_list, keyword=keyword
+        session,
+        offset=offset,
+        limit=limit,
+        category_id=category_id,
+        category_ids=ids_list,
+        custom_category_ids=custom_ids_list,
+        merchant_category_ids=merchant_ids_list,
+        keyword=keyword,
     )
     return schemas.ProductListResponse(items=items, total=total)
 

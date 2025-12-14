@@ -22,10 +22,17 @@
       </view>
     </view>
     <view class="filter-panel" v-if="showFilter">
-      <view class="panel-title">选择分类（多选）</view>
-      <scroll-view scroll-y style="max-height: 400rpx;">
-        <view v-for="cat in categories" :key="cat.id || 'all'" class="panel-row" @tap="toggleTemp(cat)">
-          <view class="checkbox" :class="{ checked: tempCategoryIds.includes(cat.id) }"></view>
+      <view class="panel-title">自定义类别（多选，OR）</view>
+      <scroll-view scroll-y style="max-height: 240rpx;">
+        <view v-for="cat in customCategories" :key="cat.id || 'all'" class="panel-row" @tap="toggleTempCustom(cat)">
+          <view class="checkbox" :class="{ checked: tempCustomIds.includes(cat.id) }"></view>
+          <view class="panel-name">{{ cat.name }}</view>
+        </view>
+      </scroll-view>
+      <view class="panel-title">商家类别（单类别 OR，自身可多选，整体与左侧为 AND）</view>
+      <scroll-view scroll-y style="max-height: 240rpx;">
+        <view v-for="cat in merchantCategories" :key="cat.id || 'all-m'" class="panel-row" @tap="toggleTempMerchant(cat)">
+          <view class="checkbox" :class="{ checked: tempMerchantIds.includes(cat.id) }"></view>
           <view class="panel-name">{{ cat.name }}</view>
         </view>
       </scroll-view>
@@ -79,12 +86,15 @@ export default {
       pageSize: 20,
       total: 0,
       loading: false,
-      categories: [
+      customCategories: [{ id: '', name: '全部' }],
+      merchantCategories: [
         { id: '', name: '全部' },
         { id: '__uncategorized__', name: '未分类' }
       ],
-      currentCategoryIds: [],
-      tempCategoryIds: [],
+      selectedCustomIds: [],
+      selectedMerchantIds: [],
+      tempCustomIds: [],
+      tempMerchantIds: [],
       showFilter: false,
       keyword: ''
     }
@@ -97,9 +107,12 @@ export default {
       return this.page >= this.totalPages && this.total > 0
     },
     currentCategoryLabel() {
-      if (!this.currentCategoryIds.length) return '全部'
-      const names = this.categories.filter(c => this.currentCategoryIds.includes(c.id)).map(c => c.name)
-      return names.length ? names.join('、') : '全部'
+      const customNames = this.customCategories.filter(c => this.selectedCustomIds.includes(c.id)).map(c => c.name)
+      const merchantNames = this.merchantCategories.filter(c => this.selectedMerchantIds.includes(c.id)).map(c => c.name)
+      const parts = []
+      if (customNames.length) parts.push(`自定义:${customNames.join('、')}`)
+      if (merchantNames.length) parts.push(`商家:${merchantNames.join('、')}`)
+      return parts.length ? parts.join(' | ') : '全部'
     },
     totalPages() {
       if (!this.total) return 1
@@ -125,7 +138,8 @@ export default {
         const data = await api.getProducts({
           offset: (this.page - 1) * this.pageSize,
           limit: this.pageSize,
-          categoryIds: this.currentCategoryIds,
+          customCategoryIds: this.selectedCustomIds,
+          merchantCategoryIds: this.selectedMerchantIds,
           keyword: this.keyword.trim()
         })
         const items = (data && data.items) || []
@@ -144,40 +158,55 @@ export default {
       this.resetAndLoad()
     },
     toggleFilter() {
-      this.tempCategoryIds = [...this.currentCategoryIds]
+      this.tempCustomIds = [...this.selectedCustomIds]
+      this.tempMerchantIds = [...this.selectedMerchantIds]
       this.showFilter = !this.showFilter
     },
-    toggleTemp(cat) {
+    toggleTempCustom(cat) {
       if (!cat) return
       if (!cat.id) {
-        this.tempCategoryIds = []
-      } else if (cat.id === '__uncategorized__') {
-        this.tempCategoryIds = ['__uncategorized__']
-      } else {
-        const exists = this.tempCategoryIds.includes(cat.id)
-        this.tempCategoryIds = exists
-          ? this.tempCategoryIds.filter(x => x !== cat.id)
-          : this.tempCategoryIds.concat(cat.id)
-        this.tempCategoryIds = this.tempCategoryIds.filter(id => id !== '__uncategorized__')
+        this.tempCustomIds = []
+        return
       }
+      const exists = this.tempCustomIds.includes(cat.id)
+      this.tempCustomIds = exists ? this.tempCustomIds.filter(x => x !== cat.id) : this.tempCustomIds.concat(cat.id)
+    },
+    toggleTempMerchant(cat) {
+      if (!cat) return
+      if (!cat.id) {
+        this.tempMerchantIds = []
+        return
+      }
+      if (cat.id === '__uncategorized__') {
+        this.tempMerchantIds = ['__uncategorized__']
+        return
+      }
+      const exists = this.tempMerchantIds.includes(cat.id)
+      this.tempMerchantIds = exists
+        ? this.tempMerchantIds.filter(x => x !== cat.id)
+        : this.tempMerchantIds.concat(cat.id).filter(id => id !== '__uncategorized__')
     },
     cancelFilter() {
       this.showFilter = false
     },
     applyFilter() {
-      this.currentCategoryIds = [...this.tempCategoryIds]
+      this.selectedCustomIds = [...this.tempCustomIds]
+      this.selectedMerchantIds = [...this.tempMerchantIds]
       this.showFilter = false
       this.resetAndLoad()
     },
     async fetchCategories() {
       try {
         const data = await api.getCategories()
-        this.categories = [
+        const list = data || []
+        this.customCategories = [{ id: '', name: '全部' }].concat(list.filter(c => c.is_custom))
+        this.merchantCategories = [
           { id: '', name: '全部' },
           { id: '__uncategorized__', name: '未分类' }
-        ].concat(data || [])
+        ].concat(list.filter(c => !c.is_custom))
       } catch (err) {
-        this.categories = [
+        this.customCategories = [{ id: '', name: '全部' }]
+        this.merchantCategories = [
           { id: '', name: '全部' },
           { id: '__uncategorized__', name: '未分类' }
         ]
@@ -292,7 +321,7 @@ export default {
 .panel-title {
   font-size: 26rpx;
   color: #0b1f3a;
-  margin-bottom: 10rpx;
+  margin: 6rpx 0;
 }
 
 .panel-row {

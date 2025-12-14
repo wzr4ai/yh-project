@@ -7,22 +7,28 @@
         <input class="input" v-model="form.name" :disabled="!isOwner" placeholder="商品名称" />
       </view>
       <view class="form-row">
-        <view class="label">规格</view>
-        <input class="input" v-model="form.spec" :disabled="!isOwner" placeholder="规格" />
-      </view>
-      <view class="form-row">
-        <view class="label">分类</view>
-        <view class="chips">
-          <view
-            v-for="cat in categories"
-            :key="cat.id || 'none'"
-            :class="['chip', selectedCategoryIds.includes(cat.id) ? 'active' : '']"
-            @tap="isOwner ? onCategoryChange({ detail: { value: categories.indexOf(cat) } }) : null"
-          >
-            {{ cat.name }}
-          </view>
+      <view class="label">规格</view>
+      <input class="input" v-model="form.spec" :disabled="!isOwner" placeholder="规格" />
+    </view>
+    <view class="form-row">
+      <view class="label">商家分类</view>
+      <picker :range="merchantCategories" range-key="name" :value="merchantIndex" @change="onMerchantChange" :disabled="!isOwner">
+        <view class="picker-value">{{ merchantLabel }}</view>
+      </picker>
+    </view>
+    <view class="form-row">
+      <view class="label">自定义分类</view>
+      <view class="chips">
+        <view
+          v-for="cat in customCategories"
+          :key="cat.id || 'none'"
+          :class="['chip', selectedCustomIds.includes(cat.id) ? 'active' : '']"
+          @tap="isOwner ? onCustomCategoryChange(cat.id) : null"
+        >
+          {{ cat.name }}
         </view>
       </view>
+    </view>
       <view class="form-row">
         <view class="label">进价</view>
         <input class="input" type="digit" v-model.number="form.base_cost_price" :disabled="!isOwner" placeholder="进价" />
@@ -98,8 +104,10 @@ export default {
         price: null,
         basis: ''
       },
-      categories: [],
-      selectedCategoryIds: [],
+      customCategories: [],
+      merchantCategories: [],
+      selectedCustomIds: [],
+      selectedMerchantId: '',
       stock: 0,
       adjustDelta: 0,
       adjustReason: '',
@@ -109,6 +117,14 @@ export default {
   computed: {
     isOwner() {
       return isOwner(this.role)
+    },
+    merchantIndex() {
+      const idx = this.merchantCategories.findIndex(c => c.id === this.selectedMerchantId)
+      return idx >= 0 ? idx : 0
+    },
+    merchantLabel() {
+      const cat = this.merchantCategories[this.merchantIndex]
+      return cat ? cat.name : '未选择'
     },
     specQty() {
       const match = String(this.form.spec || '').match(/(\d+(\.\d+)?)/)
@@ -136,9 +152,12 @@ export default {
     async fetchCategories() {
       try {
         const data = await api.getCategories()
-        this.categories = data || []
+        const list = data || []
+        this.customCategories = list.filter(c => c.is_custom)
+        this.merchantCategories = [{ id: '', name: '未选择' }].concat(list.filter(c => !c.is_custom))
       } catch (err) {
-        this.categories = []
+        this.customCategories = []
+        this.merchantCategories = [{ id: '', name: '未选择' }]
       }
     },
     async fetchDetail() {
@@ -154,12 +173,11 @@ export default {
           pack_price_ref: data.pack_price_ref,
           img_url: data.img_url
         }
-        this.selectedCategoryIds = (data.categories || []).map(c => c.id).filter(Boolean)
-        // 确保有主分类名称可显示
-        if (this.selectedCategoryIds.length && !this.form.category_name) {
-          const first = this.categories.find(c => c.id === this.selectedCategoryIds[0])
-          this.form.category_name = first?.name || ''
-        }
+        const custom = (data.categories || []).filter(c => c.is_custom).map(c => c.id).filter(Boolean)
+        this.selectedCustomIds = custom
+        this.selectedMerchantId = data.category_id || ''
+        this.form.category_name =
+          this.merchantCategories.find(c => c.id === this.selectedMerchantId)?.name || this.form.category_name || ''
         this.fetchPrice()
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
@@ -186,8 +204,8 @@ export default {
       try {
         await api.updateProduct(this.id, {
           ...this.form,
-          categories: this.selectedCategoryIds.map(id => ({ id })),
-          category_id: this.selectedCategoryIds[0] || null,
+          categories: this.selectedCustomIds.map(id => ({ id })),
+          category_id: this.selectedMerchantId || null,
           pack_price_ref: this.showPackPriceRef ? this.form.pack_price_ref : null
         })
         if (this.adjustDelta) {
@@ -201,16 +219,17 @@ export default {
         this.saving = false
       }
     },
-    onCategoryChange(e) {
+    onCustomCategoryChange(id) {
+      const exists = this.selectedCustomIds.includes(id)
+      this.selectedCustomIds = exists ? this.selectedCustomIds.filter(x => x !== id) : this.selectedCustomIds.concat(id)
+    },
+    onMerchantChange(e) {
       const idx = Number(e.detail.value)
-      const cat = this.categories[idx]
+      const cat = this.merchantCategories[idx]
       if (cat) {
-        const exists = this.selectedCategoryIds.includes(cat.id)
-        this.selectedCategoryIds = exists
-          ? this.selectedCategoryIds.filter(x => x !== cat.id)
-          : this.selectedCategoryIds.concat(cat.id)
-        this.form.category_id = this.selectedCategoryIds[0] || ''
-        this.form.category_name = this.categories.find(c => c.id === this.form.category_id)?.name || ''
+        this.selectedMerchantId = cat.id || ''
+        this.form.category_id = this.selectedMerchantId
+        this.form.category_name = cat.name || ''
       }
     },
     async adjustInventory(skipToast = false) {
