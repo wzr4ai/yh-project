@@ -85,6 +85,24 @@ async def list_categories(session: AsyncSession = Depends(get_session)):
     return cats
 
 
+@router.post("/categories", response_model=schemas.Category)
+async def create_category(category: schemas.Category, session: AsyncSession = Depends(get_session)):
+    created = await logic.create_category(session, category)
+    await session.commit()
+    return schemas.Category(id=created.id, name=created.name, retail_multiplier=created.retail_multiplier)
+
+
+@router.delete("/categories/{category_id}")
+async def delete_category(category_id: str, force: bool = False, session: AsyncSession = Depends(get_session)):
+    try:
+        cleared = await logic.delete_category(session, category_id, force=force)
+        await session.commit()
+        return {"cleared_products": cleared}
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.put("/products/{product_id}", response_model=schemas.Product)
 async def update_product(product_id: str, payload: schemas.Product, session: AsyncSession = Depends(get_session)):
     try:

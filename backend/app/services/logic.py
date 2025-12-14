@@ -136,6 +136,29 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
     )
 
 
+async def create_category(session: AsyncSession, payload: schemas.Category) -> Category:
+    category = Category(id=payload.id or None, name=payload.name, retail_multiplier=payload.retail_multiplier)
+    session.add(category)
+    await session.flush()
+    return category
+
+
+async def delete_category(session: AsyncSession, category_id: str, force: bool = False) -> int:
+    category = await session.get(Category, category_id)
+    if not category:
+        raise ValueError("category not found")
+    # count products
+    count_stmt = sa.select(sa.func.count()).select_from(Product).where(Product.category_id == category_id)
+    count = (await session.execute(count_stmt)).scalar_one()
+    if count > 0 and not force:
+        raise ValueError(f"category not empty:{count}")
+    if count > 0:
+        await session.execute(sa.update(Product).where(Product.category_id == category_id).values(category_id=None))
+    await session.delete(category)
+    await session.flush()
+    return count
+
+
 async def upsert_category(session: AsyncSession, category_id: str, payload: schemas.Category) -> Category:
     stmt = sa.select(Category).where(Category.id == category_id)
     existing = (await session.execute(stmt)).scalars().first()

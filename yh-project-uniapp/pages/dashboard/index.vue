@@ -74,6 +74,10 @@
           <view class="action-title">采购到货</view>
           <view class="action-desc">采购单状态、到货确认</view>
         </view>
+        <view class="action" @tap="go('/pages/categories/manage')" v-if="isOwner">
+          <view class="action-title">分类管理</view>
+          <view class="action-desc">增删改查分类</view>
+        </view>
         <view class="action" @tap="go('/pages/products/list')">
           <view class="action-title">商品目录</view>
           <view class="action-desc">价格体系与库存分布</view>

@@ -64,6 +64,16 @@ export const api = {
   getCategories() {
     return request('/api/categories')
   },
+  createCategory(data) {
+    return request('/api/categories', { method: 'POST', data })
+  },
+  updateCategory(id, data) {
+    return request(`/api/categories/${id}`, { method: 'PUT', data })
+  },
+  deleteCategory(id, force = false) {
+    const qs = force ? '?force=true' : ''
+    return request(`/api/categories/${id}${qs}`, { method: 'DELETE' })
+  },
   updateProduct(id, payload) {
     return request(`/api/products/${id}`, {
       method: 'PUT',
