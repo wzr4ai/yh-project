@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <view class="filter">
-      <picker mode="selector" :range="categoryOptions" range-key="label" @change="onCategoryChange">
+      <picker mode="selector" :range="categories" range-key="name" @change="onCategoryChange">
         <view class="picker-value">
           {{ currentCategoryLabel }}
         </view>
@@ -52,13 +52,8 @@ export default {
       pageSize: 20,
       total: 0,
       loading: false,
-      categoryOptions: [
-        { label: '全部', value: '' },
-        { label: '鞭炮', value: '鞭炮' },
-        { label: '烟花组合', value: '烟花组合' },
-        { label: '玩具烟花', value: '玩具烟花' }
-      ],
-      currentCategory: ''
+      categories: [{ id: '', name: '全部' }],
+      currentCategoryId: ''
     }
   },
   computed: {
@@ -69,8 +64,8 @@ export default {
       return this.page >= this.totalPages && this.total > 0
     },
     currentCategoryLabel() {
-      const found = this.categoryOptions.find(c => c.value === this.currentCategory)
-      return found ? found.label : '全部'
+      const found = this.categories.find(c => c.id === this.currentCategoryId)
+      return found ? found.name : '全部'
     },
     totalPages() {
       if (!this.total) return 1
@@ -79,7 +74,9 @@ export default {
   },
   onShow() {
     this.role = getRole()
-    this.resetAndLoad()
+    this.fetchCategories().then(() => {
+      this.resetAndLoad()
+    })
   },
   methods: {
     resetAndLoad() {
@@ -94,7 +91,7 @@ export default {
         const data = await api.getProducts({
           offset: (this.page - 1) * this.pageSize,
           limit: this.pageSize,
-          category: this.currentCategory
+          categoryId: this.currentCategoryId
         })
         const items = (data && data.items) || []
         this.total = data?.total || 0
@@ -107,8 +104,16 @@ export default {
     },
     onCategoryChange(e) {
       const idx = Number(e.detail.value)
-      this.currentCategory = this.categoryOptions[idx]?.value || ''
+      this.currentCategoryId = this.categories[idx]?.id || ''
       this.resetAndLoad()
+    },
+    async fetchCategories() {
+      try {
+        const data = await api.getCategories()
+        this.categories = [{ id: '', name: '全部' }].concat(data || [])
+      } catch (err) {
+        this.categories = [{ id: '', name: '全部' }]
+      }
     },
     goPage(target) {
       if (target < 1 || target > this.totalPages || target === this.page) return

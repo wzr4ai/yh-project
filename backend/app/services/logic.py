@@ -323,11 +323,22 @@ def round2(value: float) -> float:
     return round(value + 1e-9, 2)
 
 
-async def list_products_with_inventory(session: AsyncSession, offset: int = 0, limit: int = 50) -> tuple[list[schemas.ProductListItem], int]:
+async def list_products_with_inventory(
+    session: AsyncSession, offset: int = 0, limit: int = 50, category_id: str | None = None
+) -> tuple[list[schemas.ProductListItem], int]:
+    where_clause = []
+    if category_id:
+        where_clause.append(Product.category_id == category_id)
+
     count_stmt = sa.select(sa.func.count()).select_from(Product)
+    if where_clause:
+        count_stmt = count_stmt.where(*where_clause)
     total = (await session.execute(count_stmt)).scalar_one()
 
-    stmt = sa.select(Product).offset(offset).limit(limit)
+    stmt = sa.select(Product)
+    if where_clause:
+        stmt = stmt.where(*where_clause)
+    stmt = stmt.offset(offset).limit(limit)
     products = (await session.execute(stmt)).scalars().all()
     inventory_map: dict[str, int] = {}
     for inv in (await session.execute(sa.select(Inventory))).scalars().all():
