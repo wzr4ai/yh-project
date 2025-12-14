@@ -85,13 +85,7 @@
 
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
-import {
-  mockInventory,
-  mockProducts,
-  mockSalesToday,
-  mockCategories,
-  getStandardPrice
-} from '../../common/mock-data.js'
+import { api } from '../../common/api.js'
 
 export default {
   data() {
@@ -113,7 +107,8 @@ export default {
       categoryPerf: {
         cracker: '—',
         sparkler: '—'
-      }
+      },
+      loading: false
     }
   },
   computed: {
@@ -126,69 +121,35 @@ export default {
   },
   onShow() {
     this.role = getRole()
-    this.buildMetrics()
+    this.fetchMetrics()
   },
   methods: {
-    buildMetrics() {
-      const orders = mockSalesToday.length
-      const totals = mockSalesToday.reduce(
-        (acc, item) => {
-          const qty = item.quantity || 0
-          acc.actual += (item.actualSalePrice || 0) * qty
-          acc.expected += (item.snapshotStandardPrice || 0) * qty
-          acc.cost += (item.snapshotCost || 0) * qty
-          return acc
-        },
-        { actual: 0, expected: 0, cost: 0 }
-      )
-      const priceDiff = totals.actual - totals.expected
-      const grossProfit = totals.actual - totals.cost
-      const grossMargin = totals.actual ? ((grossProfit / totals.actual) * 100).toFixed(1) : '0.0'
-      const avgTicket = orders ? totals.actual / orders : 0
-
-      this.metrics = {
-        actualSales: totals.actual,
-        grossProfit,
-        grossMargin,
-        priceDiff,
-        priceDiffAbs: Math.abs(priceDiff),
-        priceDiffRate: totals.expected ? ((priceDiff / totals.expected) * 100).toFixed(1) : '0.0',
-        diffSign: priceDiff >= 0 ? '+' : '-',
-        orders,
-        avgTicket
-      }
-
-      this.buildInventoryValue()
-      this.buildCategoryPerf()
-    },
-    buildInventoryValue() {
-      let costTotal = 0
-      let retailTotal = 0
-      mockInventory.forEach(row => {
-        const product = mockProducts.find(p => p.id === row.productId)
-        if (!product) return
-        const qty = row.currentStock || 0
-        costTotal += (product.baseCostPrice || 0) * qty
-        const { price } = getStandardPrice(product)
-        retailTotal += price * qty
-      })
-      this.inventoryCost = costTotal
-      this.inventoryRetail = retailTotal
-    },
-    buildCategoryPerf() {
-      const perf = {}
-      mockCategories.forEach(c => {
-        const salesForCategory = mockSalesToday
-          .filter(sale => {
-            const product = mockProducts.find(p => p.id === sale.productId)
-            return product && product.categoryId === c.id
-          })
-          .reduce((acc, sale) => acc + sale.actualSalePrice * sale.quantity, 0)
-        perf[c.id] = salesForCategory ? `¥${salesForCategory.toFixed(0)}` : '¥0'
-      })
-      this.categoryPerf = {
-        cracker: perf.cracker || '¥0',
-        sparkler: perf.sparkler || '¥0'
+    async fetchMetrics() {
+      this.loading = true
+      try {
+        const [realtime, inv, perf] = await Promise.all([
+          api.getRealtime(),
+          api.getInventoryValue(),
+          api.getPerformance()
+        ])
+        const priceDiff = perf.price_diff || 0
+        this.metrics = {
+          actualSales: realtime.actual_sales || 0,
+          grossProfit: realtime.gross_profit || 0,
+          grossMargin: realtime.gross_margin || 0,
+          priceDiff,
+          priceDiffAbs: Math.abs(priceDiff),
+          priceDiffRate: perf.price_diff_rate || 0,
+          diffSign: priceDiff >= 0 ? '+' : '-',
+          orders: realtime.orders || 0,
+          avgTicket: realtime.avg_ticket || 0
+        }
+        this.inventoryCost = inv.cost_total || 0
+        this.inventoryRetail = inv.retail_total || 0
+      } catch (err) {
+        uni.showToast({ title: '加载数据失败', icon: 'none' })
+      } finally {
+        this.loading = false
       }
     },
     go(url) {

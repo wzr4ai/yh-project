@@ -8,36 +8,32 @@
         <view class="header">
           <view>
             <view class="order-id">{{ order.id }}</view>
-            <view class="meta">{{ order.supplier }} ｜ 期望到货 {{ order.expectedDate }}</view>
+            <view class="meta">{{ order.supplier || '—' }} ｜ 期望到货 {{ order.expected_date || '—' }}</view>
           </view>
           <view class="status" :class="statusClass(order.status)">{{ order.status }}</view>
         </view>
         <view class="items">
-          <view v-for="item in order.items" :key="item.productId" class="item-row">
-            <view class="item-name">{{ getProductName(item.productId) }}</view>
-            <view class="item-meta">需求 {{ item.quantity }} ｜ 已到 {{ item.receivedQty }}</view>
-            <view class="item-meta" v-if="isOwner">预计成本 ¥{{ item.expectedCost }}</view>
+          <view v-for="item in order.items" :key="item.product_id" class="item-row">
+            <view class="item-name">{{ item.product_id }}</view>
+            <view class="item-meta">需求 {{ item.quantity }} ｜ 已到 {{ item.received_qty }}</view>
+            <view class="item-meta" v-if="isOwner">预计成本 ¥{{ item.expected_cost }}</view>
           </view>
         </view>
-        <view class="actions">
-          <button size="mini" type="primary" @tap="confirmReceive(order)" :disabled="order.status === '完成'">
-            到货确认 (模拟)
-          </button>
-        </view>
       </view>
+      <view v-if="!orders.length" class="empty">暂无采购单</view>
     </view>
   </view>
 </template>
 
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
-import { mockProducts, mockPurchaseOrders } from '../../common/mock-data.js'
+import { api } from '../../common/api.js'
 
 export default {
   data() {
     return {
       role: getRole(),
-      orders: mockPurchaseOrders
+      orders: []
     }
   },
   computed: {
@@ -47,23 +43,21 @@ export default {
   },
   onShow() {
     this.role = getRole()
+    this.fetchOrders()
   },
   methods: {
-    getProductName(id) {
-      const p = mockProducts.find(item => item.id === id)
-      return p ? p.name : '未知商品'
-    },
     statusClass(status) {
       if (status === '完成') return 'done'
       if (status === '部分到货') return 'partial'
       return 'pending'
     },
-    confirmReceive(order) {
-      uni.showToast({
-        title: '已确认 (模拟)',
-        icon: 'success'
-      })
-      console.log('confirm receive', order.id)
+    async fetchOrders() {
+      try {
+        const data = await api.getPurchaseOrders()
+        this.orders = data || []
+      } catch (err) {
+        uni.showToast({ title: '加载采购单失败', icon: 'none' })
+      }
     }
   }
 }
@@ -158,9 +152,9 @@ export default {
   margin-top: 2rpx;
 }
 
-.actions {
-  margin-top: 12rpx;
-  display: flex;
-  justify-content: flex-end;
+.empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40rpx 0;
 }
 </style>

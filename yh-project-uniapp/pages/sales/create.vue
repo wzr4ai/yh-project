@@ -57,6 +57,7 @@
 import { buildCategoryLookup, mockConfig, mockProducts } from '../../common/mock-data.js'
 import { calculateStandardPrice } from '../../common/pricing.js'
 import { getRole, isOwner } from '../../common/auth.js'
+import { api } from '../../common/api.js'
 
 export default {
   data() {
@@ -101,23 +102,36 @@ export default {
     }
   },
   methods: {
-    onProductChange(e) {
+    async onProductChange(e) {
       const index = Number(e.detail.value)
       const product = this.products[index]
       this.selectedProductId = product.id
-      this.pricing = calculateStandardPrice(product, this.categoryLookup, mockConfig.globalMultiplier)
+      try {
+        const price = await api.calculatePrice(product.id)
+        this.pricing = price
+      } catch (err) {
+        // 回退到前端计算
+        this.pricing = calculateStandardPrice(product, this.categoryLookup, mockConfig.globalMultiplier)
+        uni.showToast({ title: '价格取值失败，已用本地计算', icon: 'none' })
+      }
     },
-    submitSale() {
-      uni.showToast({
-        title: '已保存 (模拟)',
-        icon: 'success'
-      })
-      console.log('sale payload', {
-        productId: this.selectedProductId,
-        quantity: this.quantity,
-        actualPrice: this.actualPrice,
-        standardPrice: this.pricing.price
-      })
+    async submitSale() {
+      const username = uni.getStorageSync('yh-username') || ''
+      try {
+        await api.createSales(
+          [
+            {
+              product_id: this.selectedProductId,
+              quantity: this.quantity,
+              actual_price: this.actualPrice
+            }
+          ],
+          username
+        )
+        uni.showToast({ title: '保存成功', icon: 'success' })
+      } catch (err) {
+        uni.showToast({ title: '保存失败', icon: 'none' })
+      }
     }
   }
 }
