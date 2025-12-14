@@ -258,6 +258,7 @@ export default {
   padding: 20rpx;
   background: #f7f8fa;
   box-sizing: border-box;
+  padding-bottom: 140rpx; /* 留给固定按钮 */
 }
 
 .card {
