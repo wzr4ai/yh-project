@@ -1,9 +1,11 @@
 <template>
   <view class="page">
-    <view class="banner">
-      <view class="banner-title">商品目录</view>
-      <view class="banner-desc">支持 CSV/Excel 批量导入，校验错误可下载错误行</view>
-      <button size="mini" type="primary" class="import-btn" @tap="showImportHint">导入指引</button>
+    <view class="filter">
+      <picker mode="selector" :range="categoryOptions" range-key="label" @change="onCategoryChange">
+        <view class="picker-value">
+          {{ currentCategoryLabel }}
+        </view>
+      </picker>
     </view>
 
     <view class="list">
@@ -26,7 +28,7 @@
       </view>
       <view class="loadmore" v-if="loading">加载中...</view>
       <view class="loadmore" v-else-if="finished">没有更多了</view>
-      <view v-if="!products.length" class="empty">暂无商品</view>
+      <view v-if="!products.length && !loading" class="empty">暂无商品</view>
     </view>
   </view>
 </template>
@@ -40,10 +42,17 @@ export default {
     return {
       role: getRole(),
       products: [],
-      offset: 0,
+      page: 1,
       pageSize: 20,
       total: 0,
-      loading: false
+      loading: false,
+      categoryOptions: [
+        { label: '全部', value: '' },
+        { label: '鞭炮', value: '鞭炮' },
+        { label: '烟花组合', value: '烟花组合' },
+        { label: '玩具烟花', value: '玩具烟花' }
+      ],
+      currentCategory: ''
     }
   },
   computed: {
@@ -52,6 +61,10 @@ export default {
     },
     finished() {
       return this.products.length >= this.total && this.total > 0
+    },
+    currentCategoryLabel() {
+      const found = this.categoryOptions.find(c => c.value === this.currentCategory)
+      return found ? found.label : '全部'
     }
   },
   onShow() {
@@ -65,7 +78,7 @@ export default {
   },
   methods: {
     resetAndLoad() {
-      this.offset = 0
+      this.page = 1
       this.products = []
       this.total = 0
       this.loadMore()
@@ -73,27 +86,25 @@ export default {
     async loadMore() {
       this.loading = true
       try {
-        const data = await api.getProducts({ offset: this.offset, limit: this.pageSize })
+        const data = await api.getProducts({
+          offset: (this.page - 1) * this.pageSize,
+          limit: this.pageSize,
+          category: this.currentCategory
+        })
         const items = (data && data.items) || []
         this.total = data?.total || 0
         this.products = this.products.concat(items)
-        this.offset += this.pageSize
+        this.page += 1
       } catch (err) {
         uni.showToast({ title: '加载商品失败', icon: 'none' })
       } finally {
         this.loading = false
       }
     },
-    async fetchProducts() {
-      // deprecated, kept for compatibility
-      return this.resetAndLoad()
-    },
-    showImportHint() {
-      uni.showModal({
-        title: '导入指引',
-        content: '使用 CSV/Excel 按模板列：名称、分类、规格、进价、固定零售价、别名。导入后可下载错误行。',
-        showCancel: false
-      })
+    onCategoryChange(e) {
+      const idx = Number(e.detail.value)
+      this.currentCategory = this.categoryOptions[idx]?.value || ''
+      this.resetAndLoad()
     }
   }
 }
@@ -107,32 +118,15 @@ export default {
   box-sizing: border-box;
 }
 
-.banner {
-  background: linear-gradient(135deg, #0f6a7b, #0ab8c3);
-  border-radius: 16rpx;
-  padding: 20rpx;
-  color: #f5f7fa;
-  position: relative;
+.filter {
   margin-bottom: 16rpx;
 }
 
-.banner-title {
-  font-size: 32rpx;
-  font-weight: 700;
-}
-
-.banner-desc {
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  color: rgba(245, 247, 250, 0.85);
-}
-
-.import-btn {
-  position: absolute;
-  right: 20rpx;
-  top: 20rpx;
-  background: #ffffff;
-  color: #0f6a7b;
+.picker-value {
+  padding: 16rpx;
+  background: #fff;
+  border-radius: 12rpx;
+  border: 1rpx solid #e5e7eb;
 }
 
 .list {
@@ -205,5 +199,11 @@ export default {
   text-align: center;
   color: #9ca3af;
   padding: 40rpx 0;
+}
+
+.loadmore {
+  text-align: center;
+  color: #6b7280;
+  padding: 16rpx 0;
 }
 </style>
