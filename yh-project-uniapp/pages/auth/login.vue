@@ -18,7 +18,7 @@
 </template>
 
 <script>
-import { setRole, setToken } from '../../common/auth.js'
+import { setRole, setToken, getToken, getRole, isTokenValid } from '../../common/auth.js'
 import { API_BASE_URL } from '../../common/config.js'
 
 export default {
@@ -28,9 +28,12 @@ export default {
     }
   },
   onShow() {
-    const existingToken = uni.getStorageSync('yh-token')
-    const existingRole = uni.getStorageSync('yh-role')
-    if (existingToken && existingRole) {
+    const token = getToken()
+    if (token && isTokenValid(token)) {
+      // 已登录且 token 未过期，直接跳转
+      if (!getRole()) {
+        setRole('clerk')
+      }
       uni.reLaunch({ url: '/pages/dashboard/index' })
       return
     }
