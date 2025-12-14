@@ -43,7 +43,7 @@ class UserOut(BaseModel):
 
 class Category(ORMBase):
     id: Optional[str] = None
-    name: str
+    name: Optional[str] = None
     retail_multiplier: Optional[float] = None
 
 
