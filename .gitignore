@@ -8,3 +8,5 @@ __pycache__/
 .venv/
 node_modules/
 yh-project-uniapp/common/config.js
+
+files
