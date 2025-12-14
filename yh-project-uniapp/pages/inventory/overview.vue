@@ -15,42 +15,42 @@
     </view>
 
     <view class="list">
-      <view v-for="item in rows" :key="item.product.id" class="card item">
+      <view v-for="item in rows" :key="item.product_id" class="card item">
         <view class="item-header">
           <view>
-            <view class="item-name">{{ item.product.name }}</view>
-            <view class="item-meta">{{ item.product.spec }} ｜ {{ item.categoryName }}</view>
+            <view class="item-name">{{ item.name }}</view>
+            <view class="item-meta">{{ item.spec || '—' }} ｜ {{ item.category_name || '—' }}</view>
           </view>
           <view class="pill">库存 {{ item.stock }}</view>
         </view>
         <view class="item-grid">
           <view>
             <view class="mini-title">标准单价</view>
-            <view class="mini-value">¥{{ item.standardPrice.toFixed(2) }}</view>
-            <view class="hint">{{ item.basis }}</view>
+            <view class="mini-value">¥{{ item.standard_price.toFixed(2) }}</view>
+            <view class="hint">{{ item.price_basis }}</view>
           </view>
           <view>
             <view class="mini-title">潜在总价</view>
-            <view class="mini-value accent">¥{{ item.retailTotal.toFixed(2) }}</view>
+            <view class="mini-value accent">¥{{ item.retail_total.toFixed(2) }}</view>
           </view>
           <view v-if="isOwner">
             <view class="mini-title">成本单价</view>
-            <view class="mini-value">¥{{ item.product.baseCostPrice }}</view>
+            <view class="mini-value">¥{{ item.base_cost_price }}</view>
           </view>
           <view v-if="isOwner">
             <view class="mini-title">成本总计</view>
-            <view class="mini-value">¥{{ item.costTotal.toFixed(2) }}</view>
+            <view class="mini-value">¥{{ item.cost_total.toFixed(2) }}</view>
           </view>
         </view>
       </view>
+      <view v-if="!rows.length" class="empty">暂无库存数据</view>
     </view>
   </view>
 </template>
 
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
-import { buildCategoryLookup, mockConfig, mockInventory, mockProducts } from '../../common/mock-data.js'
-import { calculateStandardPrice } from '../../common/pricing.js'
+import { api } from '../../common/api.js'
 
 export default {
   data() {
@@ -60,8 +60,7 @@ export default {
       totals: {
         cost: 0,
         retail: 0
-      },
-      categoryLookup: buildCategoryLookup()
+      }
     }
   },
   computed: {
@@ -71,32 +70,20 @@ export default {
   },
   onShow() {
     this.role = getRole()
-    this.buildRows()
+    this.loadData()
   },
   methods: {
-    buildRows() {
-      let cost = 0
-      let retail = 0
-      this.rows = mockInventory.map(row => {
-        const product = mockProducts.find(p => p.id === row.productId)
-        if (!product) return null
-        const stock = row.currentStock || 0
-        const { price, basis } = calculateStandardPrice(product, this.categoryLookup, mockConfig.globalMultiplier)
-        const retailTotal = price * stock
-        const costTotal = product.baseCostPrice * stock
-        cost += costTotal
-        retail += retailTotal
-        return {
-          product,
-          stock,
-          standardPrice: price,
-          basis,
-          retailTotal,
-          costTotal,
-          categoryName: (this.categoryLookup[product.categoryId] || {}).name || '—'
+    async loadData() {
+      try {
+        const [invValue, overview] = await Promise.all([api.getInventoryValue(), api.getInventoryOverview()])
+        this.totals = {
+          cost: invValue.cost_total || 0,
+          retail: invValue.retail_total || 0
         }
-      }).filter(Boolean)
-      this.totals = { cost, retail }
+        this.rows = overview || []
+      } catch (err) {
+        uni.showToast({ title: '加载库存失败', icon: 'none' })
+      }
     }
   }
 }
@@ -187,5 +174,11 @@ export default {
   margin-top: 4rpx;
   color: #9ca3af;
   font-size: 22rpx;
+}
+
+.empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40rpx 0;
 }
 </style>

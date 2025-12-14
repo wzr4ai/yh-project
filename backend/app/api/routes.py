@@ -59,6 +59,11 @@ async def create_product(product: schemas.Product, session: AsyncSession = Depen
     )
 
 
+@router.get("/products", response_model=list[schemas.ProductListItem])
+async def list_products(session: AsyncSession = Depends(get_session)):
+    return await logic.list_products_with_inventory(session)
+
+
 @router.put("/categories/{category_id}", response_model=schemas.Category)
 async def update_category(category_id: str, category: schemas.Category, session: AsyncSession = Depends(get_session)):
     updated = await logic.upsert_category(session, category_id, category)
@@ -171,3 +176,8 @@ async def dashboard_inventory_value(session: AsyncSession = Depends(get_session)
 @router.get("/dashboard/performance", response_model=schemas.PerformanceResponse)
 async def dashboard_performance(session: AsyncSession = Depends(get_session)):
     return await logic.dashboard_performance(session)
+
+
+@router.get("/inventory/overview", response_model=list[schemas.InventoryOverviewItem])
+async def inventory_overview(session: AsyncSession = Depends(get_session)):
+    return await logic.inventory_overview(session)

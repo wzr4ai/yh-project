@@ -156,3 +156,29 @@ class PerformanceResponse(BaseModel):
     price_diff_rate: float
     expected_sales: float
     actual_sales: float
+
+
+class ProductListItem(BaseModel):
+    id: str
+    name: str
+    spec: Optional[str] = None
+    category_name: Optional[str] = None
+    base_cost_price: float
+    standard_price: float
+    price_basis: PricingBasis
+    stock: int
+    retail_total: float
+    cost_total: float
+
+
+class InventoryOverviewItem(BaseModel):
+    product_id: str
+    name: str
+    spec: Optional[str] = None
+    category_name: Optional[str] = None
+    stock: int
+    standard_price: float
+    price_basis: PricingBasis
+    retail_total: float
+    base_cost_price: float
+    cost_total: float

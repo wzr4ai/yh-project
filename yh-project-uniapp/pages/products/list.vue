@@ -7,44 +7,37 @@
     </view>
 
     <view class="list">
-      <view v-for="item in enrichedProducts" :key="item.id" class="card">
+      <view v-for="item in products" :key="item.id" class="card">
         <view class="header">
           <view>
             <view class="name">{{ item.name }}</view>
-            <view class="meta">{{ item.spec }} ｜ {{ item.categoryName }}</view>
+            <view class="meta">{{ item.spec || '—' }} ｜ {{ item.category_name || '—' }}</view>
           </view>
-          <view class="price">¥{{ item.standardPrice.toFixed(2) }}</view>
+          <view class="price">¥{{ item.standard_price.toFixed(2) }}</view>
         </view>
         <view class="tags">
-          <view class="tag" v-if="item.fixedRetailPrice">例外价</view>
-          <view class="tag">{{ item.basis }}</view>
+          <view class="tag">{{ item.price_basis }}</view>
         </view>
         <view class="footer">
-          <view class="footer-item" v-if="isOwner">成本 ¥{{ item.baseCostPrice }}</view>
+          <view class="footer-item" v-if="isOwner">成本 ¥{{ item.base_cost_price }}</view>
           <view class="footer-item">库存 {{ item.stock }}</view>
-          <view class="footer-item">潜在总价 ¥{{ item.retailTotal.toFixed(2) }}</view>
+          <view class="footer-item">潜在总价 ¥{{ item.retail_total.toFixed(2) }}</view>
         </view>
       </view>
+      <view v-if="!products.length" class="empty">暂无商品</view>
     </view>
   </view>
 </template>
 
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
-import {
-  buildCategoryLookup,
-  mockConfig,
-  mockInventory,
-  mockProducts
-} from '../../common/mock-data.js'
-import { calculateStandardPrice } from '../../common/pricing.js'
+import { api } from '../../common/api.js'
 
 export default {
   data() {
     return {
       role: getRole(),
-      categoryLookup: buildCategoryLookup(),
-      enrichedProducts: []
+      products: []
     }
   },
   computed: {
@@ -54,27 +47,20 @@ export default {
   },
   onShow() {
     this.role = getRole()
-    this.buildProducts()
+    this.fetchProducts()
   },
   methods: {
-    buildProducts() {
-      this.enrichedProducts = mockProducts.map(p => {
-        const { price, basis } = calculateStandardPrice(p, this.categoryLookup, mockConfig.globalMultiplier)
-        const inventoryRow = mockInventory.find(row => row.productId === p.id)
-        const stock = inventoryRow ? inventoryRow.currentStock : 0
-        return {
-          ...p,
-          standardPrice: price,
-          basis,
-          stock,
-          retailTotal: price * stock,
-          categoryName: (this.categoryLookup[p.categoryId] || {}).name || '—'
-        }
-      })
+    async fetchProducts() {
+      try {
+        const data = await api.getProducts()
+        this.products = data || []
+      } catch (err) {
+        uni.showToast({ title: '加载商品失败', icon: 'none' })
+      }
     },
     showImportHint() {
       uni.showModal({
-        title: '导入指引 (模拟)',
+        title: '导入指引',
         content: '使用 CSV/Excel 按模板列：名称、分类、规格、进价、固定零售价、别名。导入后可下载错误行。',
         showCancel: false
       })
@@ -183,5 +169,11 @@ export default {
   background: #f9fafb;
   padding: 10rpx 12rpx;
   border-radius: 10rpx;
+}
+
+.empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40rpx 0;
 }
 </style>

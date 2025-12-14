@@ -287,3 +287,66 @@ async def dashboard_performance(session: AsyncSession) -> schemas.PerformanceRes
 
 def round2(value: float) -> float:
     return round(value + 1e-9, 2)
+
+
+async def list_products_with_inventory(session: AsyncSession) -> list[schemas.ProductListItem]:
+    products = (await session.execute(sa.select(Product))).scalars().all()
+    inventory_map: dict[str, int] = {}
+    for inv in (await session.execute(sa.select(Inventory))).scalars().all():
+        inventory_map[inv.product_id] = inventory_map.get(inv.product_id, 0) + inv.current_stock
+    result: list[schemas.ProductListItem] = []
+    for product in products:
+        price_info = await calculate_price_for_product(session, product)
+        stock = inventory_map.get(product.id, 0)
+        retail_total = price_info.price * stock
+        cost_total = product.base_cost_price * stock
+        category_name = None
+        if product.category_id:
+            category = await session.get(Category, product.category_id)
+            category_name = category.name if category else None
+        result.append(
+            schemas.ProductListItem(
+                id=product.id,
+                name=product.name,
+                spec=product.spec,
+                category_name=category_name,
+                base_cost_price=product.base_cost_price,
+                standard_price=price_info.price,
+                price_basis=price_info.basis,
+                stock=stock,
+                retail_total=round2(retail_total),
+                cost_total=round2(cost_total),
+            )
+        )
+    return result
+
+
+async def inventory_overview(session: AsyncSession) -> list[schemas.InventoryOverviewItem]:
+    inv_rows = (await session.execute(sa.select(Inventory))).scalars().all()
+    items: list[schemas.InventoryOverviewItem] = []
+    for inv in inv_rows:
+        product = await session.get(Product, inv.product_id)
+        if not product:
+            continue
+        price_info = await calculate_price_for_product(session, product)
+        category_name = None
+        if product.category_id:
+            category = await session.get(Category, product.category_id)
+            category_name = category.name if category else None
+        retail_total = price_info.price * inv.current_stock
+        cost_total = product.base_cost_price * inv.current_stock
+        items.append(
+            schemas.InventoryOverviewItem(
+                product_id=product.id,
+                name=product.name,
+                spec=product.spec,
+                category_name=category_name,
+                stock=inv.current_stock,
+                standard_price=price_info.price,
+                price_basis=price_info.basis,
+                retail_total=round2(retail_total),
+                base_cost_price=product.base_cost_price,
+                cost_total=round2(cost_total),
+            )
+        )
+    return items

@@ -47,5 +47,11 @@ export const api = {
   },
   calculatePrice(productId) {
     return request(`/api/price/calculate/${productId}`)
+  },
+  getProducts() {
+    return request('/api/products')
+  },
+  getInventoryOverview() {
+    return request('/api/inventory/overview')
   }
 }
