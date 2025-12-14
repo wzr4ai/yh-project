@@ -21,21 +21,16 @@
             <view class="item-name">{{ item.name }}</view>
             <view class="item-meta">{{ item.spec || '—' }} ｜ {{ item.category_name || '—' }}</view>
           </view>
-          <view class="pill">库存 {{ item.stock }}</view>
+          <view class="pill">箱 {{ item.box_count }} / 散 {{ item.loose_count }}</view>
         </view>
         <view class="item-grid">
           <view>
-            <view class="mini-title">标准单价</view>
-            <view class="mini-value">¥{{ item.standard_price.toFixed(2) }}</view>
-            <view class="hint">{{ item.price_basis }}</view>
+            <view class="mini-title">单价</view>
+            <view class="mini-value">¥{{ item.base_cost_price }}</view>
           </view>
           <view>
-            <view class="mini-title">潜在总价</view>
-            <view class="mini-value accent">¥{{ item.retail_total.toFixed(2) }}</view>
-          </view>
-          <view v-if="isOwner">
-            <view class="mini-title">成本单价</view>
-            <view class="mini-value">¥{{ item.base_cost_price }}</view>
+            <view class="mini-title">箱价</view>
+            <view class="mini-value">¥{{ item.box_price.toFixed(2) }}</view>
           </view>
           <view v-if="isOwner">
             <view class="mini-title">成本总计</view>

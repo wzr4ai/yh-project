@@ -33,6 +33,17 @@ def normalize_spec(spec: str | None) -> str | None:
     return None
 
 
+def parse_spec_qty(spec: str | None) -> float:
+    clean = normalize_spec(spec)
+    if not clean:
+        return 1.0
+    try:
+        val = float(clean)
+        return val if val > 0 else 1.0
+    except Exception:
+        return 1.0
+
+
 async def replace_product_categories(session: AsyncSession, product_id: str, category_ids: list[str]):
     await session.execute(sa.delete(ProductCategory).where(ProductCategory.product_id == product_id))
     unique_ids = [cid for cid in dict.fromkeys(category_ids) if cid]
@@ -587,12 +598,16 @@ async def inventory_overview(session: AsyncSession) -> list[schemas.InventoryOve
         product = await session.get(Product, inv.product_id)
         if not product:
             continue
-        price_info = await calculate_price_for_product(session, product)
+        if not inv.current_stock:
+            continue
+        spec_qty = parse_spec_qty(product.spec)
+        box_price = product.base_cost_price * spec_qty
+        box_count = inv.current_stock if spec_qty == 1 else int(inv.current_stock // spec_qty)
+        loose_count = 0 if spec_qty == 1 else int(inv.current_stock % spec_qty)
         category_name = None
         if product.category_id:
             category = await session.get(Category, product.category_id)
             category_name = category.name if category else None
-        retail_total = price_info.price * inv.current_stock
         cost_total = product.base_cost_price * inv.current_stock
         items.append(
             schemas.InventoryOverviewItem(
@@ -600,11 +615,10 @@ async def inventory_overview(session: AsyncSession) -> list[schemas.InventoryOve
                 name=product.name,
                 spec=product.spec,
                 category_name=category_name,
-                stock=inv.current_stock,
-                standard_price=price_info.price,
-                price_basis=price_info.basis,
-                retail_total=round2(retail_total),
                 base_cost_price=product.base_cost_price,
+                box_price=round2(box_price),
+                box_count=box_count,
+                loose_count=loose_count,
                 cost_total=round2(cost_total),
             )
         )

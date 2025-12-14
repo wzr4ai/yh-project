@@ -182,11 +182,10 @@ class InventoryOverviewItem(BaseModel):
     name: str
     spec: Optional[str] = None
     category_name: Optional[str] = None
-    stock: int
-    standard_price: float
-    price_basis: PricingBasis
-    retail_total: float
     base_cost_price: float
+    box_price: float
+    box_count: int
+    loose_count: int
     cost_total: float
 
 
