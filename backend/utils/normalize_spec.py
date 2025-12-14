@@ -4,15 +4,14 @@ Usage:
   uv run python utils/normalize_spec.py
 """
 import asyncio
-import os
 import re
 from typing import Optional
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.entities import Product
-from app.db import get_sessionmaker_async_from_env
+from app.db import SessionLocal
 
 NUMBER_RE = re.compile(r"(\\d+(?:\\.\\d+)?)")
 
@@ -27,7 +26,6 @@ def normalize_spec_value(spec: Optional[str]) -> Optional[str]:
 
 
 async def normalize_all():
-    SessionLocal = get_sessionmaker_async_from_env()
     async with SessionLocal() as session:  # type: AsyncSession
         stmt = select(Product)
         products = (await session.execute(stmt)).scalars().all()

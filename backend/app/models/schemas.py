@@ -45,6 +45,7 @@ class Category(ORMBase):
     id: Optional[str] = None
     name: Optional[str] = None
     retail_multiplier: Optional[float] = None
+    is_custom: Optional[bool] = False
 
 
 class Product(ORMBase):

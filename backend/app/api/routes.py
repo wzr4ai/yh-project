@@ -94,7 +94,9 @@ async def list_categories(session: AsyncSession = Depends(get_session)):
 async def create_category(category: schemas.Category, session: AsyncSession = Depends(get_session)):
     created = await logic.create_category(session, category)
     await session.commit()
-    return schemas.Category(id=created.id, name=created.name, retail_multiplier=created.retail_multiplier)
+    return schemas.Category(
+        id=created.id, name=created.name, retail_multiplier=created.retail_multiplier, is_custom=created.is_custom
+    )
 
 
 @router.delete("/categories/{category_id}")
@@ -152,7 +154,9 @@ async def delete_product(product_id: str, session: AsyncSession = Depends(get_se
 async def update_category(category_id: str, category: schemas.Category, session: AsyncSession = Depends(get_session)):
     updated = await logic.upsert_category(session, category_id, category)
     await session.commit()
-    return schemas.Category(id=updated.id, name=updated.name, retail_multiplier=updated.retail_multiplier)
+    return schemas.Category(
+        id=updated.id, name=updated.name, retail_multiplier=updated.retail_multiplier, is_custom=updated.is_custom
+    )
 
 
 @router.post("/import/products", response_model=schemas.ProductImportJob)

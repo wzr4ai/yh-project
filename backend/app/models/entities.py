@@ -24,6 +24,7 @@ class Category(Base):
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
     name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     retail_multiplier: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
+    is_custom: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
 
     products: Mapped[list["Product"]] = relationship(back_populates="category")
 

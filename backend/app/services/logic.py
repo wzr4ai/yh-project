@@ -201,14 +201,21 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
         category = await session.get(Category, product.category_id)
         category_name = category.name if category else None
         if category:
-            categories.append(schemas.Category(id=category.id, name=category.name, retail_multiplier=category.retail_multiplier))
+            categories.append(
+                schemas.Category(
+                    id=category.id,
+                    name=category.name,
+                    retail_multiplier=category.retail_multiplier,
+                    is_custom=category.is_custom,
+                )
+            )
     stmt = sa.select(Category).join(ProductCategory, Category.id == ProductCategory.category_id).where(
         ProductCategory.product_id == product.id
     )
     extra = (await session.execute(stmt)).scalars().all()
     for c in extra:
         if not any(x.id == c.id for x in categories):
-            categories.append(schemas.Category(id=c.id, name=c.name, retail_multiplier=c.retail_multiplier))
+            categories.append(schemas.Category(id=c.id, name=c.name, retail_multiplier=c.retail_multiplier, is_custom=c.is_custom))
 
     return schemas.Product(
         id=product.id,
@@ -226,7 +233,12 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
 
 
 async def create_category(session: AsyncSession, payload: schemas.Category) -> Category:
-    category = Category(id=payload.id or None, name=payload.name, retail_multiplier=payload.retail_multiplier)
+    category = Category(
+        id=payload.id or None,
+        name=payload.name,
+        retail_multiplier=payload.retail_multiplier,
+        is_custom=payload.is_custom if payload.is_custom is not None else True,
+    )
     session.add(category)
     await session.flush()
     return category
@@ -254,9 +266,16 @@ async def upsert_category(session: AsyncSession, category_id: str, payload: sche
     if existing:
         existing.name = payload.name
         existing.retail_multiplier = payload.retail_multiplier
+        if payload.is_custom is not None:
+            existing.is_custom = payload.is_custom
         await session.flush()
         return existing
-    category = Category(id=payload.id or category_id, name=payload.name, retail_multiplier=payload.retail_multiplier)
+    category = Category(
+        id=payload.id or category_id,
+        name=payload.name,
+        retail_multiplier=payload.retail_multiplier,
+        is_custom=payload.is_custom if payload.is_custom is not None else True,
+    )
     session.add(category)
     await session.flush()
     return category

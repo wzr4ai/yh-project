@@ -40,13 +40,16 @@ def load_database_url() -> str:
 
 def ensure_columns(engine: Engine):
     inspector = sa.inspect(engine)
-    columns = {col["name"] for col in inspector.get_columns("product")}
+    product_columns = {col["name"] for col in inspector.get_columns("product")}
+    category_columns = {col["name"] for col in inspector.get_columns("category")}
 
     with engine.begin() as conn:
-        if "retail_multiplier" not in columns:
+        if "retail_multiplier" not in product_columns:
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS retail_multiplier double precision"))
-        if "pack_price_ref" not in columns:
+        if "pack_price_ref" not in product_columns:
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS pack_price_ref double precision"))
+        if "is_custom" not in category_columns:
+            conn.execute(text("ALTER TABLE category ADD COLUMN IF NOT EXISTS is_custom boolean DEFAULT false"))
 
 
 def ensure_product_category(engine: Engine):
