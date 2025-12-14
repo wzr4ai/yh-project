@@ -31,6 +31,18 @@ async def replace_product_categories(session: AsyncSession, product_id: str, cat
     await session.flush()
 
 
+def extract_category_ids(categories: list[Any]) -> list[str]:
+    ids: list[str] = []
+    for c in categories:
+        if isinstance(c, dict) and "id" in c:
+            ids.append(c["id"])
+        elif hasattr(c, "id"):
+            ids.append(getattr(c, "id"))
+        elif isinstance(c, str):
+            ids.append(c)
+    return ids
+
+
 async def ensure_defaults(session: AsyncSession):
     await ensure_default_config(session)
     await ensure_default_warehouse(session)
@@ -130,7 +142,8 @@ async def create_product(session: AsyncSession, payload: schemas.Product) -> Pro
     session.add(product)
     await session.flush()
     if payload.categories:
-        await replace_product_categories(session, product.id, [c.id for c in payload.categories])
+        category_ids = extract_category_ids(payload.categories)
+        await replace_product_categories(session, product.id, category_ids)
     await session.flush()
     return product
 
@@ -149,7 +162,8 @@ async def update_product(session: AsyncSession, product_id: str, payload: schema
     product.pack_price_ref = payload.pack_price_ref
     product.img_url = payload.img_url
     if payload.categories is not None:
-        await replace_product_categories(session, product_id, [c.id for c in payload.categories])
+        category_ids = extract_category_ids(payload.categories)
+        await replace_product_categories(session, product_id, category_ids)
     await session.flush()
     return product
 
