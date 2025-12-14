@@ -643,6 +643,7 @@ async def list_products_with_inventory(
                 stock=stock,
                 retail_total=round2(retail_total),
                 cost_total=round2(cost_total),
+                effect_url=product.effect_url,
             )
         )
     return result, total

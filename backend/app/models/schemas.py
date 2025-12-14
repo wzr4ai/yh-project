@@ -181,6 +181,7 @@ class ProductListItem(BaseModel):
     stock: int
     retail_total: float
     cost_total: float
+    effect_url: Optional[str] = None
 
 
 class InventoryOverviewItem(BaseModel):
