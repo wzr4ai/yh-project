@@ -137,7 +137,14 @@ export default {
         uni.showToast({ title: '请输入数量', icon: 'none' })
         return
       }
+      // 校验库存：已选 + 新增 不超过可用库存
       const existing = this.cart.find(c => c.id === prod.id)
+      const usedUnits = existing ? existing.box * existing.specQty + (existing.specQty > 1 ? existing.loose : 0) : 0
+      const availableUnits = prod.stock || 0
+      if (usedUnits + totalUnits > availableUnits) {
+        uni.showToast({ title: '超出库存', icon: 'none' })
+        return
+      }
       if (existing) {
         existing.box += box
         existing.loose += loose

@@ -59,7 +59,7 @@
       <view class="section-title">库存</view>
       <view class="info-row">
         <view class="info-label">当前库存</view>
-        <view class="info-value">{{ stock }}</view>
+        <view class="info-value">{{ stockDisplay }}</view>
       </view>
       <view v-if="isOwner">
         <view class="form-row">
@@ -112,7 +112,8 @@ export default {
       merchantCategories: [],
       selectedCustomIds: [],
       selectedMerchantId: '',
-      stock: 0,
+      stockBox: 0,
+      stockLoose: 0,
       adjustBoxDelta: 0,
       adjustLooseDelta: 0,
       adjustReason: '',
@@ -140,6 +141,10 @@ export default {
       const qty = this.specQty
       const single = Number(this.form.base_cost_price) || 0
       return single * qty
+    },
+    stockDisplay() {
+      if (this.specQty <= 1) return `${this.stockBox}`
+      return `${this.stockBox}箱 ${this.stockLoose}个`
     },
     showPackPriceRef() {
       if (this.form.pack_price_ref === null || this.form.pack_price_ref === undefined) return false
@@ -191,9 +196,11 @@ export default {
     async fetchInventory() {
       try {
         const inv = await api.getInventory(this.id)
-        this.stock = inv?.current_stock || 0
+        this.stockBox = inv?.current_stock || 0
+        this.stockLoose = inv?.loose_units || 0
       } catch (err) {
-        this.stock = 0
+        this.stockBox = 0
+        this.stockLoose = 0
       }
     },
     async fetchPrice() {

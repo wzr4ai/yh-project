@@ -291,7 +291,11 @@ async def dashboard_realtime(session: AsyncSession = Depends(get_session)):
 
 
 @router.post("/dashboard/manual_receipt")
-async def set_manual_receipt(payload: dict, session: AsyncSession = Depends(get_session)):
+async def set_manual_receipt(
+    payload: dict, session: AsyncSession = Depends(get_session), current_user=Depends(deps.get_current_user)
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
     val = payload.get("value")
     try:
         amount = float(val)
