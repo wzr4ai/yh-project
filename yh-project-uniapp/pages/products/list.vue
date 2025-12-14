@@ -30,6 +30,12 @@
       <view class="loadmore" v-else-if="finished">没有更多了</view>
       <view v-if="!products.length && !loading" class="empty">暂无商品</view>
     </view>
+
+    <view class="pager">
+      <button size="mini" :disabled="page <= 1 || loading" @tap="goPage(page - 1)">上一页</button>
+      <view class="page-info">第 {{ page }} / {{ totalPages }} 页</view>
+      <button size="mini" :disabled="page >= totalPages || loading" @tap="goPage(page + 1)">下一页</button>
+    </view>
   </view>
 </template>
 
@@ -60,30 +66,29 @@ export default {
       return isOwner(this.role)
     },
     finished() {
-      return this.products.length >= this.total && this.total > 0
+      return this.page >= this.totalPages && this.total > 0
     },
     currentCategoryLabel() {
       const found = this.categoryOptions.find(c => c.value === this.currentCategory)
       return found ? found.label : '全部'
+    },
+    totalPages() {
+      if (!this.total) return 1
+      return Math.max(1, Math.ceil(this.total / this.pageSize))
     }
   },
   onShow() {
     this.role = getRole()
     this.resetAndLoad()
   },
-  onReachBottom() {
-    if (!this.finished && !this.loading) {
-      this.loadMore()
-    }
-  },
   methods: {
     resetAndLoad() {
       this.page = 1
       this.products = []
       this.total = 0
-      this.loadMore()
+      this.loadPage()
     },
-    async loadMore() {
+    async loadPage() {
       this.loading = true
       try {
         const data = await api.getProducts({
@@ -93,8 +98,7 @@ export default {
         })
         const items = (data && data.items) || []
         this.total = data?.total || 0
-        this.products = this.products.concat(items)
-        this.page += 1
+        this.products = items
       } catch (err) {
         uni.showToast({ title: '加载商品失败', icon: 'none' })
       } finally {
@@ -105,6 +109,11 @@ export default {
       const idx = Number(e.detail.value)
       this.currentCategory = this.categoryOptions[idx]?.value || ''
       this.resetAndLoad()
+    },
+    goPage(target) {
+      if (target < 1 || target > this.totalPages || target === this.page) return
+      this.page = target
+      this.loadPage()
     }
   }
 }
@@ -116,6 +125,7 @@ export default {
   background: #f7f8fa;
   padding: 20rpx;
   box-sizing: border-box;
+  padding-bottom: 120rpx; /* 给底部分页栏留空间 */
 }
 
 .filter {
@@ -205,5 +215,24 @@ export default {
   text-align: center;
   color: #6b7280;
   padding: 16rpx 0;
+}
+
+.pager {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ffffff;
+  border-top: 1rpx solid #e5e7eb;
+  padding: 12rpx 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -6rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.page-info {
+  color: #0b1f3a;
+  font-size: 26rpx;
 }
 </style>
