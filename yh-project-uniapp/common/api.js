@@ -85,6 +85,12 @@ export const api = {
     const qs = force ? '?force=true' : ''
     return request(`/api/categories/${id}${qs}`, { method: 'DELETE' })
   },
+  batchAddProductsToCategory(categoryId, productIds) {
+    return request(`/api/categories/${categoryId}/products`, {
+      method: 'POST',
+      data: { product_ids: productIds }
+    })
+  },
   updateProduct(id, payload) {
     return request(`/api/products/${id}`, {
       method: 'PUT',

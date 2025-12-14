@@ -21,6 +21,7 @@
         </view>
         <view class="actions">
           <button size="mini" @tap="edit(cat)">编辑</button>
+          <button size="mini" @tap="quickAdd(cat)">快速分类</button>
           <button size="mini" type="warn" @tap="remove(cat)">删除</button>
         </view>
       </view>
@@ -102,6 +103,11 @@ export default {
             }
           }
         }
+      })
+    },
+    quickAdd(cat) {
+      uni.navigateTo({
+        url: `/pages/categories/quick-add?id=${cat.id}&name=${encodeURIComponent(cat.name)}`
       })
     }
   }

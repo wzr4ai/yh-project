@@ -48,6 +48,12 @@
       "style": {
         "navigationBarTitleText": "分类管理"
       }
+    },
+    {
+      "path": "pages/categories/quick-add",
+      "style": {
+        "navigationBarTitleText": "快速分类"
+      }
     }
   ],
   "globalStyle": {
