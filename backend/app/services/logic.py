@@ -22,6 +22,7 @@ from app.models.entities import (
     Warehouse,
 )
 DEFAULT_GLOBAL_MULTIPLIER = 1.5
+MANUAL_RECEIPT_KEY = "manual_receipt_today"
 
 
 def normalize_spec(spec: str | None) -> str | None:
