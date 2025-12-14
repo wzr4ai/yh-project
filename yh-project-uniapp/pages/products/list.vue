@@ -1,18 +1,22 @@
 <template>
   <view class="page">
-    <view class="filter">
-      <view class="filter-title">分类筛选（多选）</view>
-      <view class="chips">
-        <view
-          v-for="cat in categories"
-          :key="cat.id || 'all'"
-          :class="['chip', currentCategoryIds.includes(cat.id) ? 'active' : '']"
-          @tap="toggleCategory(cat)"
-        >
-          {{ cat.name }}
+    <view class="filter-bar" @tap="toggleFilter">
+      <view class="filter-label">分类</view>
+      <view class="filter-value">{{ currentCategoryLabel }}</view>
+      <view :class="['arrow', showFilter ? 'up' : 'down']"></view>
+    </view>
+    <view class="filter-panel" v-if="showFilter">
+      <view class="panel-title">选择分类（多选）</view>
+      <scroll-view scroll-y style="max-height: 400rpx;">
+        <view v-for="cat in categories" :key="cat.id || 'all'" class="panel-row" @tap="toggleTemp(cat)">
+          <view class="checkbox" :class="{ checked: tempCategoryIds.includes(cat.id) }"></view>
+          <view class="panel-name">{{ cat.name }}</view>
         </view>
+      </scroll-view>
+      <view class="panel-actions">
+        <button size="mini" @tap.stop="cancelFilter">取消</button>
+        <button size="mini" type="primary" @tap.stop="applyFilter">应用</button>
       </view>
-      <view class="filter-hint">再次点击可取消；不选等于全部</view>
     </view>
 
     <view class="list">
@@ -60,7 +64,9 @@ export default {
       total: 0,
       loading: false,
       categories: [{ id: '', name: '全部' }],
-      currentCategoryIds: []
+      currentCategoryIds: [],
+      tempCategoryIds: [],
+      showFilter: false
     }
   },
   computed: {
@@ -73,8 +79,8 @@ export default {
     currentCategoryLabel() {
       if (!this.currentCategoryIds.length) return '全部'
       const names = this.categories.filter(c => this.currentCategoryIds.includes(c.id)).map(c => c.name)
-      return names.length ? names.join('、') : '全部'
-    },
+    return names.length ? names.join('、') : '全部'
+  },
     totalPages() {
       if (!this.total) return 1
       return Math.max(1, Math.ceil(this.total / this.pageSize))
@@ -110,15 +116,26 @@ export default {
         this.loading = false
       }
     },
-    toggleCategory(cat) {
+    toggleFilter() {
+      this.tempCategoryIds = [...this.currentCategoryIds]
+      this.showFilter = !this.showFilter
+    },
+    toggleTemp(cat) {
       if (!cat || !cat.id) {
-        this.currentCategoryIds = []
+        this.tempCategoryIds = []
       } else {
-        const exists = this.currentCategoryIds.includes(cat.id)
-        this.currentCategoryIds = exists
-          ? this.currentCategoryIds.filter(x => x !== cat.id)
-          : this.currentCategoryIds.concat(cat.id)
+        const exists = this.tempCategoryIds.includes(cat.id)
+        this.tempCategoryIds = exists
+          ? this.tempCategoryIds.filter(x => x !== cat.id)
+          : this.tempCategoryIds.concat(cat.id)
       }
+    },
+    cancelFilter() {
+      this.showFilter = false
+    },
+    applyFilter() {
+      this.currentCategoryIds = [...this.tempCategoryIds]
+      this.showFilter = false
       this.resetAndLoad()
     },
     async fetchCategories() {
@@ -156,11 +173,88 @@ export default {
   margin-bottom: 16rpx;
 }
 
-.picker-value {
-  padding: 16rpx;
+.filter-bar {
+  display: flex;
+  align-items: center;
+  padding: 14rpx 16rpx;
   background: #fff;
   border-radius: 12rpx;
   border: 1rpx solid #e5e7eb;
+  box-shadow: 0 6rpx 12rpx rgba(0, 0, 0, 0.03);
+}
+
+.filter-label {
+  color: #6b7280;
+  font-size: 24rpx;
+}
+
+.filter-value {
+  flex: 1;
+  text-align: right;
+  color: #0b1f3a;
+  font-size: 26rpx;
+  padding: 0 10rpx;
+}
+
+.arrow {
+  width: 0;
+  height: 0;
+  border-left: 10rpx solid transparent;
+  border-right: 10rpx solid transparent;
+}
+
+.arrow.down {
+  border-top: 12rpx solid #6b7280;
+}
+
+.arrow.up {
+  border-bottom: 12rpx solid #6b7280;
+}
+
+.filter-panel {
+  margin-top: 10rpx;
+  background: #fff;
+  border-radius: 12rpx;
+  border: 1rpx solid #e5e7eb;
+  padding: 14rpx;
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+
+.panel-title {
+  font-size: 26rpx;
+  color: #0b1f3a;
+  margin-bottom: 10rpx;
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  padding: 10rpx 0;
+}
+
+.checkbox {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 6rpx;
+  border: 2rpx solid #cbd5e1;
+  margin-right: 12rpx;
+}
+
+.checkbox.checked {
+  background: #0f6a7b;
+  border-color: #0f6a7b;
+}
+
+.panel-name {
+  color: #0b1f3a;
+  font-size: 26rpx;
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+  margin-top: 10rpx;
 }
 
 .list {
