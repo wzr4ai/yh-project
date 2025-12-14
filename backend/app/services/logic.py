@@ -244,7 +244,9 @@ async def get_product_with_lock(session: AsyncSession, product_id: str) -> Produ
     return (await session.execute(stmt)).scalars().first()
 
 
-async def get_inventory_record(session: AsyncSession, product_id: str, warehouse_id: str = "default") -> Inventory:
+async def get_inventory_record(
+    session: AsyncSession, product_id: str, warehouse_id: str = "default", create_if_missing: bool = True
+) -> Inventory | None:
     stmt = (
         sa.select(Inventory)
         .where(Inventory.product_id == product_id, Inventory.warehouse_id == warehouse_id)
@@ -253,6 +255,8 @@ async def get_inventory_record(session: AsyncSession, product_id: str, warehouse
     inv = (await session.execute(stmt)).scalars().first()
     if inv:
         return inv
+    if not create_if_missing:
+        return None
     inv = Inventory(product_id=product_id, warehouse_id=warehouse_id, current_stock=0)
     session.add(inv)
     await session.flush()
@@ -291,7 +295,7 @@ async def create_sales_order(session: AsyncSession, payloads: List[schemas.Sales
         items.append(sales_item)
 
         # deduct inventory
-        inv = await get_inventory_record(session, payload.product_id)
+        inv = await get_inventory_record(session, payload.product_id, create_if_missing=True)
         inv.current_stock = max(0, inv.current_stock - payload.quantity)
         await log_inventory(session, payload.product_id, -payload.quantity, "sales", ref_id="auto")
 
@@ -306,7 +310,7 @@ async def adjust_inventory(session: AsyncSession, req: schemas.InventoryAdjustRe
     product = await session.get(Product, req.product_id)
     if not product:
         raise ValueError("product not found")
-    inv = await get_inventory_record(session, req.product_id)
+    inv = await get_inventory_record(session, req.product_id, create_if_missing=True)
     inv.current_stock += req.delta
     await log_inventory(session, req.product_id, req.delta, "adjust", ref_id=username)
     return inv
@@ -331,7 +335,7 @@ async def receive_purchase(session: AsyncSession, po_id: str, items: List[schema
         previous_received = target.received_qty or 0
         target.received_qty = update.received_qty
         target.actual_cost = update.actual_cost or target.expected_cost
-        inv = await get_inventory_record(session, update.product_id)
+        inv = await get_inventory_record(session, update.product_id, create_if_missing=True)
         delta = max(0, update.received_qty - previous_received)
         if delta:
             inv.current_stock += delta
