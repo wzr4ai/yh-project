@@ -10,6 +10,7 @@
         <view class="label">系数</view>
         <input class="input" type="digit" v-model.number="form.retail_multiplier" placeholder="零售价系数 (可空)" />
       </view>
+      <button type="primary" class="ghost" @tap="goQuickAssign">快速分类</button>
       <button type="primary" @tap="save" :loading="saving">{{ form.id ? '更新分类' : '新增分类' }}</button>
     </view>
 
@@ -119,6 +120,11 @@ export default {
       uni.navigateTo({
         url: `/pages/categories/quick-add?id=${cat.id}&name=${encodeURIComponent(cat.name)}`
       })
+    },
+    goQuickAssign() {
+      uni.navigateTo({
+        url: '/pages/categories/quick-assign'
+      })
     }
   }
 }
@@ -138,6 +144,12 @@ export default {
   padding: 20rpx;
   box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.04);
   margin-bottom: 16rpx;
+}
+
+.ghost {
+  margin-top: 10rpx;
+  background: #f5f5f5;
+  color: #0f6a7b;
 }
 
 .card-title {

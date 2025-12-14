@@ -60,6 +60,12 @@
       "style": {
         "navigationBarTitleText": "快速分类"
       }
+    },
+    {
+      "path": "pages/categories/quick-assign",
+      "style": {
+        "navigationBarTitleText": "快速分类"
+      }
     }
   ],
   "globalStyle": {
