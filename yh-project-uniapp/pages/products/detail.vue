@@ -61,6 +61,25 @@
       </view>
     </view>
 
+    <view class="card">
+      <view class="section-title">库存</view>
+      <view class="info-row">
+        <view class="info-label">当前库存</view>
+        <view class="info-value">{{ stock }}</view>
+      </view>
+      <view v-if="isOwner">
+        <view class="form-row">
+          <view class="label">调整数量</view>
+          <input class="input" type="number" v-model.number="adjustDelta" placeholder="+/- 数量" />
+        </view>
+        <view class="form-row">
+          <view class="label">原因</view>
+          <input class="input" v-model="adjustReason" placeholder="原因(可选)" />
+        </view>
+        <button type="primary" size="mini" @tap="adjustInventory">调整库存</button>
+      </view>
+    </view>
+
     <view class="actions" v-if="isOwner">
       <button type="primary" :loading="saving" @tap="save">保存</button>
     </view>
@@ -92,6 +111,9 @@ export default {
       },
       categories: [],
       selectedCategoryIds: [],
+      stock: 0,
+      adjustDelta: 0,
+      adjustReason: '',
       saving: false
     }
   },
@@ -119,6 +141,7 @@ export default {
     this.fetchCategories().then(() => {
       this.fetchDetail()
     })
+    this.fetchInventory()
   },
   methods: {
     async fetchCategories() {
@@ -151,6 +174,15 @@ export default {
         this.fetchPrice()
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
+      }
+    },
+    async fetchInventory() {
+      try {
+        const inv = await api.getInventoryOverview()
+        const row = (inv || []).find(item => item.product_id === this.id)
+        this.stock = row ? row.stock : 0
+      } catch (err) {
+        this.stock = 0
       }
     },
     async fetchPrice() {
@@ -188,6 +220,28 @@ export default {
           : this.selectedCategoryIds.concat(cat.id)
         this.form.category_id = this.selectedCategoryIds[0] || ''
         this.form.category_name = this.categories.find(c => c.id === this.form.category_id)?.name || ''
+      }
+    },
+    async adjustInventory() {
+      if (!this.adjustDelta) {
+        uni.showToast({ title: '请输入调整数量', icon: 'none' })
+        return
+      }
+      try {
+        await api.adjustInventory(
+          {
+            product_id: this.id,
+            delta: Number(this.adjustDelta),
+            reason: this.adjustReason || '手动调整'
+          },
+          uni.getStorageSync('yh-username') || ''
+        )
+        uni.showToast({ title: '库存已调整', icon: 'success' })
+        this.adjustDelta = 0
+        this.adjustReason = ''
+        this.fetchInventory()
+      } catch (err) {
+        uni.showToast({ title: '调整失败', icon: 'none' })
       }
     }
   }

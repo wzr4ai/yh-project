@@ -59,6 +59,13 @@ export const api = {
   getInventoryOverview() {
     return request('/api/inventory/overview')
   },
+  adjustInventory(data, username) {
+    const qs = username ? `?username=${encodeURIComponent(username)}` : ''
+    return request(`/api/inventory/adjust${qs}`, {
+      method: 'POST',
+      data
+    })
+  },
   getProduct(id) {
     return request(`/api/products/${id}`)
   },
