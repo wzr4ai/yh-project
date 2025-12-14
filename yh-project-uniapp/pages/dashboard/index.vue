@@ -128,7 +128,7 @@ export default {
         cracker: '—',
         sparkler: '—'
       },
-      loading: false
+      loading: false,
       showReceiptDialog: false,
       manualReceiptInput: ''
     }
