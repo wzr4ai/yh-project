@@ -49,6 +49,8 @@ def ensure_columns(engine: Engine):
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS retail_multiplier double precision"))
         if "pack_price_ref" not in product_columns:
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS pack_price_ref double precision"))
+        if "effect_url" not in product_columns:
+            conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS effect_url varchar(500)"))
         if "is_custom" not in category_columns:
             conn.execute(text("ALTER TABLE category ADD COLUMN IF NOT EXISTS is_custom boolean DEFAULT false"))
         if "loose_units" not in inventory_columns:

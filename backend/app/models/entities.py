@@ -49,6 +49,7 @@ class Product(Base):
     retail_multiplier: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     pack_price_ref: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     img_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
+    effect_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
 
     category: Mapped[Category | None] = relationship(back_populates="products")
     aliases: Mapped[list["ProductAlias"]] = relationship(back_populates="product", cascade="all, delete-orphan")

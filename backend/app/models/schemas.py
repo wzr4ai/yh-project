@@ -60,6 +60,7 @@ class Product(ORMBase):
     retail_multiplier: Optional[float] = None
     pack_price_ref: Optional[float] = None
     img_url: Optional[str] = None
+    effect_url: Optional[str] = None
 
 
 class PriceCalcResponse(BaseModel):
