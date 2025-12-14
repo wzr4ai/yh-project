@@ -18,6 +18,14 @@ class SystemConfig(Base):
     value: Mapped[str] = mapped_column(sa.String(200), nullable=False)
 
 
+class DailyReceipt(Base):
+    __tablename__ = "daily_receipt"
+
+    date: Mapped[date] = mapped_column(sa.Date, primary_key=True)
+    amount: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
+
+
 class Category(Base):
     __tablename__ = "category"
 

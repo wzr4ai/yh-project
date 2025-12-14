@@ -63,8 +63,12 @@
       </view>
       <view v-if="isOwner">
         <view class="form-row">
-          <view class="label">调整数量</view>
-          <input class="input" type="number" v-model.number="adjustDelta" placeholder="+/- 数量" />
+          <view class="label">调整箱数</view>
+          <input class="input" type="number" v-model.number="adjustBoxDelta" placeholder="+/- 箱" />
+        </view>
+        <view class="form-row" v-if="specQty > 1">
+          <view class="label">调整散件</view>
+          <input class="input" type="number" v-model.number="adjustLooseDelta" placeholder="+/- 个" />
         </view>
         <view class="form-row">
           <view class="label">原因</view>
@@ -109,7 +113,8 @@ export default {
       selectedCustomIds: [],
       selectedMerchantId: '',
       stock: 0,
-      adjustDelta: 0,
+      adjustBoxDelta: 0,
+      adjustLooseDelta: 0,
       adjustReason: '',
       saving: false
     }
@@ -233,7 +238,10 @@ export default {
       }
     },
     async adjustInventory(skipToast = false) {
-      if (!this.adjustDelta) {
+      const box = Number(this.adjustBoxDelta) || 0
+      const loose = Number(this.adjustLooseDelta) || 0
+      const totalUnits = box * this.specQty + (this.specQty > 1 ? loose : 0)
+      if (!totalUnits) {
         uni.showToast({ title: '请输入调整数量', icon: 'none' })
         return
       }
@@ -241,7 +249,7 @@ export default {
         await api.adjustInventory(
           {
             product_id: this.id,
-            delta: Number(this.adjustDelta),
+            delta: totalUnits,
             reason: this.adjustReason || '手动调整'
           },
           uni.getStorageSync('yh-username') || ''
@@ -249,7 +257,8 @@ export default {
         if (!skipToast) {
           uni.showToast({ title: '库存已调整', icon: 'success' })
         }
-        this.adjustDelta = 0
+        this.adjustBoxDelta = 0
+        this.adjustLooseDelta = 0
         this.adjustReason = ''
         this.fetchInventory()
       } catch (err) {

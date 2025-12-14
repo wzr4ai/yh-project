@@ -68,6 +68,20 @@ def ensure_product_category(engine: Engine):
     )
     meta.create_all(engine)
 
+def ensure_daily_receipt(engine: Engine):
+    inspector = sa.inspect(engine)
+    if "daily_receipt" in inspector.get_table_names():
+        return
+    meta = sa.MetaData()
+    sa.Table(
+        "daily_receipt",
+        meta,
+        sa.Column("date", sa.Date, primary_key=True),
+        sa.Column("amount", sa.Float, nullable=False, default=0),
+        sa.Column("created_at", sa.DateTime),
+    )
+    meta.create_all(engine)
+
 
 def main():
     url = load_database_url()
@@ -81,6 +95,7 @@ def main():
 
     # Ensure product_category table exists
     ensure_product_category(engine)
+    ensure_daily_receipt(engine)
 
     print("Schema migration done.")
 

@@ -145,7 +145,7 @@ class PurchaseOrder(ORMBase):
 
 
 class DashboardRealtime(BaseModel):
-    actual_sales: float  # 实际入账
+    actual_sales: float  # 实际入账（来自入账表）
     expected_sales: float
     receipt_diff: float
     receipt_diff_rate: float

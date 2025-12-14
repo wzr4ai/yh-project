@@ -461,32 +461,48 @@ async def dashboard_realtime(session: AsyncSession) -> Tuple[float, float, float
     diff_rate = (receipt_diff / expected * 100) if expected else 0
     manual = await get_manual_receipt(session)
     actual_display = manual if manual is not None else actual
-    return actual_display, expected, receipt_diff, diff_rate, gross_profit, orders, avg_ticket, manual
+    receipt_diff_display = actual_display - expected
+    diff_rate_display = (receipt_diff_display / expected * 100) if expected else 0
+    return actual_display, expected, receipt_diff_display, diff_rate_display, gross_profit, orders, avg_ticket, manual
 
 
 async def get_manual_receipt(session: AsyncSession) -> float | None:
-    today_str = datetime.utcnow().date().isoformat()
+    today = datetime.utcnow().date()
     stmt = sa.select(SystemConfig).where(SystemConfig.key == MANUAL_RECEIPT_KEY)
     cfg = (await session.execute(stmt)).scalars().first()
-    if not cfg:
-        return None
-    try:
-        stored_date, stored_val = cfg.value.split("|", 1)
-        if stored_date == today_str:
-            return float(stored_val)
-    except Exception:
-        return None
+    if cfg:
+        try:
+            stored_date, stored_val = cfg.value.split("|", 1)
+            if stored_date == today.isoformat():
+                return float(stored_val)
+        except Exception:
+            pass
+    # fallback to daily_receipt table
+    from app.models.entities import DailyReceipt
+
+    rec = (await session.execute(sa.select(DailyReceipt).where(DailyReceipt.date == today))).scalars().first()
+    if rec:
+        return rec.amount
     return None
 
 
 async def set_manual_receipt(session: AsyncSession, value: float):
-    today_str = datetime.utcnow().date().isoformat()
+    today = datetime.utcnow().date()
+    # write to dedicated table
+    from app.models.entities import DailyReceipt
+
+    rec = (await session.execute(sa.select(DailyReceipt).where(DailyReceipt.date == today))).scalars().first()
+    if rec:
+        rec.amount = value
+    else:
+        session.add(DailyReceipt(date=today, amount=value))
+    # also store in config for backward compatibility
     stmt = sa.select(SystemConfig).where(SystemConfig.key == MANUAL_RECEIPT_KEY)
     cfg = (await session.execute(stmt)).scalars().first()
     if cfg:
-        cfg.value = f"{today_str}|{value}"
+        cfg.value = f"{today.isoformat()}|{value}"
     else:
-        session.add(SystemConfig(key=MANUAL_RECEIPT_KEY, value=f"{today_str}|{value}"))
+        session.add(SystemConfig(key=MANUAL_RECEIPT_KEY, value=f"{today.isoformat()}|{value}"))
     await session.flush()
 
 
