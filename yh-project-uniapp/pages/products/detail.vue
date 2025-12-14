@@ -12,18 +12,16 @@
       </view>
       <view class="form-row">
         <view class="label">分类</view>
-        <picker
-          mode="selector"
-          :range="categories"
-          range-key="name"
-          :value="selectedCategoryIndex"
-          @change="onCategoryChange"
-          :disabled="!isOwner"
-        >
-          <view class="picker-field">
-            <view class="picker-text">{{ form.category_name || '选择分类' }}</view>
+        <view class="chips">
+          <view
+            v-for="cat in categories"
+            :key="cat.id || 'none'"
+            :class="['chip', selectedCategoryIds.includes(cat.id) ? 'active' : '']"
+            @tap="isOwner ? onCategoryChange({ detail: { value: categories.indexOf(cat) } }) : null"
+          >
+            {{ cat.name }}
           </view>
-        </picker>
+        </view>
       </view>
       <view class="form-row">
         <view class="label">进价</view>
@@ -80,6 +78,7 @@ export default {
         basis: ''
       },
       categories: [],
+      selectedCategoryIds: [],
       saving: false
     }
   },
@@ -119,6 +118,7 @@ export default {
           fixed_retail_price: data.fixed_retail_price,
           img_url: data.img_url
         }
+        this.selectedCategoryIds = (data.categories || []).map(c => c.id).filter(Boolean)
         this.fetchPrice()
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
@@ -135,7 +135,11 @@ export default {
     async save() {
       this.saving = true
       try {
-        await api.updateProduct(this.id, this.form)
+        await api.updateProduct(this.id, {
+          ...this.form,
+          categories: this.selectedCategoryIds.map(id => ({ id })),
+          category_id: this.selectedCategoryIds[0] || null
+        })
         uni.showToast({ title: '已保存', icon: 'success' })
         this.fetchPrice()
       } catch (err) {
@@ -148,8 +152,12 @@ export default {
       const idx = Number(e.detail.value)
       const cat = this.categories[idx]
       if (cat) {
-        this.form.category_id = cat.id
-        this.form.category_name = cat.name
+        const exists = this.selectedCategoryIds.includes(cat.id)
+        this.selectedCategoryIds = exists
+          ? this.selectedCategoryIds.filter(x => x !== cat.id)
+          : this.selectedCategoryIds.concat(cat.id)
+        this.form.category_id = this.selectedCategoryIds[0] || ''
+        this.form.category_name = this.categories.find(c => c.id === this.form.category_id)?.name || ''
       }
     }
   }
@@ -199,17 +207,25 @@ export default {
   font-size: 26rpx;
 }
 
-.picker-field {
-  flex: 1;
-  border: 1rpx solid #e5e7eb;
-  border-radius: 12rpx;
-  padding: 14rpx;
-  background: #f9fafb;
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
 }
 
-.picker-text {
+.chip {
+  padding: 10rpx 16rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #e5e7eb;
+  background: #f9fafb;
   color: #0b1f3a;
-  font-size: 26rpx;
+  font-size: 24rpx;
+}
+
+.chip.active {
+  background: #0f6a7b;
+  color: #fff;
+  border-color: #0f6a7b;
 }
 
 .info-row {

@@ -1,11 +1,18 @@
 <template>
   <view class="page">
     <view class="filter">
-      <picker mode="selector" :range="categories" range-key="name" @change="onCategoryChange">
-        <view class="picker-value">
-          {{ currentCategoryLabel }}
+      <view class="filter-title">分类筛选（多选）</view>
+      <view class="chips">
+        <view
+          v-for="cat in categories"
+          :key="cat.id || 'all'"
+          :class="['chip', currentCategoryIds.includes(cat.id) ? 'active' : '']"
+          @tap="toggleCategory(cat)"
+        >
+          {{ cat.name }}
         </view>
-      </picker>
+      </view>
+      <view class="filter-hint">再次点击可取消；不选等于全部</view>
     </view>
 
     <view class="list">
@@ -53,7 +60,7 @@ export default {
       total: 0,
       loading: false,
       categories: [{ id: '', name: '全部' }],
-      currentCategoryId: ''
+      currentCategoryIds: []
     }
   },
   computed: {
@@ -64,8 +71,9 @@ export default {
       return this.page >= this.totalPages && this.total > 0
     },
     currentCategoryLabel() {
-      const found = this.categories.find(c => c.id === this.currentCategoryId)
-      return found ? found.name : '全部'
+      if (!this.currentCategoryIds.length) return '全部'
+      const names = this.categories.filter(c => this.currentCategoryIds.includes(c.id)).map(c => c.name)
+      return names.length ? names.join('、') : '全部'
     },
     totalPages() {
       if (!this.total) return 1
@@ -91,7 +99,7 @@ export default {
         const data = await api.getProducts({
           offset: (this.page - 1) * this.pageSize,
           limit: this.pageSize,
-          categoryId: this.currentCategoryId
+          categoryIds: this.currentCategoryIds
         })
         const items = (data && data.items) || []
         this.total = data?.total || 0
@@ -102,9 +110,15 @@ export default {
         this.loading = false
       }
     },
-    onCategoryChange(e) {
-      const idx = Number(e.detail.value)
-      this.currentCategoryId = this.categories[idx]?.id || ''
+    toggleCategory(cat) {
+      if (!cat || !cat.id) {
+        this.currentCategoryIds = []
+      } else {
+        const exists = this.currentCategoryIds.includes(cat.id)
+        this.currentCategoryIds = exists
+          ? this.currentCategoryIds.filter(x => x !== cat.id)
+          : this.currentCategoryIds.concat(cat.id)
+      }
       this.resetAndLoad()
     },
     async fetchCategories() {

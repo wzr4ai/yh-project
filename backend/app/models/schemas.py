@@ -50,11 +50,13 @@ class Category(ORMBase):
 class Product(ORMBase):
     id: Optional[str] = None
     name: str
-    category_id: str
+    category_id: Optional[str] = None
     category_name: Optional[str] = None
+    categories: List["Category"] = []
     spec: str
     base_cost_price: float
     fixed_retail_price: Optional[float] = None
+    retail_multiplier: Optional[float] = None
     img_url: Optional[str] = None
 
 

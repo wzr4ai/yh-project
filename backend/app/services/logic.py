@@ -11,6 +11,7 @@ from app.models.entities import (
     Inventory,
     InventoryLog,
     Product,
+    ProductCategory,
     PurchaseItem,
     PurchaseOrder,
     SalesItem,
@@ -77,11 +78,29 @@ async def calculate_price_for_product(session: AsyncSession, product: Product) -
     if product.fixed_retail_price is not None:
         return schemas.PriceCalcResponse(price=product.fixed_retail_price, basis="例外价")
 
-    if product.category_id:
-        stmt = sa.select(Category).where(Category.id == product.category_id)
-        category = (await session.execute(stmt)).scalars().first()
+    if product.retail_multiplier:
+        return schemas.PriceCalcResponse(price=round2(product.base_cost_price * product.retail_multiplier), basis="商品系数")
+
+    multipliers: list[float] = []
+    # 多分类
+    stmt_pc = sa.select(ProductCategory.category_id).where(ProductCategory.product_id == product.id)
+    pc_ids = [row[0] for row in (await session.execute(stmt_pc)).all()]
+    if pc_ids:
+        stmt = sa.select(Category).where(Category.id.in_(pc_ids))
+        categories = (await session.execute(stmt)).scalars().all()
+        multipliers = [c.retail_multiplier for c in categories if c.retail_multiplier]
+
+    if product.category_id and not multipliers:
+        category = await session.get(Category, product.category_id)
         if category and category.retail_multiplier:
-            return schemas.PriceCalcResponse(price=round2(product.base_cost_price * category.retail_multiplier), basis="分类系数")
+            multipliers.append(category.retail_multiplier)
+
+    if multipliers:
+        chosen = max(multipliers)
+        # 回写商品系数，便于下次直接使用
+        product.retail_multiplier = chosen
+        await session.flush()
+        return schemas.PriceCalcResponse(price=round2(product.base_cost_price * chosen), basis="分类系数")
 
     multiplier = await get_global_multiplier(session)
     return schemas.PriceCalcResponse(price=round2(product.base_cost_price * multiplier), basis="全局系数")
@@ -95,9 +114,13 @@ async def create_product(session: AsyncSession, payload: schemas.Product) -> Pro
         spec=payload.spec,
         base_cost_price=payload.base_cost_price,
         fixed_retail_price=payload.fixed_retail_price,
+        retail_multiplier=payload.retail_multiplier,
         img_url=payload.img_url,
     )
     session.add(product)
+    await session.flush()
+    if payload.categories:
+        await replace_product_categories(session, product.id, [c.id for c in payload.categories])
     await session.flush()
     return product
 
@@ -111,7 +134,10 @@ async def update_product(session: AsyncSession, product_id: str, payload: schema
     product.spec = payload.spec
     product.base_cost_price = payload.base_cost_price
     product.fixed_retail_price = payload.fixed_retail_price
+    product.retail_multiplier = payload.retail_multiplier
     product.img_url = payload.img_url
+    if payload.categories is not None:
+        await replace_product_categories(session, product_id, [c.id for c in payload.categories])
     await session.flush()
     return product
 
@@ -121,17 +147,30 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
     if not product:
         raise ValueError("product not found")
     category_name = None
+    categories: list[schemas.Category] = []
     if product.category_id:
         category = await session.get(Category, product.category_id)
         category_name = category.name if category else None
+        if category:
+            categories.append(schemas.Category(id=category.id, name=category.name, retail_multiplier=category.retail_multiplier))
+    stmt = sa.select(Category).join(ProductCategory, Category.id == ProductCategory.category_id).where(
+        ProductCategory.product_id == product.id
+    )
+    extra = (await session.execute(stmt)).scalars().all()
+    for c in extra:
+        if not any(x.id == c.id for x in categories):
+            categories.append(schemas.Category(id=c.id, name=c.name, retail_multiplier=c.retail_multiplier))
+
     return schemas.Product(
         id=product.id,
         name=product.name,
         category_id=product.category_id,
         category_name=category_name,
+        categories=categories,
         spec=product.spec,
         base_cost_price=product.base_cost_price,
         fixed_retail_price=product.fixed_retail_price,
+        retail_multiplier=product.retail_multiplier,
         img_url=product.img_url,
     )
 
@@ -347,11 +386,18 @@ def round2(value: float) -> float:
 
 
 async def list_products_with_inventory(
-    session: AsyncSession, offset: int = 0, limit: int = 50, category_id: str | None = None
+    session: AsyncSession, offset: int = 0, limit: int = 50, category_id: str | None = None, category_ids: list[str] | None = None
 ) -> tuple[list[schemas.ProductListItem], int]:
     where_clause = []
+    all_category_ids: list[str] = []
     if category_id:
-        where_clause.append(Product.category_id == category_id)
+        all_category_ids.append(category_id)
+    if category_ids:
+        all_category_ids.extend([c for c in category_ids if c])
+    if all_category_ids:
+        # 产品主分类命中或多分类关联命中
+        subq = sa.select(ProductCategory.product_id).where(ProductCategory.category_id.in_(all_category_ids))
+        where_clause.append(sa.or_(Product.category_id.in_(all_category_ids), Product.id.in_(subq)))
 
     count_stmt = sa.select(sa.func.count()).select_from(Product)
     if where_clause:
@@ -373,15 +419,27 @@ async def list_products_with_inventory(
         retail_total = price_info.price * stock
         cost_total = product.base_cost_price * stock
         category_name = None
+        category_names: list[str] = []
         if product.category_id:
             category = await session.get(Category, product.category_id)
-            category_name = category.name if category else None
+            if category:
+                category_name = category.name
+                category_names.append(category.name)
+        stmt_pc = (
+            sa.select(Category)
+            .join(ProductCategory, Category.id == ProductCategory.category_id)
+            .where(ProductCategory.product_id == product.id)
+        )
+        extra = (await session.execute(stmt_pc)).scalars().all()
+        for c in extra:
+            if c.name not in category_names:
+                category_names.append(c.name)
         result.append(
             schemas.ProductListItem(
                 id=product.id,
                 name=product.name,
                 spec=product.spec,
-                category_name=category_name,
+                category_name="、".join([n for n in category_names if n]) or category_name,
                 base_cost_price=product.base_cost_price,
                 standard_price=price_info.price,
                 price_basis=price_info.basis,

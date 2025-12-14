@@ -37,10 +37,19 @@ class Product(Base):
     spec: Mapped[str] = mapped_column(sa.String(200), nullable=True)
     base_cost_price: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
     fixed_retail_price: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
+    retail_multiplier: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     img_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
 
     category: Mapped[Category | None] = relationship(back_populates="products")
     aliases: Mapped[list["ProductAlias"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+
+
+class ProductCategory(Base):
+    __tablename__ = "product_category"
+    __table_args__ = (sa.PrimaryKeyConstraint("product_id", "category_id", name="product_category_pk"),)
+
+    product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
+    category_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("category.id"), nullable=False)
 
 
 class ProductAlias(Base):
