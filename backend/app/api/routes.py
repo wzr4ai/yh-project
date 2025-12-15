@@ -3,6 +3,7 @@ from typing import List
 
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -69,6 +70,8 @@ async def list_products(
     merchant_category_ids: str | None = None,
     keyword: str | None = None,
     session: AsyncSession = Depends(get_session),
+    request: Request = None,
+    response: Response = None,
 ):
     limit = max(1, min(limit, 100))
     ids_list = [c for c in (category_ids.split(",") if category_ids else []) if c]
@@ -77,7 +80,7 @@ async def list_products(
     if custom_ids_list and not ids_list:
         # 兼容老参数，若未使用 category_ids 则使用 custom_category_ids
         ids_list = custom_ids_list
-    items, total = await logic.list_products_with_inventory(
+    items, total, version = await logic.list_products_with_inventory(
         session,
         offset=offset,
         limit=limit,
@@ -87,6 +90,11 @@ async def list_products(
         merchant_category_ids=merchant_ids_list,
         keyword=keyword,
     )
+    etag = f'W/"{version}"'
+    inm = request.headers.get("if-none-match") if request else None
+    if inm == etag:
+        return Response(status_code=304)
+    response.headers["ETag"] = etag
     return schemas.ProductListResponse(items=items, total=total)
 
 
@@ -99,8 +107,14 @@ async def get_product(product_id: str, session: AsyncSession = Depends(get_sessi
 
 
 @router.get("/categories", response_model=list[schemas.Category])
-async def list_categories(session: AsyncSession = Depends(get_session)):
+async def list_categories(session: AsyncSession = Depends(get_session), request: Request = None, response: Response = None):
     cats = (await session.execute(sa.select(logic.Category))).scalars().all()
+    version = logic.compute_version_from_models(cats)
+    etag = f'W/"{version}"'
+    inm = request.headers.get("if-none-match") if request else None
+    if inm == etag:
+        return Response(status_code=304)
+    response.headers["ETag"] = etag
     return cats
 
 
@@ -229,8 +243,14 @@ async def adjust_inventory(
 
 
 @router.get("/inventory/overview", response_model=list[schemas.InventoryOverviewItem])
-async def inventory_overview(session: AsyncSession = Depends(get_session)):
-    return await logic.inventory_overview(session)
+async def inventory_overview(session: AsyncSession = Depends(get_session), request: Request = None, response: Response = None):
+    items, version = await logic.inventory_overview(session, with_version=True)
+    etag = f'W/"{version}"'
+    inm = request.headers.get("if-none-match") if request else None
+    if inm == etag:
+        return Response(status_code=304)
+    response.headers["ETag"] = etag
+    return items
 
 
 @router.get("/inventory/{product_id}", response_model=schemas.InventoryRecord)

@@ -51,10 +51,16 @@ def ensure_columns(engine: Engine):
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS pack_price_ref double precision"))
         if "effect_url" not in product_columns:
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS effect_url varchar(500)"))
+        if "updated_at" not in product_columns:
+            conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now()"))
         if "is_custom" not in category_columns:
             conn.execute(text("ALTER TABLE category ADD COLUMN IF NOT EXISTS is_custom boolean DEFAULT false"))
+        if "updated_at" not in category_columns:
+            conn.execute(text("ALTER TABLE category ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now()"))
         if "loose_units" not in inventory_columns:
             conn.execute(text("ALTER TABLE inventory ADD COLUMN IF NOT EXISTS loose_units integer DEFAULT 0"))
+        if "updated_at" not in inventory_columns:
+            conn.execute(text("ALTER TABLE inventory ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now()"))
 
 
 def ensure_product_category(engine: Engine):

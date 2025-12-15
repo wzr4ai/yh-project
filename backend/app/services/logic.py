@@ -169,6 +169,7 @@ async def create_product(session: AsyncSession, payload: schemas.Product) -> Pro
         category_ids = extract_category_ids(payload.categories)
         await replace_product_categories(session, product.id, category_ids)
     await session.flush()
+    product.updated_at = datetime.utcnow()
     return product
 
 
@@ -187,6 +188,7 @@ async def update_product(session: AsyncSession, product_id: str, payload: schema
     product.pack_price_ref = payload.pack_price_ref
     product.img_url = payload.img_url
     product.effect_url = payload.effect_url
+    product.updated_at = datetime.utcnow()
     if payload.categories is not None:
         category_ids = extract_category_ids(payload.categories)
         await replace_product_categories(session, product_id, category_ids)
@@ -334,6 +336,7 @@ def apply_unit_delta(inv: Inventory, product: Product, delta_units: int) -> None
     else:
         inv.current_stock = int(total_units // spec_qty)
         inv.loose_units = int(total_units % spec_qty)
+    inv.updated_at = datetime.utcnow()
 
 
 async def log_inventory(session: AsyncSession, product_id: str, qty: int, ref_type: str, ref_id: str, warehouse_id: str = "default"):
@@ -536,7 +539,7 @@ async def list_products_with_inventory(
     custom_category_ids: list[str] | None = None,
     merchant_category_ids: list[str] | None = None,
     keyword: str | None = None,
-) -> tuple[list[schemas.ProductListItem], int]:
+) -> tuple[list[schemas.ProductListItem], int, str]:
     where_clause = []
     custom_ids = set([c for c in (custom_category_ids or []) if c])
     if category_ids:
@@ -570,7 +573,7 @@ async def list_products_with_inventory(
     stmt = stmt.offset(offset).limit(limit)
     products = (await session.execute(stmt)).scalars().all()
     if not products:
-        return [], 0
+        return [], 0, "empty"
 
     product_ids = [p.id for p in products]
 
@@ -606,6 +609,7 @@ async def list_products_with_inventory(
         category_map = {c.id: c for c in cats}
 
     result: list[schemas.ProductListItem] = []
+    max_ts = None
     for product in products:
         spec_clean = normalize_spec(product.spec)
         price_info = await calculate_price_for_product(session, product)
@@ -646,12 +650,16 @@ async def list_products_with_inventory(
                 effect_url=product.effect_url,
             )
         )
-    return result, total
+        if product.updated_at:
+            max_ts = max(max_ts or product.updated_at, product.updated_at)
+    version = (max_ts or datetime.utcnow()).isoformat()
+    return result, total, version
 
 
-async def inventory_overview(session: AsyncSession) -> list[schemas.InventoryOverviewItem]:
+async def inventory_overview(session: AsyncSession, with_version: bool = False) -> tuple[list[schemas.InventoryOverviewItem], str] | list[schemas.InventoryOverviewItem]:
     inv_rows = (await session.execute(sa.select(Inventory))).scalars().all()
     items: list[schemas.InventoryOverviewItem] = []
+    max_ts = None
     for inv in inv_rows:
         product = await session.get(Product, inv.product_id)
         if not product:
@@ -683,4 +691,7 @@ async def inventory_overview(session: AsyncSession) -> list[schemas.InventoryOve
                 cost_total=round2(cost_total),
             )
         )
-    return items
+        if inv.updated_at:
+            max_ts = max(max_ts or inv.updated_at, inv.updated_at)
+    version = (max_ts or datetime.utcnow()).isoformat()
+    return (items, version) if with_version else items

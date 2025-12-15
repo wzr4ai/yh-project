@@ -33,6 +33,7 @@ class Category(Base):
     name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     retail_multiplier: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     is_custom: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     products: Mapped[list["Product"]] = relationship(back_populates="category")
 
@@ -50,6 +51,7 @@ class Product(Base):
     pack_price_ref: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     img_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
     effect_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     category: Mapped[Category | None] = relationship(back_populates="products")
     aliases: Mapped[list["ProductAlias"]] = relationship(back_populates="product", cascade="all, delete-orphan")
@@ -97,6 +99,7 @@ class Inventory(Base):
     warehouse_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("warehouse.id"), nullable=False, default="default")
     current_stock: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     loose_units: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class InventoryLog(Base):
