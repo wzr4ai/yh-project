@@ -588,23 +588,26 @@ async def list_products_with_inventory(
 
     product_ids = [p.id for p in products]
 
-    # 批量获取库存聚合
-    inventory_map: dict[str, int] = {}
+    # 并行获取库存与分类关联
     inv_stmt = (
         sa.select(Inventory.product_id, sa.func.sum(Inventory.current_stock), sa.func.sum(Inventory.loose_units))
         .where(Inventory.product_id.in_(product_ids))
         .group_by(Inventory.product_id)
     )
-    for pid, box_qty, loose_qty in (await session.execute(inv_stmt)).all():
-        inventory_map[pid] = (int(box_qty or 0), int(loose_qty or 0))
-
-    # 批量获取分类关联
     pc_stmt = sa.select(ProductCategory.product_id, ProductCategory.category_id).where(
         ProductCategory.product_id.in_(product_ids)
     )
-    pc_rows = (await session.execute(pc_stmt)).all()
+    inv_rows, pc_rows = await asyncio.gather(
+        session.execute(inv_stmt),
+        session.execute(pc_stmt),
+    )
+
+    inventory_map: dict[str, int] = {}
+    for pid, box_qty, loose_qty in inv_rows.all():
+        inventory_map[pid] = (int(box_qty or 0), int(loose_qty or 0))
+
     product_to_category_ids: dict[str, list[str]] = {}
-    for pid, cid in pc_rows:
+    for pid, cid in pc_rows.all():
         product_to_category_ids.setdefault(pid, []).append(cid)
 
     # 收集需要的分类 ID

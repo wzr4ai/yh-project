@@ -192,6 +192,12 @@ export default {
         const items = (data && data.items) || []
         this.total = data?.total || 0
         this.products = items
+        // 写入缓存
+        try {
+          uni.setStorageSync(this.cacheKey, { etag: null, data })
+        } catch (e) {
+          // ignore cache write errors
+        }
       } catch (err) {
         uni.showToast({ title: '加载商品失败', icon: 'none' })
       } finally {
