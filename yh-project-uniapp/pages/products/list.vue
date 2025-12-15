@@ -49,16 +49,19 @@
             <view class="name">{{ item.name }}</view>
             <view class="meta">{{ item.spec || '—' }} ｜ {{ item.category_name || '—' }}</view>
           </view>
-          <view class="price">¥{{ item.standard_price.toFixed(2) }}</view>
+          <view class="price-area">
+            <view class="price">¥{{ item.standard_price.toFixed(2) }}</view>
+            <button
+              v-if="item.effect_url"
+              size="mini"
+              type="primary"
+              class="effect-btn"
+              @tap.stop="openEffect(item.effect_url)"
+            >效果</button>
+          </view>
         </view>
         <view class="tags">
           <view class="tag">{{ item.price_basis }}</view>
-          <button
-            v-if="item.effect_url"
-            size="mini"
-            type="primary"
-            @tap.stop="openEffect(item.effect_url)"
-          >效果</button>
         </view>
         <view class="footer">
           <view class="footer-item" v-if="isOwner">成本 ¥{{ item.base_cost_price }}</view>
@@ -443,6 +446,17 @@ export default {
   font-size: 32rpx;
   font-weight: 700;
   color: #0f6a7b;
+}
+
+.price-area {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8rpx;
+}
+
+.effect-btn {
+  min-width: 120rpx;
 }
 
 .tags {
