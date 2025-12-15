@@ -4,10 +4,21 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost/fireworks_db")
-# 自动补全驱动
-if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+def build_database_url() -> str:
+    url = os.getenv("DATABASE_URL")
+    if url:
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+    user = os.getenv("POSTGRES_USER", "postgres")
+    pwd = os.getenv("POSTGRES_PASSWORD", "postgres")
+    host = os.getenv("POSTGRES_HOST", "postgres")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    db = os.getenv("POSTGRES_DB", "postgres")
+    return f"postgresql+asyncpg://{user}:{pwd}@{host}:{port}/{db}"
+
+
+DATABASE_URL = build_database_url()
 
 
 class Base(DeclarativeBase):

@@ -4,7 +4,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    #command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
     env_file:
       - .env
     environment:
@@ -15,3 +14,22 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:18-alpine
+    restart: always
+    container_name: yh-postgres
+    environment:
+      POSTGRES_USER: qyxs_admin        # 你的数据库用户名
+      POSTGRES_PASSWORD: qyxs_e5nkp53m # 你的数据库密码
+      POSTGRES_DB: yh_db      # 默认的主数据库名
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data # 数据持久化
+    ports:
+      - "5432:5432" # 生产环境建议通过防火墙限制此端口访问
+    deploy:
+      resources:
+        limits:
+          memory: 1G # 限制内存，防止 OOM
