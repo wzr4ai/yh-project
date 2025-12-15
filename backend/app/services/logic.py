@@ -34,6 +34,17 @@ def normalize_spec(spec: str | None) -> str | None:
     return None
 
 
+def compute_version_from_models(models: list[Any]) -> str:
+    max_ts = None
+    for m in models:
+        ts = getattr(m, "updated_at", None)
+        if ts:
+            max_ts = max(max_ts or ts, ts)
+    from datetime import datetime
+
+    return (max_ts or datetime.utcnow()).isoformat()
+
+
 def parse_spec_qty(spec: str | None) -> float:
     clean = normalize_spec(spec)
     if not clean:
