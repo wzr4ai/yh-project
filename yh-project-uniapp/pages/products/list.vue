@@ -130,6 +130,15 @@ export default {
     totalPages() {
       if (!this.total) return 1
       return Math.max(1, Math.ceil(this.total / this.pageSize))
+    },
+    cacheKey() {
+      const params = []
+      params.push(`offset=${(this.page - 1) * this.pageSize}`)
+      params.push(`limit=${this.pageSize}`)
+      if (this.selectedMerchantIds.length) params.push(`merchant_category_ids=${this.selectedMerchantIds.join(',')}`)
+      if (this.selectedCustomIds.length) params.push(`custom_category_ids=${this.selectedCustomIds.join(',')}`)
+      if (this.keyword.trim()) params.push(`keyword=${encodeURIComponent(this.keyword.trim())}`)
+      return `cache:/api/products?${params.join('&')}`
     }
   },
   onLoad() {
@@ -152,6 +161,17 @@ export default {
     uni.setStorageSync('products-page', this.page)
   },
   methods: {
+    tryLoadCache() {
+      try {
+        const cached = uni.getStorageSync(this.cacheKey)
+        if (cached && cached.data) {
+          this.products = cached.data.items || []
+          this.total = cached.data.total || 0
+        }
+      } catch (e) {
+        // ignore cache errors
+      }
+    },
     resetAndLoad() {
       this.page = 1
       this.products = []
@@ -160,6 +180,7 @@ export default {
     },
     async loadPage() {
       this.loading = true
+      this.tryLoadCache()
       try {
         const data = await api.getProducts({
           offset: (this.page - 1) * this.pageSize,
