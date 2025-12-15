@@ -1,8 +1,7 @@
 import re
+import asyncio
 from datetime import datetime
 from typing import Any, List, Tuple
-
-import asyncio
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
