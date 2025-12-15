@@ -25,6 +25,59 @@ function request(path, options = {}) {
   })
 }
 
+const cacheStore = {
+  get(key) {
+    try {
+      return uni.getStorageSync(key)
+    } catch (e) {
+      return null
+    }
+  },
+  set(key, value) {
+    try {
+      uni.setStorageSync(key, value)
+    } catch (e) {}
+  }
+}
+
+async function cachedRequest(path, options = {}, cacheKey) {
+  const token = getToken()
+  const headers = options.header || {}
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  // attach ETag if cached
+  const cached = cacheKey ? cacheStore.get(cacheKey) : null
+  if (cached && cached.etag) {
+    headers['If-None-Match'] = cached.etag
+  }
+
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${API_BASE_URL}${path}`,
+      method: options.method || 'GET',
+      data: options.data || {},
+      header: headers,
+      success: (res) => {
+        if (res.statusCode === 304 && cached) {
+          resolve(cached.data)
+          return
+        }
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          if (cacheKey && res.header && res.header.ETag) {
+            cacheStore.set(cacheKey, { etag: res.header.ETag, data: res.data })
+          }
+          resolve(res.data)
+        } else {
+          reject(res.data || { message: '请求失败' })
+        }
+      },
+      fail: reject
+    })
+  })
+}
+
 export const api = {
   getRealtime() {
     return request('/api/dashboard/realtime')
@@ -71,10 +124,12 @@ export const api = {
     if (customCategoryIds.length) params.push(`custom_category_ids=${customCategoryIds.map(encodeURIComponent).join(',')}`)
     if (merchantCategoryIds.length) params.push(`merchant_category_ids=${merchantCategoryIds.map(encodeURIComponent).join(',')}`)
     if (keyword) params.push(`keyword=${encodeURIComponent(keyword)}`)
-    return request(`/api/products?${params.join('&')}`)
+    const path = `/api/products?${params.join('&')}`
+    return cachedRequest(path, {}, `cache:${path}`)
   },
   getInventoryOverview() {
-    return request('/api/inventory/overview')
+    const path = '/api/inventory/overview'
+    return cachedRequest(path, {}, `cache:${path}`)
   },
   adjustInventory(data, username) {
     const qs = username ? `?username=${encodeURIComponent(username)}` : ''
@@ -87,10 +142,11 @@ export const api = {
     return request(`/api/inventory/${productId}`)
   },
   getProduct(id) {
-    return request(`/api/products/${id}`)
+    return request(`/api/products/${id}`) // 单个商品更新频率高，暂不缓存
   },
   getCategories() {
-    return request('/api/categories')
+    const path = '/api/categories'
+    return cachedRequest(path, {}, `cache:${path}`)
   },
   createCategory(data) {
     return request('/api/categories', { method: 'POST', data })
