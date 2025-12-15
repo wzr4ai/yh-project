@@ -620,14 +620,39 @@ async def list_products_with_inventory(
         category_map = {c.id: c for c in cats}
 
     result: list[schemas.ProductListItem] = []
+    global_multiplier = await get_global_multiplier(session)
     max_ts = None
     for product in products:
         spec_clean = normalize_spec(product.spec)
-        price_info = await calculate_price_for_product(session, product)
         box_qty, loose_qty = inventory_map.get(product.id, (0, 0))
         total_units = box_qty * parse_spec_qty(product.spec) + loose_qty
         stock = total_units
-        retail_total = price_info.price * total_units
+        # 价格计算纯内存
+        if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
+            price_val = product.fixed_retail_price
+            basis = "例外价"
+        elif product.retail_multiplier:
+            price_val = round2(product.base_cost_price * product.retail_multiplier)
+            basis = "商品系数"
+        else:
+            multipliers: list[float] = []
+            if product.category_id:
+                cat = category_map.get(product.category_id)
+                if cat and cat.retail_multiplier:
+                    multipliers.append(cat.retail_multiplier)
+            for cid in product_to_category_ids.get(product.id, []):
+                cat = category_map.get(cid)
+                if cat and cat.retail_multiplier:
+                    multipliers.append(cat.retail_multiplier)
+            if multipliers:
+                chosen = max(multipliers)
+                price_val = round2(product.base_cost_price * chosen)
+                basis = "分类系数"
+            else:
+                price_val = round2(product.base_cost_price * global_multiplier)
+                basis = "全局系数"
+
+        retail_total = price_val * total_units
         cost_total = product.base_cost_price * total_units
         category_name = None
         category_names: list[str] = []
@@ -653,8 +678,8 @@ async def list_products_with_inventory(
                 category_name="、".join([n for n in category_names if n]) or category_name,
                 category_ids=category_ids,
                 base_cost_price=product.base_cost_price,
-                standard_price=price_info.price,
-                price_basis=price_info.basis,
+                standard_price=price_val,
+                price_basis=basis,
                 stock=stock,
                 retail_total=round2(retail_total),
                 cost_total=round2(cost_total),
