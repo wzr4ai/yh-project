@@ -60,12 +60,10 @@
             >效果</button>
           </view>
         </view>
-        <view class="tags">
-          <view class="tag">{{ item.price_basis }}</view>
-        </view>
         <view class="footer">
           <view class="footer-item" v-if="isOwner">成本 ¥{{ item.base_cost_price }}</view>
           <view class="footer-item">库存 {{ item.stock }}</view>
+          <view class="footer-item tag">{{ item.price_basis }}</view>
           <view class="footer-item">潜在总价 ¥{{ item.retail_total.toFixed(2) }}</view>
         </view>
       </view>
