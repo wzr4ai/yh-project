@@ -10,3 +10,4 @@ node_modules/
 yh-project-uniapp/common/config.js
 
 files
+docker-compose.yml
