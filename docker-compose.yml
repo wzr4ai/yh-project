@@ -27,8 +27,8 @@ services:
       POSTGRES_DB: yh_db      # 默认的主数据库名
     volumes:
       - ./postgres_data:/var/lib/postgresql/data # 数据持久化
-    ports:
-      - "5432:5432" # 生产环境建议通过防火墙限制此端口访问
+    #ports:
+      #- "5432:5432" # 生产环境建议通过防火墙限制此端口访问
     deploy:
       resources:
         limits:
