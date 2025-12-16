@@ -94,6 +94,18 @@ export const api = {
   getPerformance() {
     return request('/api/dashboard/performance')
   },
+  analyzeOrders(payload) {
+    return request('/api/orders/analyze', {
+      method: 'POST',
+      data: payload
+    })
+  },
+  importOrders(payload) {
+    return request('/api/orders/import', {
+      method: 'POST',
+      data: payload
+    })
+  },
   getPurchaseOrders() {
     return request('/api/purchase-orders')
   },

@@ -72,6 +72,12 @@
       "style": {
         "navigationBarTitleText": "页面预览"
       }
+    },
+    {
+      "path": "pages/orders/import",
+      "style": {
+        "navigationBarTitleText": "订单智能录入"
+      }
     }
   ],
   "globalStyle": {

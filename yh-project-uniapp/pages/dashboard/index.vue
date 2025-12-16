@@ -91,6 +91,10 @@
           <view class="action-title">商品目录</view>
           <view class="action-desc">价格体系与库存分布</view>
         </view>
+        <view class="action" @tap="go('/pages/orders/import')">
+          <view class="action-title">订单智能录入</view>
+          <view class="action-desc">粘贴文本，AI 辅助匹配商品</view>
+        </view>
       </view>
     </view>
   </view>
