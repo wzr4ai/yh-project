@@ -113,6 +113,7 @@ export default {
           label: `${p.name}${p.spec ? '｜' + p.spec : ''}`,
           standard_price: this.pickStandardPrice(p),
           base_cost_price: p.base_cost_price ?? null,
+          name: p.name,
           spec: p.spec,
           spec_qty: this.parseSpecQty(p.spec),
           box_price: p.spec && p.base_cost_price != null && p.base_cost_price !== undefined
@@ -142,7 +143,15 @@ export default {
     },
     enrichPrice(item) {
       const pid = item.product_id || item.suggested_product_id
-      const prod = this.allProducts.find(p => p.value === pid)
+      let prod = this.allProducts.find(p => p.value === pid)
+      if (!prod && item.product_name) {
+        const nameLower = item.product_name.toLowerCase()
+        prod = this.allProducts.find(p => (p.name || '').toLowerCase() === nameLower)
+      }
+      if (!prod && item.raw_name) {
+        const rawLower = item.raw_name.toLowerCase()
+        prod = this.allProducts.find(p => (p.name || '').toLowerCase() === rawLower)
+      }
       const standardPrice = prod?.standard_price
       const baseCost = prod?.base_cost_price
       const spec = prod?.spec || ''
