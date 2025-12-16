@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import os
 from typing import Literal, Optional, List, Dict
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -212,7 +213,11 @@ class LLMChatRequest(BaseModel):
     protocol: Optional[Literal["gemini", "openai", "open"]] = None
     model: Optional[str] = None
     temperature: float = 0.7
-    max_output_tokens: int = Field(default=512, ge=1, le=8192)
+    max_output_tokens: int = Field(
+        default=max(1, min(8192, int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "2048") or 2048))),
+        ge=1,
+        le=8192,
+    )
 
 
 class LLMChatResponse(BaseModel):

@@ -9,5 +9,7 @@ __pycache__/
 node_modules/
 yh-project-uniapp/common/config.js
 
+logs/
+
 files
 docker-compose.yml

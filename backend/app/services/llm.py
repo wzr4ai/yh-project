@@ -32,6 +32,7 @@ class LLMService:
         self.model_high = os.getenv("LLM_MODEL_HIGH", "gemini-2.5-pro")
         self.log_mode = (log_mode or os.getenv("LLM_LOG_MODE") or "prod").lower()
         self.log_file = Path(os.getenv("LLM_LOG_FILE") or Path(__file__).resolve().parent.parent / "llm_dev.log")
+        self.default_max_tokens = max(1, min(8192, int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "2048") or 2048)))
 
     async def chat(
         self,
@@ -40,7 +41,7 @@ class LLMService:
         protocol: Protocol | None = None,
         model: str | None = None,
         temperature: float = 0.7,
-        max_output_tokens: int = 512,
+        max_output_tokens: int | None = None,
         response_mime_type: str | None = None,
     ) -> schemas.LLMChatResponse:
         if not messages:
@@ -52,13 +53,14 @@ class LLMService:
         model_name = model or self._model_for_tier(model_tier)
         if not model_name:
             raise ValueError(f"no model configured for tier '{model_tier}'")
+        max_tokens = max_output_tokens or self.default_max_tokens
 
         if protocol.startswith("open"):
             return await self._call_openai(
-                messages, model_name, temperature, max_output_tokens, response_mime_type=response_mime_type
+                messages, model_name, temperature, max_tokens, response_mime_type=response_mime_type
             )
         return await self._call_gemini(
-            messages, model_name, temperature, max_output_tokens, response_mime_type=response_mime_type
+            messages, model_name, temperature, max_tokens, response_mime_type=response_mime_type
         )
 
     def _model_for_tier(self, tier: ModelTier) -> str:
