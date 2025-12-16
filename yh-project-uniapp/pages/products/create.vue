@@ -25,11 +25,11 @@
       </view>
       <view class="form-row">
         <view class="label">进价</view>
-        <input class="input" type="number" inputmode="decimal" v-model.number="form.base_cost_price" placeholder="进价" />
+        <input class="input" type="digit" inputmode="decimal" v-model.number="form.base_cost_price" placeholder="进价（可小数）" />
       </view>
       <view class="form-row">
         <view class="label">固定零售价</view>
-        <input class="input" type="number" inputmode="decimal" v-model.number="form.fixed_retail_price" placeholder="为空则按系数" />
+        <input class="input" type="digit" inputmode="decimal" v-model.number="form.fixed_retail_price" placeholder="为空则按系数，可小数" />
       </view>
       <view class="form-row">
         <view class="label">图片</view>
