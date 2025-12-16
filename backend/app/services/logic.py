@@ -552,30 +552,56 @@ async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float
 
 
 async def inventory_by_category(session: AsyncSession) -> list[dict]:
-    # Only include custom categories (is_custom = true)
+    # Only include custom categories (is_custom = true); additionally put uncategorized into a fallback bucket
     categories = (await session.execute(sa.select(Category).where(Category.is_custom.is_(True)))).scalars().all()
     cat_map = {c.id: c for c in categories}
     cat_data = {c.id: {"id": c.id, "name": c.name, "sku": 0, "boxes": 0.0, "cost": 0.0, "retail": 0.0} for c in categories}
+    uncategorized_id = "__uncategorized__"
+    cat_data[uncategorized_id] = {"id": uncategorized_id, "name": "未分组", "sku": 0, "boxes": 0.0, "cost": 0.0, "retail": 0.0}
+
+    # map product -> custom categories via many-to-many
+    if cat_map:
+        pc_rows = (
+            await session.execute(
+                sa.select(ProductCategory.product_id, ProductCategory.category_id).where(
+                    ProductCategory.category_id.in_(list(cat_map.keys()))
+                )
+            )
+        ).all()
+        product_to_custom: dict[str, set[str]] = {}
+        for pid, cid in pc_rows:
+            product_to_custom.setdefault(pid, set()).add(cid)
+    else:
+        product_to_custom = {}
 
     inv_rows = (await session.execute(sa.select(Inventory))).scalars().all()
     for inv in inv_rows:
         product = await session.get(Product, inv.product_id)
         if not product:
             continue
-        # skip if product not in custom categories
-        cat_id = product.category_id
-        if cat_id not in cat_map:
-            continue
+        custom_ids: set[str] = set()
+        if product.category_id and product.category_id in cat_map:
+            custom_ids.add(product.category_id)
+        if product.id in product_to_custom:
+            custom_ids.update(product_to_custom[product.id])
+        # fallback bucket if no custom category matched
+        if not custom_ids:
+            custom_ids.add(uncategorized_id)
+
         price_info = await calculate_price_for_product(session, product)
         spec_qty = parse_spec_qty(product.spec)
         total_units = inv.current_stock * spec_qty + (inv.loose_units or 0)
         if total_units <= 0:
             continue
-        data = cat_data[cat_id]
-        data["sku"] += 1
-        data["boxes"] += total_units / spec_qty
-        data["cost"] += product.base_cost_price * total_units
-        data["retail"] += price_info.price * total_units
+        for cid in custom_ids:
+            data = cat_data.setdefault(
+                cid,
+                {"id": cid, "name": cat_map.get(cid).name if cid in cat_map else "未分组", "sku": 0, "boxes": 0.0, "cost": 0.0, "retail": 0.0},
+            )
+            data["sku"] += 1
+            data["boxes"] += total_units / spec_qty
+            data["cost"] += product.base_cost_price * total_units
+            data["retail"] += price_info.price * total_units
 
     # round numbers
     for d in cat_data.values():
