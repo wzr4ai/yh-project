@@ -402,8 +402,13 @@ async def set_manual_receipt(
 
 @router.get("/dashboard/inventory_value", response_model=schemas.InventoryValueResponse)
 async def dashboard_inventory_value(session: AsyncSession = Depends(get_session)):
-    cost, retail = await logic.dashboard_inventory_value(session)
-    return schemas.InventoryValueResponse(cost_total=round(cost, 2), retail_total=round(retail, 2))
+    cost, retail, sku_count, total_boxes = await logic.dashboard_inventory_value(session)
+    return schemas.InventoryValueResponse(
+        cost_total=round(cost, 2),
+        retail_total=round(retail, 2),
+        sku_count=sku_count,
+        total_boxes=total_boxes,
+    )
 
 @router.get("/dashboard/receipt_total")
 async def dashboard_receipt_total(session: AsyncSession = Depends(get_session)):

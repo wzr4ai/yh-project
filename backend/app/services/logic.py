@@ -530,9 +530,11 @@ async def set_manual_receipt(session: AsyncSession, value: float):
     await session.flush()
 
 
-async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float]:
+async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float, int, float]:
     cost_total = 0.0
     retail_total = 0.0
+    sku_with_stock = set()
+    total_boxes = 0.0
     inv_rows = (await session.execute(sa.select(Inventory))).scalars().all()
     for inv in inv_rows:
         product = await session.get(Product, inv.product_id)
@@ -541,9 +543,12 @@ async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float
         price_info = await calculate_price_for_product(session, product)
         spec_qty = parse_spec_qty(product.spec)
         total_units = inv.current_stock * spec_qty + (inv.loose_units or 0)
+        if total_units > 0:
+            sku_with_stock.add(product.id)
+            total_boxes += total_units / spec_qty
         cost_total += product.base_cost_price * total_units
         retail_total += price_info.price * total_units
-    return cost_total, retail_total
+    return cost_total, retail_total, len(sku_with_stock), round2(total_boxes)
 
 
 async def create_misc_cost(session: AsyncSession, data: schemas.MiscCostCreate) -> MiscCost:

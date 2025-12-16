@@ -42,6 +42,14 @@
             <view class="mini-title">潜在零售价</view>
             <view class="mini-value">¥{{ inventoryRetail.toFixed(2) }}</view>
           </view>
+          <view>
+            <view class="mini-title">有库存商品数</view>
+            <view class="mini-value">{{ inventorySku }}</view>
+          </view>
+          <view>
+            <view class="mini-title">总箱数</view>
+            <view class="mini-value">{{ inventoryBoxes }}</view>
+          </view>
         </view>
         <view class="card-sub">按当前价格体系计算，单仓</view>
       </view>
@@ -130,6 +138,8 @@ export default {
         avgTicket: 0
       },
       inventoryCost: 0,
+      inventorySku: 0,
+      inventoryBoxes: 0,
       receiptTotal: 0,
       inventoryRetail: 0,
       categoryPerf: {
@@ -180,6 +190,8 @@ export default {
         }
         this.inventoryCost = inv.cost_total || 0
         this.inventoryRetail = inv.retail_total || 0
+        this.inventorySku = inv.sku_count || 0
+        this.inventoryBoxes = inv.total_boxes || 0
         this.receiptTotal = totalReceipt?.total || 0
         if (realtime.manual_receipt !== null && realtime.manual_receipt !== undefined) {
           this.manualReceiptInput = String(realtime.manual_receipt)
