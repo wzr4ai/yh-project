@@ -58,6 +58,11 @@
           <view class="field">
             <view class="label">成交单价</view>
             <input class="input" type="digit" v-model.number="item.actual_price" placeholder="¥" />
+            <view class="price-hint" v-if="item.product_price || item.detected_price">
+              <text v-if="item.product_price">标准价 ¥{{ item.product_price }}</text>
+              <text v-if="item.product_price && item.detected_price"> ｜ </text>
+              <text v-if="item.detected_price">订单价 ¥{{ item.detected_price }}</text>
+            </view>
           </view>
         </view>
       </scroll-view>
@@ -98,20 +103,34 @@ export default {
         const res = await api.getProducts({ offset: 0, limit: 500 })
         this.allProducts = (res?.items || []).map(p => ({
           value: p.id,
-          label: `${p.name}${p.spec ? '｜' + p.spec : ''}`
+          label: `${p.name}${p.spec ? '｜' + p.spec : ''}`,
+          standard_price: p.standard_price
         }))
         // 将列表刷新到已有项上，避免初始显示“请选择”
-        this.items = this.items.map(it => ({
-          ...it,
-          product_id: it.product_id || it.suggested_product_id,
-          product_name: it.product_name || it.suggested_product_name
-        }))
+        this.items = this.items.map(it => this.enrichPrice(it))
       } catch (e) {
         uni.showToast({ title: '商品列表获取失败', icon: 'none' })
       }
     },
     toggleInput() {
       this.inputCollapsed = !this.inputCollapsed
+    },
+    enrichPrice(item) {
+      const pid = item.product_id || item.suggested_product_id
+      const prod = this.allProducts.find(p => p.value === pid)
+      const standardPrice = prod?.standard_price
+      const detected = item.detected_price
+      let prefilled = item.actual_price || 0
+      if (detected != null && standardPrice != null && Math.abs(detected - standardPrice) < 1e-6) {
+        prefilled = detected
+      } else if (item.actual_price == null || item.actual_price === 0) {
+        prefilled = detected || standardPrice || 0
+      }
+      return {
+        ...item,
+        product_price: standardPrice,
+        prefilled_price: prefilled
+      }
     },
     rowClass(item) {
       const conf = (item.confidence || '').toLowerCase()
@@ -151,8 +170,16 @@ export default {
       const options = this.pickerOptions(this.items[idx])
       const choice = options[optIndex]
       if (choice) {
-        this.$set(this.items[idx], 'product_id', choice.value)
-        this.$set(this.items[idx], 'product_name', choice.label)
+        const updated = {
+          ...this.items[idx],
+          product_id: choice.value,
+          product_name: choice.label
+        }
+        const enriched = this.enrichPrice(updated)
+        if (this.items[idx].actual_price == null || this.items[idx].actual_price === 0) {
+          enriched.actual_price = enriched.prefilled_price
+        }
+        this.$set(this.items, idx, enriched)
       }
     },
     displayName(item) {
@@ -171,13 +198,20 @@ export default {
       this.loading = true
       try {
         const res = await api.analyzeOrders({ raw_text: text })
-        const cleaned = (res?.items || []).map(it => ({
-          ...it,
-          product_id: it.suggested_product_id || '',
-          product_name: it.suggested_product_name || '',
-          actual_price: 0,
-          confidenceTag: this.confidenceTag(it)
-        }))
+        const cleaned = (res?.items || []).map(it => {
+          const normalized = {
+            ...it,
+            product_id: it.suggested_product_id || '',
+            product_name: it.suggested_product_name || '',
+            confidenceTag: this.confidenceTag(it),
+            detected_price: it.detected_price
+          }
+          const enriched = this.enrichPrice(normalized)
+          return {
+            ...enriched,
+            actual_price: enriched.prefilled_price
+          }
+        })
         this.items = cleaned
         this.inputCollapsed = true
         uni.showToast({ title: '识别完成', icon: 'success' })
@@ -335,6 +369,11 @@ export default {
   background: #f8fafc;
   border-radius: 8px;
   border: 1px solid #e5e6eb;
+}
+.price-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
 }
 .link {
   margin-top: 6px;

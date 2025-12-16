@@ -245,6 +245,7 @@ class OrderAnalyzeItem(BaseModel):
     quantity: int = 1
     confidence: Literal["high", "low", "new"] = "low"
     candidates: List[OrderAnalyzeCandidate] = Field(default_factory=list)
+    detected_price: Optional[float] = None
 
 
 class OrderAnalyzeResponse(BaseModel):

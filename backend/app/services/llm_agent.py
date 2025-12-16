@@ -1,28 +1,44 @@
 import json
 import textwrap
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import schemas
 from app.models.entities import Product, ProductAlias
+from app.services import logic
 from app.services.llm import LLMService, LLMServiceError
 
 
-async def build_product_context(session: AsyncSession) -> Tuple[str, Dict[str, str]]:
+async def build_product_context(session: AsyncSession) -> Tuple[str, Dict[str, Any]]:
     """Build a compact JSON context of products and aliases for prompting."""
-    products = (await session.execute(sa.select(Product.id, Product.name, Product.spec))).all()
+    products = (await session.execute(sa.select(Product))).scalars().all()
     alias_rows = (await session.execute(sa.select(ProductAlias.product_id, ProductAlias.alias_name))).all()
     alias_map: Dict[str, List[str]] = {}
     for pid, alias_name in alias_rows:
         alias_map.setdefault(pid, []).append(alias_name)
-    context = [
-        {"id": pid, "name": name, "spec": spec, "aliases": alias_map.get(pid, [])}
-        for pid, name, spec in products
-    ]
-    context_str = json.dumps(context, ensure_ascii=False)
-    product_lookup = {pid: name for pid, name, _ in products}
+
+    context_items: list[dict[str, Any]] = []
+    product_lookup: Dict[str, Any] = {}
+    for prod in products:
+        price_info = await logic.calculate_price_for_product(session, prod)
+        context_items.append(
+            {
+                "id": prod.id,
+                "name": prod.name,
+                "spec": prod.spec,
+                "standard_price": price_info.price,
+                "aliases": alias_map.get(prod.id, []),
+            }
+        )
+        product_lookup[prod.id] = {
+            "name": prod.name,
+            "spec": prod.spec,
+            "standard_price": price_info.price,
+        }
+
+    context_str = json.dumps(context_items, ensure_ascii=False)
     return context_str, product_lookup
 
 
@@ -33,8 +49,9 @@ async def analyze_order_text(text: str, context: str, protocol: str | None = Non
         你是一个订单预处理助手，根据门店商品清单把“脏”的订单文本整理成结构化 JSON。
         请严格输出 JSON，不要包含多余说明。
         规则：
-        - 使用给定的商品上下文进行匹配，名称或别名模糊匹配。
-        - 为每个出现的商品输出：raw_name, suggested_product_id, suggested_product_name, quantity, confidence(high/low/new), candidates(最多3个)。
+        - 使用给定的商品上下文进行匹配，名称或别名模糊匹配，并比较规格(spec)与标准单价(standard_price)。
+        - 当规格和标准单价都匹配且名称近似时，可将 confidence 提升为 high。
+        - 为每个出现的商品输出：raw_name, suggested_product_id, suggested_product_name, quantity, detected_price(若能识别), confidence(high/low/new), candidates(最多3个，包含 product_id、product_name、score)。
         - 当不确定或上下文不存在时，confidence 设置为 new，product_id 置空。
         - 只返回 JSON 对象：{"items":[...]}
         """
@@ -56,7 +73,7 @@ async def analyze_order_text(text: str, context: str, protocol: str | None = Non
 
 
 async def parse_and_validate(
-    raw_content: str, product_lookup: Dict[str, str]
+    raw_content: str, product_lookup: Dict[str, Any]
 ) -> schemas.OrderAnalyzeResponse:
     """Ensure LLM JSON is clean and product IDs exist."""
     try:
@@ -95,7 +112,13 @@ async def parse_and_validate(
             confidence = "low"
 
         if suggested_id and not suggested_name:
-            suggested_name = product_lookup.get(suggested_id)
+            suggested_name = (product_lookup.get(suggested_id) or {}).get("name")
+
+        detected_price = raw_item.get("detected_price") or raw_item.get("unit_price")
+        try:
+            detected_price_val = float(detected_price) if detected_price is not None else None
+        except Exception:
+            detected_price_val = None
 
         candidates_input = raw_item.get("candidates") or []
         candidates: list[schemas.OrderAnalyzeCandidate] = []
@@ -126,6 +149,7 @@ async def parse_and_validate(
                 quantity=quantity_val,
                 confidence=confidence,  # type: ignore[arg-type]
                 candidates=candidates,
+                detected_price=detected_price_val,
             )
         )
 
