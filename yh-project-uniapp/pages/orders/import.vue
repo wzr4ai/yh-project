@@ -58,9 +58,9 @@
           <view class="field">
             <view class="label">成交单价</view>
             <input class="input" type="digit" v-model.number="item.actual_price" placeholder="¥" />
-            <view class="price-hint" v-if="item.product_price || item.detected_price || item.product_spec">
+            <view class="price-hint" v-if="item.product_price || item.product_spec || item.product_base_cost !== null || item.detected_price != null">
               <view>
-                标准价：{{ item.product_price != null ? `¥${item.product_price}` : '无' }}
+                数据库单价：{{ item.product_base_cost != null ? `¥${item.product_base_cost}` : '无' }}
               </view>
               <view>
                 规格：{{ item.product_spec || '无' }} ｜
@@ -112,10 +112,11 @@ export default {
           value: p.id,
           label: `${p.name}${p.spec ? '｜' + p.spec : ''}`,
           standard_price: this.pickStandardPrice(p),
+          base_cost_price: p.base_cost_price ?? null,
           spec: p.spec,
           spec_qty: this.parseSpecQty(p.spec),
-          box_price: p.spec && this.pickStandardPrice(p) != null
-            ? (this.pickStandardPrice(p) * this.parseSpecQty(p.spec)).toFixed(2)
+          box_price: p.spec && p.base_cost_price != null && p.base_cost_price !== undefined
+            ? (p.base_cost_price * this.parseSpecQty(p.spec)).toFixed(2)
             : null
         }))
         // 将列表刷新到已有项上，避免初始显示“请选择”
@@ -143,6 +144,7 @@ export default {
       const pid = item.product_id || item.suggested_product_id
       const prod = this.allProducts.find(p => p.value === pid)
       const standardPrice = prod?.standard_price
+      const baseCost = prod?.base_cost_price
       const spec = prod?.spec || ''
       const boxPrice = prod?.box_price ? Number(prod.box_price) : null
       const detected = item.detected_price
@@ -154,7 +156,8 @@ export default {
       }
       return {
         ...item,
-        product_price: standardPrice,
+        product_price: standardPrice ?? baseCost ?? null,
+        product_base_cost: baseCost ?? null,
         prefilled_price: prefilled,
         product_spec: spec,
         product_box_price: boxPrice
@@ -405,6 +408,7 @@ export default {
   margin-top: 4px;
   font-size: 12px;
   color: #666;
+  line-height: 1.4;
 }
 .link {
   margin-top: 6px;
