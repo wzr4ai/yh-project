@@ -99,6 +99,12 @@ export default {
           value: p.id,
           label: `${p.name}${p.spec ? '｜' + p.spec : ''}`
         }))
+        // 将列表刷新到已有项上，避免初始显示“请选择”
+        this.items = this.items.map(it => ({
+          ...it,
+          product_id: it.product_id || it.suggested_product_id,
+          product_name: it.product_name || it.suggested_product_name
+        }))
       } catch (e) {
         uni.showToast({ title: '商品列表获取失败', icon: 'none' })
       }
@@ -123,6 +129,12 @@ export default {
         .filter(c => c.product_id)
         .map(c => ({ value: c.product_id, label: c.product_name || c.product_id }))
       const merged = [...candidateOpts]
+      // 确保当前选中的项在列表中
+      const currentId = item.product_id || item.suggested_product_id
+      const currentLabel = item.product_name || item.suggested_product_name
+      if (currentId && !merged.find(x => x.value === currentId)) {
+        merged.push({ value: currentId, label: currentLabel || currentId })
+      }
       this.allProducts.forEach(p => {
         if (!merged.find(x => x.value === p.value)) merged.push(p)
       })
@@ -146,7 +158,8 @@ export default {
       const options = this.pickerOptions(item)
       const pid = item.product_id || item.suggested_product_id
       const found = options.find(o => o.value === pid)
-      return found ? found.label : '请选择商品'
+      if (found) return found.label
+      return item.product_name || item.suggested_product_name || '请选择商品'
     },
     isNew(item) {
       return (item.confidence || '').toLowerCase() === 'new'
