@@ -25,7 +25,6 @@ async def build_product_context(session: AsyncSession) -> Tuple[str, Dict[str, A
         price_info = await logic.calculate_price_for_product(session, prod)
         context_items.append(
             {
-                "id": prod.id,
                 "name": prod.name,
                 "spec": prod.spec,
                 "standard_price": price_info.price,
