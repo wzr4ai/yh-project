@@ -50,7 +50,7 @@ async def analyze_order_text(text: str, context: str, protocol: str | None = "op
         protocol=protocol,
         model_tier="low",
         temperature=0.2,
-        max_output_tokens=512,
+        max_output_tokens=16384,
     )
 
 

@@ -1,6 +1,8 @@
 import { getToken } from './auth.js'
 import { API_BASE_URL } from './config.js'
 
+const API_BASE = (API_BASE_URL || '').replace(/\/+$/, '')
+
 function request(path, options = {}) {
   const token = getToken()
   const headers = options.header || {}
@@ -9,7 +11,7 @@ function request(path, options = {}) {
   }
   return new Promise((resolve, reject) => {
     uni.request({
-      url: `${API_BASE_URL}${path}`,
+      url: `${API_BASE}${path}`,
       method: options.method || 'GET',
       data: options.data || {},
       header: headers,
@@ -55,7 +57,7 @@ async function cachedRequest(path, options = {}, cacheKey) {
 
   return new Promise((resolve, reject) => {
     uni.request({
-      url: `${API_BASE_URL}${path}`,
+      url: `${API_BASE}${path}`,
       method: options.method || 'GET',
       data: options.data || {},
       header: headers,
