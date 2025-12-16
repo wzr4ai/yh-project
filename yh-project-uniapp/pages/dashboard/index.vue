@@ -158,7 +158,7 @@ export default {
     roleLabel() {
       return this.role === 'owner' ? '老板' : '店员'
     },
-    }
+  },
   },
   onShow() {
     this.role = getRole()
