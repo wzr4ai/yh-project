@@ -1,5 +1,8 @@
+import json
 import os
-from typing import Literal, Sequence
+from datetime import datetime
+from pathlib import Path
+from typing import Literal, Sequence, Any
 
 import httpx
 
@@ -19,6 +22,7 @@ class LLMService:
         base_url: str | None = None,
         api_key: str | None = None,
         default_protocol: str | None = None,
+        log_mode: str | None = None,
     ):
         self.base_url = (base_url or os.getenv("LLM_BASE_URL") or "").rstrip("/")
         self.api_key = api_key or os.getenv("LLM_API_KEY")
@@ -26,6 +30,8 @@ class LLMService:
         self.model_low = os.getenv("LLM_MODEL_LOW", "gemini-2.5-flash-lite")
         self.model_mid = os.getenv("LLM_MODEL_MID", "gemini-2.5-flash")
         self.model_high = os.getenv("LLM_MODEL_HIGH", "gemini-2.5-pro")
+        self.log_mode = (log_mode or os.getenv("LLM_LOG_MODE") or "prod").lower()
+        self.log_file = Path(os.getenv("LLM_LOG_FILE") or Path(__file__).resolve().parent.parent / "llm_dev.log")
 
     async def chat(
         self,
@@ -48,7 +54,9 @@ class LLMService:
             raise ValueError(f"no model configured for tier '{model_tier}'")
 
         if protocol.startswith("open"):
-            return await self._call_openai(messages, model_name, temperature, max_output_tokens)
+            return await self._call_openai(
+                messages, model_name, temperature, max_output_tokens, response_mime_type=response_mime_type
+            )
         return await self._call_gemini(
             messages, model_name, temperature, max_output_tokens, response_mime_type=response_mime_type
         )
@@ -66,6 +74,7 @@ class LLMService:
         model: str,
         temperature: float,
         max_output_tokens: int,
+        response_mime_type: str | None = None,
     ) -> schemas.LLMChatResponse:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -77,6 +86,8 @@ class LLMService:
             "temperature": temperature,
             "max_tokens": max_output_tokens,
         }
+        if response_mime_type:
+            payload["response_format"] = {"type": "json_object"}
 
         async with httpx.AsyncClient(base_url=self.base_url, timeout=30) as client:
             try:
@@ -97,13 +108,15 @@ class LLMService:
         usage = data.get("usage")
         used_model = data.get("model") or model
 
-        return schemas.LLMChatResponse(
+        result = schemas.LLMChatResponse(
             content=content,
             model=used_model,
             protocol="openai",
             finish_reason=finish_reason,
             raw_usage=usage,
         )
+        self._log_debug({"protocol": "openai", "model": used_model, "request": payload, "response": data})
+        return result
 
     async def _call_gemini(
         self,
@@ -150,13 +163,15 @@ class LLMService:
         text = "".join(part.get("text", "") for part in parts if isinstance(part, dict))
         finish_reason = first.get("finishReason") or first.get("finish_reason")
 
-        return schemas.LLMChatResponse(
+        result = schemas.LLMChatResponse(
             content=text,
             model=model,
             protocol="gemini",
             finish_reason=finish_reason,
             raw_usage=data.get("usageMetadata"),
         )
+        self._log_debug({"protocol": "gemini", "model": model, "request": payload, "response": data})
+        return result
 
     def _split_system_and_contents(self, messages: Sequence[schemas.LLMMessage]) -> tuple[str | None, list[dict]]:
         system_messages = []
@@ -169,3 +184,15 @@ class LLMService:
             contents.append({"role": role, "parts": [{"text": msg.content}]})
         system_instruction = "\n".join(system_messages) if system_messages else None
         return system_instruction, contents
+
+    def _log_debug(self, payload: dict[str, Any]):
+        if self.log_mode != "dev":
+            return
+        try:
+            self.log_file.parent.mkdir(parents=True, exist_ok=True)
+            record = {"ts": datetime.utcnow().isoformat(), **payload}
+            with self.log_file.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception:
+            # Logging should not break main flow
+            pass
