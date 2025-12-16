@@ -410,6 +410,29 @@ async def dashboard_inventory_value(session: AsyncSession = Depends(get_session)
         total_boxes=total_boxes,
     )
 
+
+@router.get("/dashboard/inventory_breakdown", response_model=schemas.InventoryBreakdownResponse)
+async def dashboard_inventory_breakdown(session: AsyncSession = Depends(get_session)):
+    cost, retail, sku_count, total_boxes = await logic.dashboard_inventory_value(session)
+    categories = await logic.inventory_by_category(session)
+    return schemas.InventoryBreakdownResponse(
+        cost_total=round(cost, 2),
+        retail_total=round(retail, 2),
+        sku_count=sku_count,
+        total_boxes=total_boxes,
+        categories=[
+            schemas.InventoryCategoryStat(
+                id=cat["id"],
+                name=cat["name"],
+                sku=cat["sku"],
+                boxes=cat["boxes"],
+                cost=cat["cost"],
+                retail=cat["retail"],
+            )
+            for cat in categories
+        ],
+    )
+
 @router.get("/dashboard/receipt_total")
 async def dashboard_receipt_total(session: AsyncSession = Depends(get_session)):
     total = await logic.total_receipts(session)

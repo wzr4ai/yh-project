@@ -165,6 +165,23 @@ class InventoryValueResponse(BaseModel):
     total_boxes: float | None = None
 
 
+class InventoryCategoryStat(BaseModel):
+    id: str
+    name: str
+    sku: int
+    boxes: float
+    cost: float
+    retail: float
+
+
+class InventoryBreakdownResponse(BaseModel):
+    cost_total: float
+    retail_total: float
+    sku_count: int
+    total_boxes: float
+    categories: list[InventoryCategoryStat]
+
+
 class PerformanceResponse(BaseModel):
     price_diff: float
     price_diff_rate: float

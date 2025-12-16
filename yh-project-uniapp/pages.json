@@ -78,6 +78,12 @@
       "style": {
         "navigationBarTitleText": "杂项成本"
       }
+    },
+    {
+      "path": "pages/inventory/detail",
+      "style": {
+        "navigationBarTitleText": "库存详情"
+      }
     }
   ],
   "globalStyle": {

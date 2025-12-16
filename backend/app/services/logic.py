@@ -551,6 +551,41 @@ async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float
     return cost_total, retail_total, len(sku_with_stock), round2(total_boxes)
 
 
+async def inventory_by_category(session: AsyncSession) -> list[dict]:
+    # Only include custom categories (is_custom = true)
+    categories = (await session.execute(sa.select(Category).where(Category.is_custom.is_(True)))).scalars().all()
+    cat_map = {c.id: c for c in categories}
+    cat_data = {c.id: {"id": c.id, "name": c.name, "sku": 0, "boxes": 0.0, "cost": 0.0, "retail": 0.0} for c in categories}
+
+    inv_rows = (await session.execute(sa.select(Inventory))).scalars().all()
+    for inv in inv_rows:
+        product = await session.get(Product, inv.product_id)
+        if not product:
+            continue
+        # skip if product not in custom categories
+        cat_id = product.category_id
+        if cat_id not in cat_map:
+            continue
+        price_info = await calculate_price_for_product(session, product)
+        spec_qty = parse_spec_qty(product.spec)
+        total_units = inv.current_stock * spec_qty + (inv.loose_units or 0)
+        if total_units <= 0:
+            continue
+        data = cat_data[cat_id]
+        data["sku"] += 1
+        data["boxes"] += total_units / spec_qty
+        data["cost"] += product.base_cost_price * total_units
+        data["retail"] += price_info.price * total_units
+
+    # round numbers
+    for d in cat_data.values():
+        d["boxes"] = round2(d["boxes"])
+        d["cost"] = round2(d["cost"])
+        d["retail"] = round2(d["retail"])
+    # sort by cost desc
+    return sorted(cat_data.values(), key=lambda x: x["cost"], reverse=True)
+
+
 async def create_misc_cost(session: AsyncSession, data: schemas.MiscCostCreate) -> MiscCost:
     record = MiscCost(
         item=data.item,

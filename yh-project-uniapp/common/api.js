@@ -143,6 +143,9 @@ export const api = {
   listMiscCosts({ offset = 0, limit = 100 } = {}) {
     return request(`/api/misc-costs?offset=${offset}&limit=${limit}`)
   },
+  getInventoryBreakdown() {
+    return request('/api/dashboard/inventory_breakdown')
+  },
   getPurchaseOrders() {
     return request('/api/purchase-orders')
   },
