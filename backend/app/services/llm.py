@@ -35,6 +35,7 @@ class LLMService:
         model: str | None = None,
         temperature: float = 0.7,
         max_output_tokens: int = 512,
+        response_mime_type: str | None = None,
     ) -> schemas.LLMChatResponse:
         if not messages:
             raise ValueError("messages is required")
@@ -48,7 +49,9 @@ class LLMService:
 
         if protocol.startswith("open"):
             return await self._call_openai(messages, model_name, temperature, max_output_tokens)
-        return await self._call_gemini(messages, model_name, temperature, max_output_tokens)
+        return await self._call_gemini(
+            messages, model_name, temperature, max_output_tokens, response_mime_type=response_mime_type
+        )
 
     def _model_for_tier(self, tier: ModelTier) -> str:
         if tier == "low":
@@ -108,6 +111,7 @@ class LLMService:
         model: str,
         temperature: float,
         max_output_tokens: int,
+        response_mime_type: str | None = None,
     ) -> schemas.LLMChatResponse:
         system_instruction, contents = self._split_system_and_contents(messages)
         payload = {
@@ -117,6 +121,8 @@ class LLMService:
                 "maxOutputTokens": max_output_tokens,
             },
         }
+        if response_mime_type:
+            payload["generationConfig"]["responseMimeType"] = response_mime_type
         if system_instruction:
             payload["systemInstruction"] = {"role": "system", "parts": [{"text": system_instruction}]}
 

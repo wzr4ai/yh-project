@@ -26,7 +26,7 @@ async def build_product_context(session: AsyncSession) -> Tuple[str, Dict[str, s
     return context_str, product_lookup
 
 
-async def analyze_order_text(text: str, context: str, protocol: str | None = "openai") -> schemas.LLMChatResponse:
+async def analyze_order_text(text: str, context: str, protocol: str | None = None) -> schemas.LLMChatResponse:
     """Call LLM to map raw order text to structured items."""
     system_prompt = textwrap.dedent(
         """
@@ -51,6 +51,7 @@ async def analyze_order_text(text: str, context: str, protocol: str | None = "op
         model_tier="low",
         temperature=0.2,
         max_output_tokens=16384,
+        response_mime_type="application/json",
     )
 
 
