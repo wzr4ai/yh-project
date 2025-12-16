@@ -25,11 +25,11 @@
       </view>
       <view class="form-row">
         <view class="label">进价</view>
-        <input class="input" type="digit" inputmode="decimal" v-model.number="form.base_cost_price" placeholder="进价（可小数）" />
+        <input class="input" type="digit" inputmode="decimal" v-model="form.base_cost_price" placeholder="进价（可小数）" />
       </view>
       <view class="form-row">
         <view class="label">固定零售价</view>
-        <input class="input" type="digit" inputmode="decimal" v-model.number="form.fixed_retail_price" placeholder="为空则按系数，可小数" />
+        <input class="input" type="digit" inputmode="decimal" v-model="form.fixed_retail_price" placeholder="为空则按系数，可小数" />
       </view>
       <view class="form-row">
         <view class="label">图片</view>
@@ -82,10 +82,14 @@ export default {
         uni.showToast({ title: '请输入名称', icon: 'none' })
         return
       }
+      const baseCost = this.parsePrice(this.form.base_cost_price)
+      const fixedRetail = this.parsePrice(this.form.fixed_retail_price)
       this.saving = true
       try {
         await api.createProduct({
           ...this.form,
+          base_cost_price: baseCost,
+          fixed_retail_price: fixedRetail,
           categories: this.selectedCategoryIds.map(id => ({ id })),
           category_id: this.selectedCategoryIds[0] || null
         })
@@ -96,6 +100,10 @@ export default {
       } finally {
         this.saving = false
       }
+    },
+    parsePrice(val) {
+      const num = parseFloat(val)
+      return Number.isFinite(num) ? num : null
     }
   }
 }

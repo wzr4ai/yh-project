@@ -31,7 +31,7 @@
     </view>
       <view class="form-row">
         <view class="label">进价</view>
-        <input class="input" type="digit" inputmode="decimal" v-model.number="form.base_cost_price" :disabled="!isOwner" placeholder="进价（可小数）" />
+        <input class="input" type="digit" inputmode="decimal" v-model="form.base_cost_price" :disabled="!isOwner" placeholder="进价（可小数）" />
       </view>
       <view class="info-row">
         <view class="info-label">一件数量</view>
@@ -47,7 +47,7 @@
       </view>
       <view class="form-row">
         <view class="label">固定零售价</view>
-        <input class="input" type="digit" inputmode="decimal" v-model.number="form.fixed_retail_price" :disabled="!isOwner" placeholder="为空则按分类/全局系数计算，可小数" />
+        <input class="input" type="digit" inputmode="decimal" v-model="form.fixed_retail_price" :disabled="!isOwner" placeholder="为空则按分类/全局系数计算，可小数" />
       </view>
       <view class="form-row">
         <view class="label">图片</view>
@@ -220,11 +220,17 @@ export default {
     async save() {
       this.saving = true
       try {
+        const baseCost = this.parsePrice(this.form.base_cost_price)
+        const fixedRetail = this.parsePrice(this.form.fixed_retail_price)
+        const packRef = this.parsePrice(this.form.pack_price_ref)
         await api.updateProduct(this.id, {
           ...this.form,
+          base_cost_price: baseCost,
+          fixed_retail_price: fixedRetail,
+          pack_price_ref: this.showPackPriceRef ? packRef : null,
           categories: this.selectedCustomIds.map(id => ({ id })),
           category_id: this.selectedMerchantId || null,
-          pack_price_ref: this.showPackPriceRef ? this.form.pack_price_ref : null
+          // 上面已填充 pack_price_ref
         })
         if (this.adjustDelta) {
           await this.adjustInventory(true)
@@ -249,6 +255,10 @@ export default {
         this.form.category_id = this.selectedMerchantId
         this.form.category_name = cat.name || ''
       }
+    },
+    parsePrice(val) {
+      const num = parseFloat(val)
+      return Number.isFinite(num) ? num : null
     },
     async adjustInventory(skipToast = false) {
       const box = Number(this.adjustBoxDelta) || 0
