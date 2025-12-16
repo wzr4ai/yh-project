@@ -56,12 +56,16 @@ docker compose up --build
 - `GET /api/dashboard/realtime`
 - `GET /api/dashboard/inventory_value`
 - `GET /api/dashboard/performance`
+- `POST /api/llm/chat`: 统一的对话接口，默认走 Gemini 协议，可通过 `protocol` 切换到 OpenAI 规范。
 
 ## 环境变量
 - `DATABASE_URL`：PostgreSQL 连接串。若使用非 async 写法，可写成 `postgresql://...`，程序会自动替换成 `postgresql+asyncpg://...`。
 - `SECRET_KEY`：JWT 密钥；目前代码在 `app/services/auth.py` 内置默认值，生产请改为环境变量。
 - `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB`：Compose 下的数据库配置（见 `.env.example`）。
 - `WECHAT_APPID` / `WECHAT_SECRET`：微信小程序登录所需。若未配置，登录接口会回退为本地 mock openid（仅开发用途）。
+- `LLM_BASE_URL`：LLM 服务地址（Gemini 或兼容 OpenAI 的聚合网关）。
+- `LLM_API_KEY`：调用 LLM 使用的 key（若网关需要）。
+- `LLM_MODEL_LOW` / `LLM_MODEL_MID` / `LLM_MODEL_HIGH`：按档位区分的模型名，默认使用 Gemini 配置。
 
 ## 注意
 - 已切换为 Postgres 持久化，启动时自动建表并初始化默认全局系数与默认仓。
@@ -80,3 +84,11 @@ uv run python backend/utils/schema_migrate.py
 - 创建 `product_category` 关联表
 
 复杂结构变更请使用 Alembic 等正式迁移工具。***
+
+## LLM 快速测试
+```bash
+cd backend
+set -a; source .env; set +a
+uv run python backend/utils/llm_probe.py "简单介绍下门店收银注意点" --protocol gemini --tier low
+```
+可通过 `--protocol openai` 切换到 OpenAI 规范，`--tier` 对应 `.env` 中的模型档位。

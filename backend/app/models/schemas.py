@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Literal, Optional, List
+from typing import Literal, Optional, List, Dict
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -199,3 +199,25 @@ class InventoryOverviewItem(BaseModel):
 class ProductListResponse(BaseModel):
     items: List[ProductListItem]
     total: int
+
+
+class LLMMessage(BaseModel):
+    role: Literal["system", "user", "assistant"]
+    content: str
+
+
+class LLMChatRequest(BaseModel):
+    messages: List[LLMMessage]
+    model_tier: Literal["low", "mid", "high"] = "mid"
+    protocol: Optional[Literal["gemini", "openai", "open"]] = None
+    model: Optional[str] = None
+    temperature: float = 0.7
+    max_output_tokens: int = Field(default=512, ge=1, le=8192)
+
+
+class LLMChatResponse(BaseModel):
+    content: str
+    model: str
+    protocol: str
+    finish_reason: Optional[str] = None
+    raw_usage: Optional[Dict] = None
