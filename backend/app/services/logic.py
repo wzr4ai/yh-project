@@ -14,6 +14,7 @@ from app.models.entities import (
     Inventory,
     InventoryLog,
     Product,
+    ProductAlias,
     ProductCategory,
     PurchaseItem,
     PurchaseOrder,
@@ -75,6 +76,29 @@ def extract_category_ids(categories: list[Any]) -> list[str]:
         elif isinstance(c, str):
             ids.append(c)
     return ids
+
+
+async def record_alias_if_new(session: AsyncSession, product: Product, raw_name: str | None):
+    if not raw_name:
+        return
+    raw_clean = raw_name.strip()
+    if not raw_clean:
+        return
+    raw_lower = raw_clean.lower()
+    if product.name and product.name.lower() == raw_lower:
+        return
+    name_exists = (
+        await session.execute(sa.select(Product.id).where(sa.func.lower(Product.name) == raw_lower))
+    ).scalar_one_or_none()
+    if name_exists:
+        return
+    alias_exists = (
+        await session.execute(sa.select(ProductAlias.id).where(sa.func.lower(ProductAlias.alias_name) == raw_lower))
+    ).scalar_one_or_none()
+    if alias_exists:
+        return
+    session.add(ProductAlias(product_id=product.id, alias_name=raw_clean))
+    await session.flush()
 
 
 async def ensure_defaults(session: AsyncSession):
@@ -364,13 +388,16 @@ async def log_inventory(session: AsyncSession, product_id: str, qty: int, ref_ty
     await session.flush()
 
 
-async def create_sales_order(session: AsyncSession, payloads: List[schemas.SalesItemPayload], username: str) -> SalesOrder:
+async def create_sales_order(
+    session: AsyncSession, payloads: List[schemas.SalesItemPayload | schemas.OrderConfirmItem], username: str
+) -> SalesOrder:
     items: list[SalesItem] = []
     total_actual = 0.0
     for payload in payloads:
         product = await get_product_with_lock(session, payload.product_id)
         if not product:
             raise ValueError(f"product {payload.product_id} not found")
+        await record_alias_if_new(session, product, getattr(payload, "raw_name", None))
         price_info = await calculate_price_for_product(session, product)
         total_actual += payload.actual_price * payload.quantity
         sales_item = SalesItem(

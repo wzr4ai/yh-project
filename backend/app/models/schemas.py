@@ -221,3 +221,37 @@ class LLMChatResponse(BaseModel):
     protocol: str
     finish_reason: Optional[str] = None
     raw_usage: Optional[Dict] = None
+
+
+class OrderAnalyzeRequest(BaseModel):
+    raw_text: str
+
+
+class OrderAnalyzeCandidate(BaseModel):
+    product_id: Optional[str] = None
+    product_name: Optional[str] = None
+    score: Optional[float] = None
+
+
+class OrderAnalyzeItem(BaseModel):
+    raw_name: str
+    suggested_product_id: Optional[str] = None
+    suggested_product_name: Optional[str] = None
+    quantity: int = 1
+    confidence: Literal["high", "low", "new"] = "low"
+    candidates: List[OrderAnalyzeCandidate] = Field(default_factory=list)
+
+
+class OrderAnalyzeResponse(BaseModel):
+    items: List[OrderAnalyzeItem]
+
+
+class OrderConfirmItem(BaseModel):
+    product_id: str
+    quantity: int
+    actual_price: float
+    raw_name: Optional[str] = None
+
+
+class OrderConfirmRequest(BaseModel):
+    items: List[OrderConfirmItem]

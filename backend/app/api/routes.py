@@ -11,10 +11,33 @@ from app.api import deps
 from app.db import get_session
 from app.models import schemas
 from app.models.entities import InventoryLog, Product, PurchaseOrder, Category, ProductCategory
-from app.services import auth, logic
+from app.services import auth, logic, llm_agent
 from app.services.llm import LLMService, LLMServiceError
 
 router = APIRouter(prefix="/api")
+
+
+@router.post("/orders/analyze", response_model=schemas.OrderAnalyzeResponse)
+async def analyze_orders(payload: schemas.OrderAnalyzeRequest, session: AsyncSession = Depends(get_session)):
+    context, product_lookup = await llm_agent.build_product_context(session)
+    try:
+        llm_resp = await llm_agent.analyze_order_text(payload.raw_text, context)
+        return await llm_agent.parse_and_validate(llm_resp.content, product_lookup)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except LLMServiceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/orders/import", response_model=schemas.SalesOrder)
+async def import_orders(payload: schemas.OrderConfirmRequest, session: AsyncSession = Depends(get_session)):
+    try:
+        order = await logic.create_sales_order(session, payload.items, username="owner")
+        await session.commit()
+        return order
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/llm/chat", response_model=schemas.LLMChatResponse)

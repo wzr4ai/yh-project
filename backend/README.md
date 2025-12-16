@@ -57,6 +57,8 @@ docker compose up --build
 - `GET /api/dashboard/inventory_value`
 - `GET /api/dashboard/performance`
 - `POST /api/llm/chat`: 统一的对话接口，默认走 Gemini 协议，可通过 `protocol` 切换到 OpenAI 规范。
+- `POST /api/orders/analyze`: 传入订单文本，LLM 解析出商品匹配建议（需人工确认）。
+- `POST /api/orders/import`: 提交人工确认后的订单明细，直接落库为销售订单。
 
 ## 环境变量
 - `DATABASE_URL`：PostgreSQL 连接串。若使用非 async 写法，可写成 `postgresql://...`，程序会自动替换成 `postgresql+asyncpg://...`。
