@@ -49,8 +49,8 @@ async def analyze_order_text(text: str, context: str, protocol: str | None = Non
         请严格输出 JSON，不要包含多余说明。
         规则：
         - 使用给定的商品上下文进行匹配，名称或别名模糊匹配，并比较规格(spec)与标准单价(standard_price)。
-        - 当规格和标准单价都匹配且名称近似时，可将 confidence 提升为 high。
-        - 为每个出现的商品输出：raw_name, suggested_product_id, suggested_product_name, quantity, detected_price(若能识别), confidence(high/low/new), candidates(最多3个，包含 product_id、product_name、score)。
+        - 当规格（含量/spec）和单价都匹配且名称近似时，可将 confidence 提升为 high。
+        - 为每个出现的商品输出：raw_name, suggested_product_name, quantity, detected_price(若能识别), confidence(high/low/new), candidates(最多3个，包含 product_id、product_name、score)。
         - 当不确定或上下文不存在时，confidence 设置为 new，product_id 置空。
         - 只返回 JSON 对象：{"items":[...]}
         """
