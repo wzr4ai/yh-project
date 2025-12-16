@@ -31,7 +31,7 @@
     </view>
 
     <view class="grid">
-      <view class="card wide" v-if="isOwner">
+      <view class="card wide" v-if="isOwner" @tap="go('/pages/inventory/detail')">
         <view class="card-title">库存货值</view>
         <view class="inventory-row">
           <view>
