@@ -17,11 +17,9 @@
         <view class="card-sub">与入账差值 {{ diffLabel }}</view>
       </view>
       <view class="card">
-        <view class="card-title">销售偏差</view>
-        <view class="card-value">{{ metrics.receiptDiff >= 0 ? '+' : '-' }}¥{{ Math.abs(metrics.receiptDiff).toFixed(2) }}</view>
-        <view class="card-sub" :class="{ positive: metrics.receiptDiff >= 0, negative: metrics.receiptDiff < 0 }">
-          {{ metrics.receiptDiff >= 0 ? '溢价' : '折扣' }} {{ metrics.receiptDiffRate }}%
-        </view>
+        <view class="card-title">非杂项成本</view>
+        <view class="card-value">¥{{ costMetrics.nonMiscCost.toFixed(2) }}</view>
+        <view class="card-sub">最近采购/库存成本汇总</view>
       </view>
       <view class="card" v-if="isOwner">
         <view class="card-title">总营业额</view>
@@ -130,12 +128,14 @@ export default {
       metrics: {
         actualSales: 0,
         expectedSales: 0,
-        receiptDiff: 0,
-        receiptDiffRate: 0,
         grossProfit: 0,
         grossMargin: 0,
         orders: 0,
         avgTicket: 0
+      },
+      costMetrics: {
+        nonMiscCost: 0,
+        netProfit: 0
       },
       inventoryCost: 0,
       inventorySku: 0,
@@ -158,10 +158,6 @@ export default {
     roleLabel() {
       return this.role === 'owner' ? '老板' : '店员'
     },
-    diffLabel() {
-      const diff = this.metrics.receiptDiff || 0
-      const sign = diff >= 0 ? '+' : '-'
-      return `${sign}¥${Math.abs(diff).toFixed(2)}`
     }
   },
   onShow() {
@@ -176,13 +172,12 @@ export default {
           api.getRealtime(),
           api.getInventoryValue(),
           api.getPerformance(),
-          api.getReceiptTotal()
+          api.getReceiptTotal(),
+          api.listMiscCosts({ limit: 100 }),
         ])
         this.metrics = {
           actualSales: realtime.actual_sales || 0,
           expectedSales: realtime.expected_sales || 0,
-          receiptDiff: realtime.receipt_diff || 0,
-          receiptDiffRate: realtime.receipt_diff_rate || 0,
           grossProfit: realtime.gross_profit || 0,
           grossMargin: realtime.gross_margin || 0,
           orders: realtime.orders || 0,
@@ -193,6 +188,14 @@ export default {
         this.inventorySku = inv.sku_count || 0
         this.inventoryBoxes = inv.total_boxes || 0
         this.receiptTotal = totalReceipt?.total || 0
+        const miscCosts = miscList || []
+        const miscTotal = miscCosts.reduce((acc, cur) => acc + (Number(cur.amount) || 0), 0)
+        const nonMiscCost = Math.max(0, (inv.cost_total || 0) - miscTotal)
+        const netProfit = (realtime.actual_sales || 0) - miscTotal
+        this.costMetrics = {
+          nonMiscCost,
+          netProfit
+        }
         if (realtime.manual_receipt !== null && realtime.manual_receipt !== undefined) {
           this.manualReceiptInput = String(realtime.manual_receipt)
         }
