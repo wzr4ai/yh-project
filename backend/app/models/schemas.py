@@ -261,3 +261,8 @@ class OrderConfirmItem(BaseModel):
 
 class OrderConfirmRequest(BaseModel):
     items: List[OrderConfirmItem]
+
+
+class OrderImportFileResponse(BaseModel):
+    file_name: str
+    stored_path: str

@@ -108,6 +108,32 @@ export const api = {
       data: payload
     })
   },
+  uploadOrderCsv(filePath, fileName = 'orders.csv') {
+    const token = getToken()
+    const headers = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    return new Promise((resolve, reject) => {
+      uni.uploadFile({
+        url: `${API_BASE}/api/orders/import-file`,
+        filePath,
+        name: 'file',
+        formData: { filename: fileName },
+        header: headers,
+        success: (res) => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            try {
+              resolve(JSON.parse(res.data))
+            } catch (e) {
+              resolve(res.data)
+            }
+          } else {
+            reject(res.data || { message: '上传失败' })
+          }
+        },
+        fail: reject
+      })
+    })
+  },
   getPurchaseOrders() {
     return request('/api/purchase-orders')
   },

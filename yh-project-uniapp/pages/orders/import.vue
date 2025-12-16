@@ -1,5 +1,16 @@
 <template>
   <view class="page">
+    <view class="input-card">
+      <view class="header">
+        <view class="title">文件导入</view>
+        <view class="subtitle">支持 CSV / TXT，便于批量校对</view>
+      </view>
+      <button class="primary-btn" :loading="uploading" :disabled="uploading" @tap="uploadCsv">
+        {{ uploading ? '上传中...' : '上传文件' }}
+      </button>
+      <view class="upload-info" v-if="uploadFileName">已选择：{{ uploadFileName }}</view>
+    </view>
+
     <view class="input-card" :class="{ collapsed: inputCollapsed }">
       <view class="header">
         <view class="title">原始订单文本</view>
@@ -93,7 +104,9 @@ export default {
       items: [],
       loading: false,
       saving: false,
-      allProducts: []
+      allProducts: [],
+      uploading: false,
+      uploadFileName: ''
     }
   },
   computed: {
@@ -124,6 +137,29 @@ export default {
         this.items = this.items.map(it => this.enrichPrice(it))
       } catch (e) {
         uni.showToast({ title: '商品列表获取失败', icon: 'none' })
+      }
+    },
+    async uploadCsv() {
+      try {
+        const chooseRes = await new Promise((resolve, reject) => {
+          uni.chooseMessageFile({
+            count: 1,
+            type: 'file',
+            extension: ['csv', 'txt'],
+            success: resolve,
+            fail: reject
+          })
+        })
+        const file = chooseRes?.tempFiles?.[0]
+        if (!file) return
+        this.uploading = true
+        this.uploadFileName = file.name || 'orders.csv'
+        await api.uploadOrderCsv(file.path, this.uploadFileName)
+        uni.showToast({ title: '上传成功', icon: 'success' })
+      } catch (e) {
+        uni.showToast({ title: '上传失败', icon: 'none' })
+      } finally {
+        this.uploading = false
       }
     },
     toggleInput() {
@@ -318,6 +354,10 @@ export default {
   align-items: center;
   margin-bottom: 8px;
 }
+.subtitle {
+  font-size: 12px;
+  color: #666;
+}
 .title {
   font-weight: 600;
 }
@@ -337,6 +377,11 @@ export default {
   border: none;
   border-radius: 8px;
   padding: 10px;
+}
+.upload-info {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #555;
 }
 .card-title {
   font-weight: 600;

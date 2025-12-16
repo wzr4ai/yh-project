@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List
 
 import sqlalchemy as sa
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi import Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -38,6 +38,21 @@ async def import_orders(payload: schemas.OrderConfirmRequest, session: AsyncSess
     except ValueError as exc:
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/orders/import-file", response_model=schemas.OrderImportFileResponse)
+async def import_orders_file(file: UploadFile = File(...), filename: str = Form(None)):
+    # 简单落盘到 /tmp，后续可由异步任务进一步解析
+    target_name = filename or file.filename or "orders.csv"
+    safe_name = target_name.replace("/", "_")
+    dest_path = f"/tmp/{safe_name}"
+    try:
+        content = await file.read()
+        with open(dest_path, "wb") as f:
+            f.write(content)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"failed to store file: {exc}") from exc
+    return schemas.OrderImportFileResponse(file_name=safe_name, stored_path=dest_path)
 
 
 @router.post("/llm/chat", response_model=schemas.LLMChatResponse)
