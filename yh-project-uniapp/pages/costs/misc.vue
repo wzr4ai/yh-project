@@ -24,7 +24,7 @@
         <view class="record" v-for="rec in records" :key="rec.id">
           <view class="row">
             <view class="item">{{ rec.item }}</view>
-            <view class="amount">¥{{ rec.amount }}</view>
+            <view class="amount">¥{{ (Number(rec.amount || 0) * (Number(rec.quantity) || 1)).toFixed(2) }}</view>
           </view>
           <view class="meta">数量：{{ rec.quantity }} ｜ 时间：{{ formatDate(rec.created_at) }}</view>
           <view class="actions">
@@ -83,7 +83,11 @@ export default {
   },
   methods: {
     totalAmount() {
-      return this.records.reduce((acc, cur) => acc + (Number(cur.amount) || 0), 0)
+      return this.records.reduce((acc, cur) => {
+        const qty = Number(cur.quantity) || 1
+        const amt = Number(cur.amount) || 0
+        return acc + qty * amt
+      }, 0)
     },
     async submit() {
       const item = (this.form.item || '').trim()
