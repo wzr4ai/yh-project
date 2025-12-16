@@ -309,6 +309,8 @@ async def delete_category(session: AsyncSession, category_id: str, force: bool =
         raise ValueError(f"category not empty:{count}")
     if count > 0:
         await session.execute(sa.update(Product).where(Product.category_id == category_id).values(category_id=None))
+    # clear many-to-many mappings
+    await session.execute(sa.delete(ProductCategory).where(ProductCategory.category_id == category_id))
     await session.delete(category)
     await session.flush()
     return count
