@@ -35,7 +35,6 @@
 
 <script>
 import { api } from '../../common/api.js'
-import dayjs from 'dayjs'
 
 export default {
   data() {
@@ -91,7 +90,11 @@ export default {
       return num
     },
     formatDate(val) {
-      return val ? dayjs(val).format('MM-DD HH:mm') : ''
+      if (!val) return ''
+      const d = new Date(val)
+      if (Number.isNaN(d.getTime())) return ''
+      const pad = (n) => (n < 10 ? `0${n}` : `${n}`)
+      return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
     }
   }
 }
