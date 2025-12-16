@@ -172,7 +172,7 @@ export default {
     async fetchMetrics() {
       this.loading = true
       try {
-        const [realtime, inv, perf, totalReceipt] = await Promise.all([
+        const [realtime, inv, perf, totalReceipt, miscList] = await Promise.all([
           api.getRealtime(),
           api.getInventoryValue(),
           api.getPerformance(),
