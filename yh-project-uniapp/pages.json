@@ -74,12 +74,6 @@
       }
     },
     {
-      "path": "pages/orders/import",
-      "style": {
-        "navigationBarTitleText": "订单智能录入"
-      }
-    },
-    {
       "path": "pages/costs/misc",
       "style": {
         "navigationBarTitleText": "杂项成本"

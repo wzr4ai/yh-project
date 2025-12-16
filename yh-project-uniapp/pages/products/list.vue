@@ -46,7 +46,15 @@
       <view v-for="item in products" :key="item.id" class="card" @tap="openDetail(item.id)">
         <view class="header">
           <view>
-            <view class="name">{{ item.name }}</view>
+            <view
+              class="name"
+              :class="{
+                'is-problem': item.category_name && item.category_name.includes('问题'),
+                'is-zero': item.stock === 0
+              }"
+            >
+              {{ item.name }}
+            </view>
             <view class="meta">{{ item.spec || '—' }} ｜ {{ item.category_name || '—' }}</view>
           </view>
           <view class="price-area">
@@ -459,6 +467,12 @@ export default {
   font-size: 30rpx;
   font-weight: 600;
   color: #0b1f3a;
+}
+.name.is-problem {
+  color: #e54d42;
+}
+.name.is-zero {
+  color: rgba(11, 31, 58, 0.5);
 }
 
 .meta {
