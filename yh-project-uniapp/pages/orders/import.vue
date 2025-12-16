@@ -49,7 +49,7 @@
                 {{ displayName(item) }}
               </view>
             </picker>
-            <button v-if="isNew(item)" size="mini" type="primary" class="link" @tap="goCreateProduct">新建商品</button>
+            <button v-if="isNew(item) || isLow(item)" size="mini" type="primary" class="link" @tap="goCreateProduct">新建商品</button>
           </view>
           <view class="field">
             <view class="label">数量</view>
@@ -58,10 +58,17 @@
           <view class="field">
             <view class="label">成交单价</view>
             <input class="input" type="digit" v-model.number="item.actual_price" placeholder="¥" />
-            <view class="price-hint" v-if="item.product_price || item.detected_price">
-              <text v-if="item.product_price">标准价 ¥{{ item.product_price }}</text>
-              <text v-if="item.product_price && item.detected_price"> ｜ </text>
-              <text v-if="item.detected_price">订单价 ¥{{ item.detected_price }}</text>
+            <view class="price-hint" v-if="item.product_price || item.detected_price || item.product_spec">
+              <view>
+                标准价：{{ item.product_price != null ? `¥${item.product_price}` : '无' }}
+              </view>
+              <view>
+                规格：{{ item.product_spec || '无' }} ｜
+                箱价：{{ item.product_box_price != null ? `¥${item.product_box_price}` : '无' }}
+              </view>
+              <view v-if="item.detected_price != null">
+                订单价：¥{{ item.detected_price }}
+              </view>
             </view>
           </view>
         </view>
@@ -104,7 +111,10 @@ export default {
         this.allProducts = (res?.items || []).map(p => ({
           value: p.id,
           label: `${p.name}${p.spec ? '｜' + p.spec : ''}`,
-          standard_price: p.standard_price
+          standard_price: p.standard_price,
+          spec: p.spec,
+          spec_qty: this.parseSpecQty(p.spec),
+          box_price: p.standard_price && p.spec ? (p.standard_price * this.parseSpecQty(p.spec)).toFixed(2) : null
         }))
         // 将列表刷新到已有项上，避免初始显示“请选择”
         this.items = this.items.map(it => this.enrichPrice(it))
@@ -115,10 +125,17 @@ export default {
     toggleInput() {
       this.inputCollapsed = !this.inputCollapsed
     },
+    parseSpecQty(spec) {
+      const match = String(spec || '').match(/(\d+(\.\d+)?)/)
+      const val = match ? parseFloat(match[1]) : 1
+      return val > 0 ? val : 1
+    },
     enrichPrice(item) {
       const pid = item.product_id || item.suggested_product_id
       const prod = this.allProducts.find(p => p.value === pid)
       const standardPrice = prod?.standard_price
+      const spec = prod?.spec || ''
+      const boxPrice = prod?.box_price ? Number(prod.box_price) : null
       const detected = item.detected_price
       let prefilled = item.actual_price || 0
       if (detected != null && standardPrice != null && Math.abs(detected - standardPrice) < 1e-6) {
@@ -129,7 +146,9 @@ export default {
       return {
         ...item,
         product_price: standardPrice,
-        prefilled_price: prefilled
+        prefilled_price: prefilled,
+        product_spec: spec,
+        product_box_price: boxPrice
       }
     },
     rowClass(item) {
@@ -191,6 +210,9 @@ export default {
     },
     isNew(item) {
       return (item.confidence || '').toLowerCase() === 'new'
+    },
+    isLow(item) {
+      return (item.confidence || '').toLowerCase() === 'low'
     },
     async analyze() {
       const text = this.rawText.trim()
