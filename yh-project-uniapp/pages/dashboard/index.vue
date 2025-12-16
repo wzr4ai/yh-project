@@ -158,6 +158,11 @@ export default {
     roleLabel() {
       return this.role === 'owner' ? '老板' : '店员'
     },
+    diffLabel() {
+      const diff = (this.metrics.expectedSales || 0) - (this.metrics.actualSales || 0)
+      const sign = diff >= 0 ? '-' : '+'
+      return `${sign}¥${Math.abs(diff).toFixed(2)}`
+    }
   },
   onShow() {
     this.role = getRole()
