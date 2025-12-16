@@ -193,7 +193,11 @@ export default {
         this.inventoryBoxes = inv.total_boxes || 0
         this.receiptTotal = totalReceipt?.total || 0
         const miscCosts = miscList || []
-        const miscTotal = miscCosts.reduce((acc, cur) => acc + (Number(cur.amount) || 0), 0)
+        const miscTotal = miscCosts.reduce((acc, cur) => {
+          const qty = Number(cur.quantity) || 1
+          const amt = Number(cur.amount) || 0
+          return acc + qty * amt
+        }, 0)
         const totalCost = (inv.cost_total || 0) + miscTotal
         const netProfit = (this.receiptTotal || 0) - totalCost
         this.costMetrics = {
