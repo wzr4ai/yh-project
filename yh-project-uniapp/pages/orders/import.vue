@@ -107,14 +107,16 @@ export default {
   methods: {
     async fetchAllProducts() {
       try {
-        const res = await api.getProducts({ offset: 0, limit: 500 })
+        const res = await api.getProducts({ offset: 0, limit: 2000 })
         this.allProducts = (res?.items || []).map(p => ({
           value: p.id,
           label: `${p.name}${p.spec ? '｜' + p.spec : ''}`,
-          standard_price: p.standard_price,
+          standard_price: this.pickStandardPrice(p),
           spec: p.spec,
           spec_qty: this.parseSpecQty(p.spec),
-          box_price: p.standard_price && p.spec ? (p.standard_price * this.parseSpecQty(p.spec)).toFixed(2) : null
+          box_price: p.spec && this.pickStandardPrice(p) != null
+            ? (this.pickStandardPrice(p) * this.parseSpecQty(p.spec)).toFixed(2)
+            : null
         }))
         // 将列表刷新到已有项上，避免初始显示“请选择”
         this.items = this.items.map(it => this.enrichPrice(it))
@@ -129,6 +131,13 @@ export default {
       const match = String(spec || '').match(/(\d+(\.\d+)?)/)
       const val = match ? parseFloat(match[1]) : 1
       return val > 0 ? val : 1
+    },
+    pickStandardPrice(prod) {
+      // 优先使用数据库中的基础进价(base_cost_price)
+      if (prod && prod.base_cost_price !== undefined && prod.base_cost_price !== null) return prod.base_cost_price
+      if (prod && prod.standard_price !== undefined && prod.standard_price !== null) return prod.standard_price
+      if (prod && prod.fixed_retail_price !== undefined && prod.fixed_retail_price !== null) return prod.fixed_retail_price
+      return null
     },
     enrichPrice(item) {
       const pid = item.product_id || item.suggested_product_id
