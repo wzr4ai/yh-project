@@ -17,9 +17,9 @@
         <view class="card-sub">与入账差值 {{ diffLabel }}</view>
       </view>
       <view class="card">
-        <view class="card-title">非杂项成本</view>
-        <view class="card-value">¥{{ costMetrics.nonMiscCost.toFixed(2) }}</view>
-        <view class="card-sub">最近采购/库存成本汇总</view>
+        <view class="card-title">总成本 / 净利润</view>
+        <view class="card-value">¥{{ costMetrics.totalCost.toFixed(2) }}</view>
+        <view class="card-sub">净利润 ¥{{ costMetrics.netProfit.toFixed(2) }}</view>
       </view>
       <view class="card" v-if="isOwner">
         <view class="card-title">总营业额</view>
@@ -134,7 +134,7 @@ export default {
         avgTicket: 0
       },
       costMetrics: {
-        nonMiscCost: 0,
+        totalCost: 0,
         netProfit: 0
       },
       inventoryCost: 0,
@@ -194,10 +194,10 @@ export default {
         this.receiptTotal = totalReceipt?.total || 0
         const miscCosts = miscList || []
         const miscTotal = miscCosts.reduce((acc, cur) => acc + (Number(cur.amount) || 0), 0)
-        const nonMiscCost = Math.max(0, (inv.cost_total || 0) - miscTotal)
-        const netProfit = (realtime.actual_sales || 0) - miscTotal
+        const totalCost = (inv.cost_total || 0) + miscTotal
+        const netProfit = (this.receiptTotal || 0) - totalCost
         this.costMetrics = {
-          nonMiscCost,
+          totalCost,
           netProfit
         }
         if (realtime.manual_receipt !== null && realtime.manual_receipt !== undefined) {
