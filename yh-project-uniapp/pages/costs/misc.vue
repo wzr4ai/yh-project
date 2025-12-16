@@ -27,9 +27,32 @@
             <view class="amount">¥{{ rec.amount }}</view>
           </view>
           <view class="meta">数量：{{ rec.quantity }} ｜ 时间：{{ formatDate(rec.created_at) }}</view>
+          <view class="actions">
+            <button size="mini" @tap="startEdit(rec)">编辑</button>
+          </view>
         </view>
       </view>
       <view class="empty" v-else>暂无记录</view>
+    </view>
+
+    <view class="card" v-if="editId">
+      <view class="title">编辑杂项成本</view>
+      <view class="form-row">
+        <view class="label">项目</view>
+        <input class="input" v-model="editForm.item" />
+      </view>
+      <view class="form-row">
+        <view class="label">数量</view>
+        <input class="input" type="digit" inputmode="decimal" v-model="editForm.quantity" />
+      </view>
+      <view class="form-row">
+        <view class="label">金额</view>
+        <input class="input" type="digit" inputmode="decimal" v-model="editForm.amount" />
+      </view>
+      <view class="edit-actions">
+        <button size="mini" @tap="cancelEdit">取消</button>
+        <button size="mini" type="primary" :loading="saving" @tap="saveEdit">保存</button>
+      </view>
     </view>
   </view>
 </template>
@@ -41,6 +64,12 @@ export default {
   data() {
     return {
       form: {
+        item: '',
+        quantity: '',
+        amount: ''
+      },
+      editId: '',
+      editForm: {
         item: '',
         quantity: '',
         amount: ''
@@ -76,6 +105,39 @@ export default {
         this.loadRecords()
       } catch (e) {
         uni.showToast({ title: '保存失败', icon: 'none' })
+      } finally {
+        this.saving = false
+      }
+    },
+    startEdit(rec) {
+      this.editId = rec.id
+      this.editForm = {
+        item: rec.item,
+        quantity: String(rec.quantity ?? ''),
+        amount: String(rec.amount ?? '')
+      }
+    },
+    cancelEdit() {
+      this.editId = ''
+      this.editForm = { item: '', quantity: '', amount: '' }
+    },
+    async saveEdit() {
+      if (!this.editId) return
+      const item = (this.editForm.item || '').trim()
+      const quantity = this.parseNumber(this.editForm.quantity, null)
+      const amount = this.parseNumber(this.editForm.amount, null)
+      if (!item || amount === null) {
+        uni.showToast({ title: '请输入项目和金额', icon: 'none' })
+        return
+      }
+      this.saving = true
+      try {
+        await api.updateMiscCost(this.editId, { item, quantity, amount })
+        uni.showToast({ title: '已更新', icon: 'success' })
+        this.cancelEdit()
+        this.loadRecords()
+      } catch (e) {
+        uni.showToast({ title: '更新失败', icon: 'none' })
       } finally {
         this.saving = false
       }
@@ -165,6 +227,14 @@ export default {
 }
 .amount {
   color: #e67e22;
+}
+.actions {
+  margin-top: 6px;
+}
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 .empty {
   text-align: center;

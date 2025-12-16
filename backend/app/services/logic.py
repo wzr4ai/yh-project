@@ -631,6 +631,22 @@ async def list_misc_costs(session: AsyncSession, limit: int = 100, offset: int =
     return (await session.execute(stmt)).scalars().all()
 
 
+async def update_misc_cost(session: AsyncSession, misc_id: str, data: schemas.MiscCostUpdate) -> MiscCost:
+    record = await session.get(MiscCost, misc_id)
+    if not record:
+        raise ValueError("misc cost not found")
+    if data.item is not None:
+        record.item = data.item
+    if data.quantity is not None:
+        record.quantity = data.quantity
+    if data.amount is not None:
+        record.amount = data.amount
+    if data.created_by is not None:
+        record.created_by = data.created_by
+    await session.flush()
+    return record
+
+
 async def dashboard_performance(session: AsyncSession) -> schemas.PerformanceResponse:
     stmt = sa.select(SalesItem)
     items = (await session.execute(stmt)).scalars().all()

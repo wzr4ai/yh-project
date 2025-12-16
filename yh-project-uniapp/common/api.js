@@ -143,6 +143,12 @@ export const api = {
   listMiscCosts({ offset = 0, limit = 100 } = {}) {
     return request(`/api/misc-costs?offset=${offset}&limit=${limit}`)
   },
+  updateMiscCost(id, payload) {
+    return request(`/api/misc-costs/${id}`, {
+      method: 'PUT',
+      data: payload
+    })
+  },
   getInventoryBreakdown() {
     return request('/api/dashboard/inventory_breakdown')
   },

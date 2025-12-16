@@ -301,3 +301,10 @@ class MiscCostCreate(MiscCostBase):
 class MiscCost(ORMBase, MiscCostBase):
     id: str
     created_at: datetime
+
+
+class MiscCostUpdate(BaseModel):
+    item: Optional[str] = None
+    quantity: Optional[float] = None
+    amount: Optional[float] = None
+    created_by: Optional[str] = None

@@ -72,6 +72,17 @@ async def list_misc_costs(limit: int = 100, offset: int = 0, session: AsyncSessi
     return await logic.list_misc_costs(session, limit=limit, offset=offset)
 
 
+@router.put("/misc-costs/{misc_id}", response_model=schemas.MiscCost)
+async def update_misc_cost(misc_id: str, payload: schemas.MiscCostUpdate, session: AsyncSession = Depends(get_session)):
+    try:
+        record = await logic.update_misc_cost(session, misc_id, payload)
+        await session.commit()
+        return record
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.post("/llm/chat", response_model=schemas.LLMChatResponse)
 async def llm_chat(payload: schemas.LLMChatRequest):
     service = LLMService()
