@@ -158,7 +158,7 @@ async def calculate_price_for_product(session: AsyncSession, product: Product) -
         return schemas.PriceCalcResponse(price=product.fixed_retail_price, basis="例外价")
 
     if product.retail_multiplier:
-        return schemas.PriceCalcResponse(price=round2(product.base_cost_price * product.retail_multiplier), basis="商品系数")
+        return schemas.PriceCalcResponse(price=round2(product.base_cost_price * product.retail_multiplier), basis="分类系数")
 
     multipliers: list[float] = []
     # 多分类
@@ -750,7 +750,7 @@ async def list_products_with_inventory(
             basis = "例外价"
         elif product.retail_multiplier:
             price_val = round2(product.base_cost_price * product.retail_multiplier)
-            basis = "商品系数"
+            basis = "分类系数"
         else:
             multipliers: list[float] = []
             if product.category_id:
