@@ -10,6 +10,7 @@
         class="textarea"
         v-model="rawText"
         placeholder="请粘贴聊天记录或订单文本..."
+        maxlength="-1"
         auto-height
       />
       <button class="primary-btn" :disabled="!rawText.trim() || loading" :loading="loading" @tap="analyze">
