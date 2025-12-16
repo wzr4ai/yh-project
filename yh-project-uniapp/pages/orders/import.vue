@@ -245,7 +245,7 @@ export default {
 }
 .textarea {
   width: 100%;
-  min-height: 140px;
+  min-height: 240px;
   border: 1px solid #e5e6eb;
   border-radius: 8px;
   padding: 10px;
