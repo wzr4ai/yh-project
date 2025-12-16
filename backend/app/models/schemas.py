@@ -266,3 +266,19 @@ class OrderConfirmRequest(BaseModel):
 class OrderImportFileResponse(BaseModel):
     file_name: str
     stored_path: str
+
+
+class MiscCostBase(BaseModel):
+    item: str
+    quantity: float = 1
+    amount: float
+    created_by: Optional[str] = None
+
+
+class MiscCostCreate(MiscCostBase):
+    pass
+
+
+class MiscCost(ORMBase, MiscCostBase):
+    id: str
+    created_at: datetime

@@ -87,6 +87,10 @@
           <view class="action-title">录入今日入账</view>
           <view class="action-desc">输入今日真实入账</view>
         </view>
+        <view class="action" v-if="isOwner" @tap="go('/pages/costs/misc')">
+          <view class="action-title">杂项成本</view>
+          <view class="action-desc">记录运输、耗材等费用</view>
+        </view>
         <view class="action" @tap="go('/pages/products/list')">
           <view class="action-title">商品目录</view>
           <view class="action-desc">价格体系与库存分布</view>

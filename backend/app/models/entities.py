@@ -179,3 +179,14 @@ class SalesItem(Base):
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
 
     order: Mapped[SalesOrder] = relationship(back_populates="items")
+
+
+class MiscCost(Base):
+    __tablename__ = "misc_cost"
+
+    id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
+    item: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    quantity: Mapped[float] = mapped_column(sa.Float, nullable=False, default=1)
+    amount: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
+    created_by: Mapped[str | None] = mapped_column(sa.String(64), nullable=True)

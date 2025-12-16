@@ -134,6 +134,15 @@ export const api = {
       })
     })
   },
+  createMiscCost(payload) {
+    return request('/api/misc-costs', {
+      method: 'POST',
+      data: payload
+    })
+  },
+  listMiscCosts({ offset = 0, limit = 100 } = {}) {
+    return request(`/api/misc-costs?offset=${offset}&limit=${limit}`)
+  },
   getPurchaseOrders() {
     return request('/api/purchase-orders')
   },

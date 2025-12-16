@@ -13,6 +13,7 @@ from app.models.entities import (
     DailyReceipt,
     Inventory,
     InventoryLog,
+    MiscCost,
     Product,
     ProductAlias,
     ProductCategory,
@@ -543,6 +544,23 @@ async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float
         cost_total += product.base_cost_price * total_units
         retail_total += price_info.price * total_units
     return cost_total, retail_total
+
+
+async def create_misc_cost(session: AsyncSession, data: schemas.MiscCostCreate) -> MiscCost:
+    record = MiscCost(
+        item=data.item,
+        quantity=data.quantity or 1,
+        amount=data.amount,
+        created_by=data.created_by,
+    )
+    session.add(record)
+    await session.flush()
+    return record
+
+
+async def list_misc_costs(session: AsyncSession, limit: int = 100, offset: int = 0) -> list[MiscCost]:
+    stmt = sa.select(MiscCost).order_by(MiscCost.created_at.desc()).offset(offset).limit(limit)
+    return (await session.execute(stmt)).scalars().all()
 
 
 async def dashboard_performance(session: AsyncSession) -> schemas.PerformanceResponse:
