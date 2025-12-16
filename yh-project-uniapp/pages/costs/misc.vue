@@ -19,6 +19,7 @@
 
     <view class="card">
       <view class="title">最近记录</view>
+      <view class="summary">总杂项成本：¥{{ totalAmount().toFixed(2) }}</view>
       <view v-if="records.length">
         <view class="record" v-for="rec in records" :key="rec.id">
           <view class="row">
@@ -52,6 +53,9 @@ export default {
     this.loadRecords()
   },
   methods: {
+    totalAmount() {
+      return this.records.reduce((acc, cur) => acc + (Number(cur.amount) || 0), 0)
+    },
     async submit() {
       const item = (this.form.item || '').trim()
       const quantity = this.parseNumber(this.form.quantity, 1)
@@ -114,6 +118,11 @@ export default {
 .title {
   font-weight: 600;
   margin-bottom: 10px;
+}
+.summary {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #0f6a7b;
 }
 .form-row {
   margin-bottom: 10px;
