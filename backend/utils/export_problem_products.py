@@ -22,14 +22,17 @@
 import argparse
 import asyncio
 import csv
+import socket
 import os
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.exc import OperationalError
 
 from app.models.entities import Category, Inventory, Product, ProductCategory, SystemConfig
 
@@ -130,8 +133,48 @@ async def get_global_multiplier(session: AsyncSession) -> float:
         return DEFAULT_GLOBAL_MULTIPLIER
 
 
-async def export_problem_products_csv(category_name: str, output_path: Path, encoding: str = "utf-8-sig") -> int:
-    db_url = get_database_url()
+def describe_database_url(db_url: str) -> str:
+    try:
+        parsed = urlparse(db_url)
+        host = parsed.hostname or ""
+        port = parsed.port or ""
+        db_name = (parsed.path or "").lstrip("/")
+        return f"{host}:{port}/{db_name}" if host else db_url
+    except Exception:
+        return db_url
+
+
+def _print_db_help(db_url: str, exc: Exception) -> bool:
+    root: Exception = exc
+    if isinstance(exc, OperationalError) and getattr(exc, "orig", None):
+        root = exc.orig  # type: ignore[assignment]
+
+    if isinstance(root, socket.gaierror):
+        print("数据库连接失败：无法解析主机名。")
+        print(f"- 当前连接串：{describe_database_url(db_url)}")
+        print("- 常见原因：DATABASE_URL 里 host 写成了 docker compose 的服务名（例如 postgres）。")
+        print("- 解决方案：")
+        print("  1) 如果你在宿主机/独立容器运行脚本：把 host 改成实际 IP 或 127.0.0.1（并确保端口可达）。")
+        print("  2) 如果你用 docker compose 部署：在 compose 的 backend 容器里运行脚本，例如：")
+        print("     docker compose exec backend uv run python utils/export_problem_products.py")
+        return True
+
+    if isinstance(root, ConnectionRefusedError):
+        print("数据库连接失败：连接被拒绝（Connection refused）。")
+        print(f"- 当前连接串：{describe_database_url(db_url)}")
+        print("- 请检查数据库是否启动、端口是否映射/放通、连接串 host/port 是否正确。")
+        return True
+
+    return False
+
+
+async def export_problem_products_csv(
+    category_name: str,
+    output_path: Path,
+    encoding: str = "utf-8-sig",
+    db_url_override: str | None = None,
+) -> int:
+    db_url = db_url_override or get_database_url()
     if not db_url:
         raise RuntimeError("缺少 DATABASE_URL，请在环境变量或 .env 中配置后重试。")
 
@@ -243,16 +286,33 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="导出目录（默认：/var/log）")
     parser.add_argument("--output", default=None, help="导出完整路径（优先于 --output-dir）")
     parser.add_argument("--encoding", default="utf-8-sig", help="CSV 编码（默认：utf-8-sig，Excel 兼容）")
+    parser.add_argument("--db-url", default=None, help="直接指定 DATABASE_URL（优先于 .env/环境变量）")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     output_path = build_output_path(args.output, args.output_dir, args.category_name)
+    db_url = args.db_url or get_database_url()
     try:
-        written = asyncio.run(export_problem_products_csv(args.category_name, output_path, encoding=args.encoding))
+        written = asyncio.run(
+            export_problem_products_csv(
+                args.category_name,
+                output_path,
+                encoding=args.encoding,
+                db_url_override=args.db_url,
+            )
+        )
     except PermissionError:
         print(f"无权限写入：{output_path}（可尝试 sudo，或用 --output-dir 指向可写目录）")
+        raise
+    except OperationalError as exc:
+        if db_url and _print_db_help(db_url, exc):
+            return
+        raise
+    except OSError as exc:
+        if db_url and _print_db_help(db_url, exc):
+            return
         raise
     print(f"已导出 {written} 条到 {output_path}")
 

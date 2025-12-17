@@ -94,6 +94,7 @@ cd backend
 set -a; source .env; set +a
 uv run python utils/export_problem_products.py
 ```
+  - 若报错 “无法解析主机名 postgres”：通常是你在宿主机/独立容器运行脚本，但 `DATABASE_URL` 使用了 compose 网络内的服务名；请改为实际 IP/127.0.0.1，或用 `docker compose exec backend ...` 在后端容器中执行。
 
 ## CSV 导出接口
 - 生成进货/补货单 CSV（老板权限）：`GET /api/exports/replenishment.csv`
