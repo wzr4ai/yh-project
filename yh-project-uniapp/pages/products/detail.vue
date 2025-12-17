@@ -66,11 +66,23 @@
         <view class="info-value">{{ stockDisplay }}</view>
       </view>
       <view v-if="isOwner">
+        <view class="quick-actions">
+          <view class="quick-row" v-if="specUnits > 1">
+            <button size="mini" class="quick-btn danger" @tap="quickAdjustBox(-1)">-1箱</button>
+            <button size="mini" class="quick-btn" @tap="quickAdjustBox(1)">+1箱</button>
+          </view>
+          <view class="quick-row">
+            <button size="mini" class="quick-btn danger" @tap="quickAdjustUnit(-1)">-1个</button>
+            <button size="mini" class="quick-btn" @tap="quickAdjustUnit(1)">+1个</button>
+          </view>
+          <view class="quick-hint" v-if="specUnits > 1">说明：箱按 {{ specUnits }} 个/箱 折算</view>
+        </view>
+
         <view class="form-row">
           <view class="label">调整箱数</view>
           <input class="input" type="number" v-model.number="adjustBoxDelta" placeholder="+/- 箱" />
         </view>
-        <view class="form-row" v-if="specQty > 1">
+        <view class="form-row" v-if="specUnits > 1">
           <view class="label">调整散件</view>
           <input class="input" type="number" v-model.number="adjustLooseDelta" placeholder="+/- 个" />
         </view>
@@ -78,7 +90,10 @@
           <view class="label">原因</view>
           <input class="input" v-model="adjustReason" placeholder="原因(可选)" />
         </view>
-        <button type="primary" size="mini" @tap="adjustInventory">调整库存</button>
+        <view class="adjust-actions">
+          <button type="primary" size="mini" @tap="adjustInventory">调整库存</button>
+          <button size="mini" @tap="resetAdjust">清空</button>
+        </view>
       </view>
     </view>
 
@@ -142,13 +157,19 @@ export default {
       const val = match ? parseFloat(match[1]) : 1
       return val > 0 ? val : 1
     },
+    specUnits() {
+      const val = Number(this.specQty) || 1
+      const rounded = Math.round(val)
+      if (Math.abs(val - rounded) < 1e-6) return Math.max(1, rounded)
+      return Math.max(1, Math.floor(val))
+    },
     packPriceCalc() {
       const qty = this.specQty
       const single = Number(this.form.base_cost_price) || 0
       return single * qty
     },
     stockDisplay() {
-      if (this.specQty <= 1) return `${this.stockBox}`
+      if (this.specUnits <= 1) return `${this.stockBox}`
       return `${this.stockBox}箱 ${this.stockLoose}个`
     },
     showPackPriceRef() {
@@ -232,7 +253,7 @@ export default {
           category_id: this.selectedMerchantId || null,
           // 上面已填充 pack_price_ref
         })
-        if (this.adjustDelta) {
+        if (this.hasAdjustDelta()) {
           await this.adjustInventory(true)
         }
         uni.showToast({ title: '已保存', icon: 'success' })
@@ -260,11 +281,20 @@ export default {
       const num = parseFloat(val)
       return Number.isFinite(num) ? num : null
     },
-    async adjustInventory(skipToast = false) {
+    resetAdjust() {
+      this.adjustBoxDelta = 0
+      this.adjustLooseDelta = 0
+      this.adjustReason = ''
+    },
+    hasAdjustDelta() {
       const box = Number(this.adjustBoxDelta) || 0
       const loose = Number(this.adjustLooseDelta) || 0
-      const totalUnits = box * this.specQty + (this.specQty > 1 ? loose : 0)
-      if (!totalUnits) {
+      return !!(box || loose)
+    },
+    async adjustInventoryWithUnits(deltaUnits, reason, skipToast = false) {
+      const units = Number(deltaUnits) || 0
+      const delta = units > 0 ? Math.floor(units) : Math.ceil(units)
+      if (!delta) {
         uni.showToast({ title: '请输入调整数量', icon: 'none' })
         return
       }
@@ -272,21 +302,36 @@ export default {
         await api.adjustInventory(
           {
             product_id: this.id,
-            delta: totalUnits,
-            reason: this.adjustReason || '手动调整'
+            delta,
+            reason: reason || '手动调整'
           },
           uni.getStorageSync('yh-username') || ''
         )
         if (!skipToast) {
           uni.showToast({ title: '库存已调整', icon: 'success' })
         }
-        this.adjustBoxDelta = 0
-        this.adjustLooseDelta = 0
-        this.adjustReason = ''
+        this.resetAdjust()
         this.fetchInventory()
       } catch (err) {
         uni.showToast({ title: '调整失败', icon: 'none' })
       }
+    },
+    async adjustInventory(skipToast = false) {
+      const box = Number(this.adjustBoxDelta) || 0
+      const loose = Number(this.adjustLooseDelta) || 0
+      const totalUnits = box * this.specUnits + (this.specUnits > 1 ? loose : 0)
+      return this.adjustInventoryWithUnits(totalUnits, this.adjustReason || '手动调整', skipToast)
+    },
+    async quickAdjustBox(deltaBoxes) {
+      const boxes = Number(deltaBoxes) || 0
+      if (!boxes) return
+      const deltaUnits = boxes * this.specUnits
+      return this.adjustInventoryWithUnits(deltaUnits, `快速调整 ${boxes > 0 ? '+' : ''}${boxes} 箱`)
+    },
+    async quickAdjustUnit(deltaUnits) {
+      const delta = Number(deltaUnits) || 0
+      if (!delta) return
+      return this.adjustInventoryWithUnits(delta, `快速调整 ${delta > 0 ? '+' : ''}${delta} 个`)
     },
     confirmDelete() {
       uni.showModal({
@@ -414,5 +459,47 @@ export default {
   background: #fff;
   color: #d14343;
   border: 1rpx solid #f3b6b6;
+}
+
+.quick-actions {
+  margin: 10rpx 0 14rpx;
+  padding: 14rpx;
+  border-radius: 14rpx;
+  background: #f9fafb;
+  border: 1rpx solid #e5e7eb;
+}
+
+.quick-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10rpx;
+}
+
+.quick-row + .quick-row {
+  margin-top: 10rpx;
+}
+
+.quick-btn {
+  border: 1rpx solid #e5e7eb;
+  background: #ffffff;
+  color: #0f6a7b;
+  font-weight: 600;
+}
+
+.quick-btn.danger {
+  color: #b91c1c;
+  border-color: #f3b6b6;
+}
+
+.quick-hint {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #6b7280;
+}
+
+.adjust-actions {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 6rpx;
 }
 </style>
