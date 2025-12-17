@@ -825,6 +825,112 @@ async def list_products_with_inventory(
     return result, total, version
 
 
+async def list_pricing_overview(
+    session: AsyncSession,
+    *,
+    offset: int = 0,
+    limit: int = 100,
+    keyword: str | None = None,
+) -> tuple[list[schemas.PricingOverviewItem], int, str]:
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+
+    where_clause = []
+    if keyword:
+        like = f"%{keyword}%"
+        where_clause.append(Product.name.ilike(like))
+
+    count_stmt = sa.select(sa.func.count()).select_from(Product)
+    if where_clause:
+        count_stmt = count_stmt.where(*where_clause)
+    total = (await session.execute(count_stmt)).scalar_one()
+
+    stmt = sa.select(Product)
+    if where_clause:
+        stmt = stmt.where(*where_clause)
+    stmt = stmt.order_by(Product.name).offset(offset).limit(limit)
+    products = (await session.execute(stmt)).scalars().all()
+    if not products:
+        return [], 0, "empty"
+
+    product_ids = [p.id for p in products]
+
+    pc_stmt = sa.select(ProductCategory.product_id, ProductCategory.category_id).where(
+        ProductCategory.product_id.in_(product_ids)
+    )
+    pc_rows = await session.execute(pc_stmt)
+    product_to_category_ids: dict[str, list[str]] = {}
+    for pid, cid in pc_rows.all():
+        product_to_category_ids.setdefault(pid, []).append(cid)
+
+    category_ids_needed = set()
+    for p in products:
+        if p.category_id:
+            category_ids_needed.add(p.category_id)
+        for cid in product_to_category_ids.get(p.id, []):
+            category_ids_needed.add(cid)
+    category_map: dict[str, Category] = {}
+    if category_ids_needed:
+        cats = (await session.execute(sa.select(Category).where(Category.id.in_(category_ids_needed)))).scalars().all()
+        category_map = {c.id: c for c in cats}
+
+    global_multiplier = await get_global_multiplier(session)
+
+    result: list[schemas.PricingOverviewItem] = []
+    max_ts = None
+    for product in products:
+        spec_clean = normalize_spec(product.spec)
+        if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
+            price_val = product.fixed_retail_price
+            basis = "例外价"
+        elif product.retail_multiplier:
+            price_val = round2(product.base_cost_price * product.retail_multiplier)
+            basis = "分类系数"
+        else:
+            multipliers: list[float] = []
+            if product.category_id:
+                cat = category_map.get(product.category_id)
+                if cat and cat.retail_multiplier:
+                    multipliers.append(cat.retail_multiplier)
+            for cid in product_to_category_ids.get(product.id, []):
+                cat = category_map.get(cid)
+                if cat and cat.retail_multiplier:
+                    multipliers.append(cat.retail_multiplier)
+            if multipliers:
+                chosen = max(multipliers)
+                price_val = round2(product.base_cost_price * chosen)
+                basis = "分类系数"
+            else:
+                price_val = round2(product.base_cost_price * global_multiplier)
+                basis = "全局系数"
+
+        category_names: list[str] = []
+        if product.category_id and product.category_id in category_map:
+            category_names.append(category_map[product.category_id].name)
+        for cid in product_to_category_ids.get(product.id, []):
+            cat = category_map.get(cid)
+            if cat and cat.name not in category_names:
+                category_names.append(cat.name)
+        category_label = "、".join([n for n in category_names if n]) or None
+
+        result.append(
+            schemas.PricingOverviewItem(
+                id=product.id,
+                name=product.name,
+                spec=spec_clean,
+                category_name=category_label,
+                standard_price=price_val,
+                price_basis=basis,
+                img_url=product.img_url,
+                effect_url=product.effect_url,
+            )
+        )
+        if product.updated_at:
+            max_ts = max(max_ts or product.updated_at, product.updated_at)
+    version = (max_ts or datetime.utcnow()).isoformat()
+    return result, total, version
+
+
 async def inventory_overview(session: AsyncSession, with_version: bool = False) -> tuple[list[schemas.InventoryOverviewItem], str] | list[schemas.InventoryOverviewItem]:
     inv_rows = (await session.execute(sa.select(Inventory))).scalars().all()
     items: list[schemas.InventoryOverviewItem] = []

@@ -14,6 +14,12 @@
       }
     },
     {
+      "path": "pages/pricing/overview",
+      "style": {
+        "navigationBarTitleText": "货物定价总览"
+      }
+    },
+    {
       "path": "pages/sales/create",
       "style": {
         "navigationBarTitleText": "新增销售"

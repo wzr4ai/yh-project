@@ -221,6 +221,22 @@ class ProductListResponse(BaseModel):
     total: int
 
 
+class PricingOverviewItem(BaseModel):
+    id: str
+    name: str
+    spec: Optional[str] = None
+    category_name: Optional[str] = None
+    standard_price: float
+    price_basis: PricingBasis
+    img_url: Optional[str] = None
+    effect_url: Optional[str] = None
+
+
+class PricingOverviewResponse(BaseModel):
+    items: List[PricingOverviewItem]
+    total: int
+
+
 class LLMMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
     content: str

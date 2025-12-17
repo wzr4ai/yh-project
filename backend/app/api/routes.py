@@ -183,6 +183,26 @@ async def list_products(
     return schemas.ProductListResponse(items=items, total=total)
 
 
+@router.get("/pricing/overview", response_model=schemas.PricingOverviewResponse)
+async def pricing_overview(
+    offset: int = 0,
+    limit: int = 200,
+    keyword: str | None = None,
+    session: AsyncSession = Depends(get_session),
+    request: Request = None,
+    response: Response = None,
+    current_user=Depends(deps.get_current_user),
+):
+    limit = max(1, min(limit, 500))
+    items, total, version = await logic.list_pricing_overview(session, offset=offset, limit=limit, keyword=keyword)
+    etag = f'W/"{version}"'
+    inm = request.headers.get("if-none-match") if request else None
+    if inm == etag:
+        return Response(status_code=304)
+    response.headers["ETag"] = etag
+    return schemas.PricingOverviewResponse(items=items, total=total)
+
+
 @router.get("/products/{product_id}", response_model=schemas.Product)
 async def get_product(product_id: str, session: AsyncSession = Depends(get_session)):
     try:

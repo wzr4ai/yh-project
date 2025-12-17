@@ -198,6 +198,14 @@ export const api = {
     const path = `/api/products?${params.join('&')}`
     return cachedRequest(path, {}, `cache:${path}`)
   },
+  getPricingOverview({ offset = 0, limit = 200, keyword = '' } = {}) {
+    const params = []
+    params.push(`offset=${offset}`)
+    params.push(`limit=${limit}`)
+    if (keyword) params.push(`keyword=${encodeURIComponent(keyword)}`)
+    const path = `/api/pricing/overview?${params.join('&')}`
+    return cachedRequest(path, {}, `cache:${path}`)
+  },
   getInventoryOverview() {
     const path = '/api/inventory/overview'
     return cachedRequest(path, {}, `cache:${path}`)

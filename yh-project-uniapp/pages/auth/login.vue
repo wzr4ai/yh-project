@@ -21,6 +21,9 @@
 import { setRole, setToken, getToken, getRole, isTokenValid } from '../../common/auth.js'
 import { API_BASE_URL } from '../../common/config.js'
 
+const OWNER_HOME = '/pages/dashboard/index'
+const CLERK_HOME = '/pages/pricing/overview'
+
 export default {
   data() {
     return {
@@ -34,7 +37,8 @@ export default {
       if (!getRole()) {
         setRole('clerk')
       }
-      uni.reLaunch({ url: '/pages/dashboard/index' })
+      const role = getRole()
+      uni.reLaunch({ url: role === 'owner' ? OWNER_HOME : CLERK_HOME })
       return
     }
     this.autoWeappLogin()
@@ -65,7 +69,7 @@ export default {
             setToken(data.token)
             setRole(data.role)
             uni.setStorageSync('yh-username', data.username)
-            uni.reLaunch({ url: '/pages/dashboard/index' })
+            uni.reLaunch({ url: data.role === 'owner' ? OWNER_HOME : CLERK_HOME })
           } else {
             this.failToast()
           }
