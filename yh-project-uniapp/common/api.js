@@ -31,6 +31,14 @@ function request(path, options = {}) {
       success: (res) => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data)
+        } else if (res.statusCode === 401) {
+          try {
+            uni.removeStorageSync('yh-token')
+            uni.removeStorageSync('yh-role')
+            uni.removeStorageSync('yh-username')
+          } catch (e) {}
+          uni.reLaunch({ url: '/pages/auth/login' })
+          reject(res.data || { message: '未登录或登录已过期' })
         } else {
           reject(res.data || { message: '请求失败' })
         }
@@ -84,6 +92,14 @@ async function cachedRequest(path, options = {}, cacheKey) {
             cacheStore.set(cacheKey, { etag: res.header.ETag, data: res.data })
           }
           resolve(res.data)
+        } else if (res.statusCode === 401) {
+          try {
+            uni.removeStorageSync('yh-token')
+            uni.removeStorageSync('yh-role')
+            uni.removeStorageSync('yh-username')
+          } catch (e) {}
+          uni.reLaunch({ url: '/pages/auth/login' })
+          reject(res.data || { message: '未登录或登录已过期' })
         } else {
           reject(res.data || { message: '请求失败' })
         }

@@ -43,7 +43,7 @@
 
 <script>
 import { api } from '../../common/api.js'
-import { setToken } from '../../common/auth.js'
+import { setToken, setRole } from '../../common/auth.js'
 
 export default {
   data() {
@@ -71,6 +71,7 @@ export default {
     },
     forceRelogin() {
       setToken('')
+      setRole('')
       try {
         uni.removeStorageSync('yh-role')
         uni.removeStorageSync('yh-token')

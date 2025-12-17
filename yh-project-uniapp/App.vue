@@ -40,7 +40,7 @@
 	export default {
 		onLaunch: function() {
 			console.log('App Launch')
-      ;['navigateTo', 'redirectTo', 'reLaunch', 'switchTab'].forEach((method) => {
+      ;['navigateTo', 'redirectTo'].forEach((method) => {
         uni.addInterceptor(method, {
           invoke(args) {
             if (args && args.url) {
