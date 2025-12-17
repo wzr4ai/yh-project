@@ -87,6 +87,14 @@ uv run python backend/utils/schema_migrate.py
 
 复杂结构变更请使用 Alembic 等正式迁移工具。***
 
+## 常用工具脚本
+- 导出“问题”品类商品到 CSV（名称/规格/库存数量/单价/image 链接），默认写入 `/var/log/`：
+```bash
+cd backend
+set -a; source .env; set +a
+uv run python utils/export_problem_products.py
+```
+
 ## LLM 快速测试
 ```bash
 cd backend
