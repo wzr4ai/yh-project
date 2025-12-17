@@ -32,6 +32,12 @@
       }
     },
     {
+      "path": "pages/purchase/replenishment",
+      "style": {
+        "navigationBarTitleText": "生成进货/补货单"
+      }
+    },
+    {
       "path": "pages/products/list",
       "style": {
         "navigationBarTitleText": "商品目录"

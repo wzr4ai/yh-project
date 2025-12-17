@@ -95,6 +95,10 @@ set -a; source .env; set +a
 uv run python utils/export_problem_products.py
 ```
 
+## CSV 导出接口
+- 生成进货/补货单 CSV（老板权限）：`GET /api/exports/replenishment.csv`
+  - 示例：`/api/exports/replenishment.csv?target_boxes=2&need_mode=below_target&only_need=true&price_mode=cost`
+
 ## LLM 快速测试
 ```bash
 cd backend
