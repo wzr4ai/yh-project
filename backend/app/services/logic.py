@@ -558,25 +558,43 @@ async def set_manual_receipt(session: AsyncSession, value: float):
     await session.flush()
 
 
-async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float, int, float]:
+async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float, float, float, int, float]:
     cost_total = 0.0
-    retail_total = 0.0
+    retail_min_total = 0.0
+    retail_max_total = 0.0
     sku_with_stock = set()
     total_boxes = 0.0
     inv_rows = (await session.execute(sa.select(Inventory))).scalars().all()
+    global_range = await get_global_multiplier_range(session)
     for inv in inv_rows:
         product = await session.get(Product, inv.product_id)
         if not product:
             continue
-        price_info = await calculate_price_for_product(session, product)
+        # 价格区间
+        stmt_pc = sa.select(ProductCategory.category_id).where(ProductCategory.product_id == product.id)
+        pc_ids = [row[0] for row in (await session.execute(stmt_pc)).all()]
+        category_ids_needed = set(pc_ids)
+        if product.category_id:
+            category_ids_needed.add(product.category_id)
+        category_map: dict[str, Category] = {}
+        if category_ids_needed:
+            cats = (await session.execute(sa.select(Category).where(Category.id.in_(category_ids_needed)))).scalars().all()
+            category_map = {c.id: c for c in cats}
+        price_min, price_max = _price_range_for_product(
+            product,
+            category_map=category_map,
+            product_to_category_ids={product.id: pc_ids},
+            global_range=global_range,
+        )
         spec_qty = parse_spec_qty(product.spec)
         total_units = inv.current_stock * spec_qty + (inv.loose_units or 0)
         if total_units > 0:
             sku_with_stock.add(product.id)
             total_boxes += total_units / spec_qty
         cost_total += product.base_cost_price * total_units
-        retail_total += price_info.price * total_units
-    return cost_total, retail_total, len(sku_with_stock), round2(total_boxes)
+        retail_min_total += price_min * total_units
+        retail_max_total += price_max * total_units
+    return cost_total, retail_min_total, retail_max_total, len(sku_with_stock), round2(total_boxes)
 
 
 async def inventory_by_category(session: AsyncSession) -> list[dict]:

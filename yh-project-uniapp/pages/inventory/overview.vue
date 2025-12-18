@@ -7,8 +7,10 @@
           <view class="mini-value">¥{{ totals.cost.toFixed(2) }}</view>
         </view>
         <view>
-          <view class="mini-title">潜在零售价</view>
-          <view class="mini-value accent">¥{{ totals.retail.toFixed(2) }}</view>
+          <view class="mini-title">潜在零售价（区间）</view>
+          <view class="mini-value accent">
+            ¥{{ totals.retailMin.toFixed(2) }} ~ ¥{{ totals.retailMax.toFixed(2) }}
+          </view>
         </view>
       </view>
       <view class="mini-title">单仓模式 · 按当前价格体系计算</view>
@@ -54,7 +56,8 @@ export default {
       rows: [],
       totals: {
         cost: 0,
-        retail: 0
+        retailMin: 0,
+        retailMax: 0
       }
     }
   },
@@ -73,7 +76,8 @@ export default {
         const [invValue, overview] = await Promise.all([api.getInventoryValue(), api.getInventoryOverview()])
         this.totals = {
           cost: invValue.cost_total || 0,
-          retail: invValue.retail_total || 0
+          retailMin: invValue.retail_total_min ?? invValue.retail_total ?? 0,
+          retailMax: invValue.retail_total_max ?? invValue.retail_total ?? 0
         }
         this.rows = overview || []
       } catch (err) {

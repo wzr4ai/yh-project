@@ -163,6 +163,8 @@ class DashboardRealtime(BaseModel):
 class InventoryValueResponse(BaseModel):
     cost_total: float
     retail_total: float
+    retail_total_min: float | None = None
+    retail_total_max: float | None = None
     sku_count: int | None = None
     total_boxes: float | None = None
 
