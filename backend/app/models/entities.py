@@ -32,6 +32,8 @@ class Category(Base):
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
     name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     retail_multiplier: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
+    retail_multiplier_min: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
+    retail_multiplier_max: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     is_custom: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

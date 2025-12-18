@@ -58,7 +58,10 @@
             <view class="meta">{{ item.spec || '—' }} ｜ {{ item.category_name || '—' }}</view>
           </view>
           <view class="price-area">
-            <view class="price">¥{{ item.standard_price.toFixed(2) }}</view>
+            <view class="price">
+              <text>¥{{ item.price_min.toFixed(2) }}</text>
+              <text v-if="item.price_max > item.price_min"> ~ ¥{{ item.price_max.toFixed(2) }}</text>
+            </view>
             <button
               v-if="item.effect_url"
               size="mini"

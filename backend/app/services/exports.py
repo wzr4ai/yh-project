@@ -37,30 +37,18 @@ def _price_for_product(
     price_mode: PriceMode,
     category_map: dict[str, Category],
     product_to_category_ids: dict[str, list[str]],
-    global_multiplier: float,
+    global_range: tuple[float, float],
 ) -> float:
     if price_mode == "cost":
         return float(product.base_cost_price or 0)
 
-    if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
-        return float(product.fixed_retail_price)
-
-    if product.retail_multiplier:
-        return logic.round2(float(product.base_cost_price or 0) * float(product.retail_multiplier))
-
-    multipliers: list[float] = []
-    if product.category_id:
-        cat = category_map.get(product.category_id)
-        if cat and cat.retail_multiplier:
-            multipliers.append(float(cat.retail_multiplier))
-    for cid in product_to_category_ids.get(product.id, []):
-        cat = category_map.get(cid)
-        if cat and cat.retail_multiplier:
-            multipliers.append(float(cat.retail_multiplier))
-
-    if multipliers:
-        return logic.round2(float(product.base_cost_price or 0) * max(multipliers))
-    return logic.round2(float(product.base_cost_price or 0) * float(global_multiplier))
+    price, _ = logic._standard_price_for_product(
+        product,
+        category_map=category_map,
+        product_to_category_ids=product_to_category_ids,
+        global_range=global_range,
+    )
+    return price
 
 
 async def export_replenishment_csv(
@@ -94,7 +82,7 @@ async def export_replenishment_csv(
     inventory_map: dict[str, tuple[int, int]] = {}
     product_to_category_ids: dict[str, list[str]] = {}
     category_map: dict[str, Category] = {}
-    global_multiplier = 1.0
+    global_range = (1.0, 1.0)
 
     if product_ids:
         inv_stmt = (
@@ -129,7 +117,7 @@ async def export_replenishment_csv(
                     .all()
                 )
                 category_map = {c.id: c for c in cats}
-            global_multiplier = await logic.get_global_multiplier(session)
+            global_range = await logic.get_global_multiplier_range(session)
 
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -157,7 +145,7 @@ async def export_replenishment_csv(
             price_mode=price_mode,
             category_map=category_map,
             product_to_category_ids=product_to_category_ids,
-            global_multiplier=global_multiplier,
+            global_range=global_range,
         )
         writer.writerow(
             [

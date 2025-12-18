@@ -197,6 +197,8 @@ class ProductListItem(BaseModel):
     category_ids: List[str] = []
     base_cost_price: float
     standard_price: float
+    price_min: float
+    price_max: float
     price_basis: PricingBasis
     stock: int
     retail_total: float

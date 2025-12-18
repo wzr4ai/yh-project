@@ -55,6 +55,10 @@ def ensure_columns(engine: Engine):
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now()"))
         if "is_custom" not in category_columns:
             conn.execute(text("ALTER TABLE category ADD COLUMN IF NOT EXISTS is_custom boolean DEFAULT false"))
+        if "retail_multiplier_min" not in category_columns:
+            conn.execute(text("ALTER TABLE category ADD COLUMN IF NOT EXISTS retail_multiplier_min double precision"))
+        if "retail_multiplier_max" not in category_columns:
+            conn.execute(text("ALTER TABLE category ADD COLUMN IF NOT EXISTS retail_multiplier_max double precision"))
         if "updated_at" not in category_columns:
             conn.execute(text("ALTER TABLE category ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now()"))
         if "loose_units" not in inventory_columns:

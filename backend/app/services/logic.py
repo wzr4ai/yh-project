@@ -1,5 +1,6 @@
 import re
 import asyncio
+import math
 from datetime import datetime
 from typing import Any, List, Tuple
 
@@ -26,6 +27,8 @@ from app.models.entities import (
     Warehouse,
 )
 DEFAULT_GLOBAL_MULTIPLIER = 1.5
+DEFAULT_GLOBAL_MIN = 1.5
+DEFAULT_GLOBAL_MAX = 1.5
 
 
 def normalize_spec(spec: str | None) -> str | None:
@@ -114,6 +117,13 @@ async def ensure_default_config(session: AsyncSession):
     cfg = result.scalars().first()
     if not cfg:
         session.add(SystemConfig(key="global_multiplier", value=str(DEFAULT_GLOBAL_MULTIPLIER)))
+    # 新增：全局系数区间
+    cfg_min = (await session.execute(sa.select(SystemConfig).where(SystemConfig.key == "global_multiplier_min"))).scalars().first()
+    if not cfg_min:
+        session.add(SystemConfig(key="global_multiplier_min", value=str(DEFAULT_GLOBAL_MIN)))
+    cfg_max = (await session.execute(sa.select(SystemConfig).where(SystemConfig.key == "global_multiplier_max"))).scalars().first()
+    if not cfg_max:
+        session.add(SystemConfig(key="global_multiplier_max", value=str(DEFAULT_GLOBAL_MAX)))
 
 
 async def ensure_default_warehouse(session: AsyncSession):
@@ -137,6 +147,26 @@ async def get_global_multiplier(session: AsyncSession) -> float:
         return DEFAULT_GLOBAL_MULTIPLIER
 
 
+async def get_global_multiplier_range(session: AsyncSession) -> tuple[float, float]:
+    stmt = sa.select(SystemConfig).where(SystemConfig.key.in_(["global_multiplier_min", "global_multiplier_max"]))
+    cfgs = {c.key: c.value for c in (await session.execute(stmt)).scalars().all()}
+    if not cfgs:
+        await ensure_default_config(session)
+        await session.commit()
+        cfgs = {}
+    try:
+        min_val = float(cfgs.get("global_multiplier_min", DEFAULT_GLOBAL_MIN))
+    except (TypeError, ValueError):
+        min_val = DEFAULT_GLOBAL_MIN
+    try:
+        max_val = float(cfgs.get("global_multiplier_max", DEFAULT_GLOBAL_MAX))
+    except (TypeError, ValueError):
+        max_val = DEFAULT_GLOBAL_MAX
+    if max_val < min_val:
+        max_val = min_val
+    return min_val, max_val
+
+
 async def get_or_create_user_by_openid(session: AsyncSession, openid: str, nickname: str | None = None) -> User:
     stmt = sa.select(User).where(User.openid == openid)
     user = (await session.execute(stmt)).scalars().first()
@@ -154,35 +184,25 @@ async def get_user_by_id(session: AsyncSession, user_id: str) -> User | None:
 
 
 async def calculate_price_for_product(session: AsyncSession, product: Product) -> schemas.PriceCalcResponse:
-    if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
-        return schemas.PriceCalcResponse(price=product.fixed_retail_price, basis="例外价")
-
-    if product.retail_multiplier:
-        return schemas.PriceCalcResponse(price=round2(product.base_cost_price * product.retail_multiplier), basis="分类系数")
-
-    multipliers: list[float] = []
-    # 多分类
     stmt_pc = sa.select(ProductCategory.category_id).where(ProductCategory.product_id == product.id)
     pc_ids = [row[0] for row in (await session.execute(stmt_pc)).all()]
-    if pc_ids:
-        stmt = sa.select(Category).where(Category.id.in_(pc_ids))
-        categories = (await session.execute(stmt)).scalars().all()
-        multipliers = [c.retail_multiplier for c in categories if c.retail_multiplier]
+    category_ids_needed = set(pc_ids)
+    if product.category_id:
+        category_ids_needed.add(product.category_id)
+    category_map: dict[str, Category] = {}
+    if category_ids_needed:
+        cats = (await session.execute(sa.select(Category).where(Category.id.in_(category_ids_needed)))).scalars().all()
+        category_map = {c.id: c for c in cats}
+    product_to_category_ids = {product.id: pc_ids}
+    global_range = await get_global_multiplier_range(session)
 
-    if product.category_id and not multipliers:
-        category = await session.get(Category, product.category_id)
-        if category and category.retail_multiplier:
-            multipliers.append(category.retail_multiplier)
-
-    if multipliers:
-        chosen = max(multipliers)
-        # 回写商品系数，便于下次直接使用
-        product.retail_multiplier = chosen
-        await session.flush()
-        return schemas.PriceCalcResponse(price=round2(product.base_cost_price * chosen), basis="分类系数")
-
-    multiplier = await get_global_multiplier(session)
-    return schemas.PriceCalcResponse(price=round2(product.base_cost_price * multiplier), basis="全局系数")
+    price, basis = _standard_price_for_product(
+        product,
+        category_map=category_map,
+        product_to_category_ids=product_to_category_ids,
+        global_range=global_range,
+    )
+    return schemas.PriceCalcResponse(price=price, basis=basis)
 
 
 async def create_product(session: AsyncSession, payload: schemas.Product) -> Product:
@@ -671,6 +691,141 @@ def round2(value: float) -> float:
     return round(value + 1e-9, 2)
 
 
+def _mult_range_from_category(cat: Category | None) -> tuple[float, float] | None:
+    if not cat:
+        return None
+    min_val = cat.retail_multiplier_min if cat.retail_multiplier_min is not None else cat.retail_multiplier
+    max_val = cat.retail_multiplier_max if cat.retail_multiplier_max is not None else cat.retail_multiplier
+    if min_val is None and max_val is None:
+        return None
+    if min_val is None:
+        min_val = max_val
+    if max_val is None:
+        max_val = min_val
+    min_val = float(min_val or 0)
+    max_val = float(max_val or 0)
+    if max_val < min_val:
+        max_val = min_val
+    return min_val, max_val
+
+
+def _pick_price_from_range(base_cost: float, min_mult: float, max_mult: float) -> float:
+    min_mult = float(min_mult or 0)
+    max_mult = float(max_mult or 0)
+    if min_mult <= 0 and max_mult <= 0:
+        return round2(base_cost)
+    if max_mult < min_mult:
+        max_mult = min_mult
+    min_price = max(0.0, base_cost * min_mult)
+    max_price = max(min_price, base_cost * max_mult)
+    if max_price <= 0:
+        return 0.0
+
+    lower = math.ceil(min_price / 5.0) * 5.0
+    upper = math.floor(max_price / 5.0) * 5.0
+    if lower <= upper:
+        mid = (min_price + max_price) / 2.0
+        cand = round(mid / 5.0) * 5.0
+        cand = min(max(cand, lower), upper)
+        return round2(cand if cand > 0 else lower or upper or min_price)
+
+    # 区间过窄时没有 5 的倍数，退化为最接近的价格
+    cand = round(min_price / 5.0) * 5.0
+    if cand < min_price:
+        cand = min_price
+    if cand > max_price:
+        cand = max_price
+    return round2(cand)
+
+
+def _standard_price_for_product(
+    product: Product,
+    *,
+    category_map: dict[str, Category],
+    product_to_category_ids: dict[str, list[str]],
+    global_range: tuple[float, float],
+) -> tuple[float, str]:
+    # 例外价直接返回
+    if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
+        return float(product.fixed_retail_price), "例外价"
+
+    # 产品级别系数（当作区间的单点）
+    if product.retail_multiplier:
+        rng = (float(product.retail_multiplier), float(product.retail_multiplier))
+        price = _pick_price_from_range(product.base_cost_price, rng[0], rng[1])
+        return price, "分类系数"
+
+    # 分类区间：选择 max 上限的分类
+    best_range: tuple[float, float] | None = None
+    best_max = -1.0
+
+    def consider(cat_id: str | None):
+        nonlocal best_range, best_max
+        if not cat_id:
+            return
+        cat = category_map.get(cat_id)
+        rng = _mult_range_from_category(cat)
+        if not rng:
+            return
+        if rng[1] > best_max:
+            best_range = rng
+            best_max = rng[1]
+
+    consider(product.category_id)
+    for cid in product_to_category_ids.get(product.id, []):
+        consider(cid)
+
+    if best_range:
+        price = _pick_price_from_range(product.base_cost_price, best_range[0], best_range[1])
+        return price, "分类系数"
+
+    # 全局区间
+    g_min, g_max = global_range
+    price = _pick_price_from_range(product.base_cost_price, g_min, g_max)
+    return price, "全局系数"
+
+
+def _price_range_for_product(
+    product: Product,
+    *,
+    category_map: dict[str, Category],
+    product_to_category_ids: dict[str, list[str]],
+    global_range: tuple[float, float],
+) -> tuple[float, float]:
+    base = float(product.base_cost_price or 0)
+    if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
+        val = float(product.fixed_retail_price)
+        return val, val
+    if product.retail_multiplier:
+        val = base * float(product.retail_multiplier)
+        return round2(val), round2(val)
+
+    best_range: tuple[float, float] | None = None
+    best_max = -1.0
+
+    def consider(cat_id: str | None):
+        nonlocal best_range, best_max
+        if not cat_id:
+            return
+        cat = category_map.get(cat_id)
+        rng = _mult_range_from_category(cat)
+        if not rng:
+            return
+        if rng[1] > best_max:
+            best_range = rng
+            best_max = rng[1]
+
+    consider(product.category_id)
+    for cid in product_to_category_ids.get(product.id, []):
+        consider(cid)
+
+    if best_range:
+        return round2(base * best_range[0]), round2(base * best_range[1])
+
+    gmin, gmax = global_range
+    return round2(base * gmin), round2(base * gmax)
+
+
 async def list_products_with_inventory(
     session: AsyncSession,
     offset: int = 0,
@@ -753,37 +908,25 @@ async def list_products_with_inventory(
         category_map = {c.id: c for c in cats}
 
     result: list[schemas.ProductListItem] = []
-    global_multiplier = await get_global_multiplier(session)
+    global_range = await get_global_multiplier_range(session)
     max_ts = None
     for product in products:
         spec_clean = normalize_spec(product.spec)
         box_qty, loose_qty = inventory_map.get(product.id, (0, 0))
         total_units = box_qty * parse_spec_qty(product.spec) + loose_qty
         stock = total_units
-        # 价格计算纯内存
-        if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
-            price_val = product.fixed_retail_price
-            basis = "例外价"
-        elif product.retail_multiplier:
-            price_val = round2(product.base_cost_price * product.retail_multiplier)
-            basis = "分类系数"
-        else:
-            multipliers: list[float] = []
-            if product.category_id:
-                cat = category_map.get(product.category_id)
-                if cat and cat.retail_multiplier:
-                    multipliers.append(cat.retail_multiplier)
-            for cid in product_to_category_ids.get(product.id, []):
-                cat = category_map.get(cid)
-                if cat and cat.retail_multiplier:
-                    multipliers.append(cat.retail_multiplier)
-            if multipliers:
-                chosen = max(multipliers)
-                price_val = round2(product.base_cost_price * chosen)
-                basis = "分类系数"
-            else:
-                price_val = round2(product.base_cost_price * global_multiplier)
-                basis = "全局系数"
+        price_val, basis = _standard_price_for_product(
+            product,
+            category_map=category_map,
+            product_to_category_ids=product_to_category_ids,
+            global_range=global_range,
+        )
+        price_min, price_max = _price_range_for_product(
+            product,
+            category_map=category_map,
+            product_to_category_ids=product_to_category_ids,
+            global_range=global_range,
+        )
 
         retail_total = price_val * total_units
         cost_total = product.base_cost_price * total_units
@@ -812,9 +955,11 @@ async def list_products_with_inventory(
                 category_ids=category_ids,
                 base_cost_price=product.base_cost_price,
                 standard_price=price_val,
+                price_min=price_min,
+                price_max=price_max,
                 price_basis=basis,
                 stock=stock,
-                retail_total=round2(retail_total),
+                retail_total=round2(price_max * total_units if basis != "例外价" else retail_total),
                 cost_total=round2(cost_total),
                 effect_url=product.effect_url,
             )
@@ -889,9 +1034,8 @@ async def list_pricing_overview(
         cats = (await session.execute(sa.select(Category).where(Category.id.in_(category_ids_needed)))).scalars().all()
         category_map = {c.id: c for c in cats}
 
-    global_multiplier = await get_global_multiplier(session)
-
     result: list[schemas.PricingOverviewItem] = []
+    global_range = await get_global_multiplier_range(session)
     max_ts = None
     for product in products:
         box_qty, loose_qty = inventory_map.get(product.id, (0, 0))
@@ -902,29 +1046,12 @@ async def list_pricing_overview(
             continue
 
         spec_clean = normalize_spec(product.spec)
-        if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
-            price_val = product.fixed_retail_price
-            basis = "例外价"
-        elif product.retail_multiplier:
-            price_val = round2(product.base_cost_price * product.retail_multiplier)
-            basis = "分类系数"
-        else:
-            multipliers: list[float] = []
-            if product.category_id:
-                cat = category_map.get(product.category_id)
-                if cat and cat.retail_multiplier:
-                    multipliers.append(cat.retail_multiplier)
-            for cid in product_to_category_ids.get(product.id, []):
-                cat = category_map.get(cid)
-                if cat and cat.retail_multiplier:
-                    multipliers.append(cat.retail_multiplier)
-            if multipliers:
-                chosen = max(multipliers)
-                price_val = round2(product.base_cost_price * chosen)
-                basis = "分类系数"
-            else:
-                price_val = round2(product.base_cost_price * global_multiplier)
-                basis = "全局系数"
+        price_val, basis = _standard_price_for_product(
+            product,
+            category_map=category_map,
+            product_to_category_ids=product_to_category_ids,
+            global_range=global_range,
+        )
 
         category_names: list[str] = []
         all_category_ids: list[str] = []
