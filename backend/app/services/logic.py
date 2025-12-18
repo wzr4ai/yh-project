@@ -598,12 +598,19 @@ async def dashboard_inventory_value(session: AsyncSession) -> Tuple[float, float
 
 
 async def inventory_by_category(session: AsyncSession) -> list[dict]:
-    # Only include custom categories (is_custom = true); additionally put uncategorized into a fallback bucket
+    # Only include custom categories (is_custom = true) for grouping; additionally put uncategorized into a fallback bucket
     categories = (await session.execute(sa.select(Category).where(Category.is_custom.is_(True)))).scalars().all()
+    # 全量分类映射用于定价区间
+    all_categories = (await session.execute(sa.select(Category))).scalars().all()
+    category_map_all = {c.id: c for c in all_categories}
+
     cat_map = {c.id: c for c in categories}
-    cat_data = {c.id: {"id": c.id, "name": c.name, "sku": 0, "boxes": 0.0, "cost": 0.0, "retail": 0.0} for c in categories}
+    cat_data = {
+        c.id: {"id": c.id, "name": c.name, "sku": 0, "boxes": 0.0, "cost": 0.0, "retail": 0.0, "retail_min": 0.0, "retail_max": 0.0}
+        for c in categories
+    }
     uncategorized_id = "__uncategorized__"
-    cat_data[uncategorized_id] = {"id": uncategorized_id, "name": "未分组", "sku": 0, "boxes": 0.0, "cost": 0.0, "retail": 0.0}
+    cat_data[uncategorized_id] = {"id": uncategorized_id, "name": "未分组", "sku": 0, "boxes": 0.0, "cost": 0.0, "retail": 0.0, "retail_min": 0.0, "retail_max": 0.0}
 
     # map product -> custom categories via many-to-many
     if cat_map:
@@ -621,6 +628,7 @@ async def inventory_by_category(session: AsyncSession) -> list[dict]:
         product_to_custom = {}
 
     inv_rows = (await session.execute(sa.select(Inventory))).scalars().all()
+    global_range = await get_global_multiplier_range(session)
     for inv in inv_rows:
         product = await session.get(Product, inv.product_id)
         if not product:
@@ -634,7 +642,12 @@ async def inventory_by_category(session: AsyncSession) -> list[dict]:
         if not custom_ids:
             custom_ids.add(uncategorized_id)
 
-        price_info = await calculate_price_for_product(session, product)
+        price_min, price_max = _price_range_for_product(
+            product,
+            category_map=category_map_all,
+            product_to_category_ids={product.id: list(custom_ids)},
+            global_range=global_range,
+        )
         spec_qty = parse_spec_qty(product.spec)
         total_units = inv.current_stock * spec_qty + (inv.loose_units or 0)
         if total_units <= 0:
@@ -642,18 +655,31 @@ async def inventory_by_category(session: AsyncSession) -> list[dict]:
         for cid in custom_ids:
             data = cat_data.setdefault(
                 cid,
-                {"id": cid, "name": cat_map.get(cid).name if cid in cat_map else "未分组", "sku": 0, "boxes": 0.0, "cost": 0.0, "retail": 0.0},
+                {
+                    "id": cid,
+                    "name": cat_map.get(cid).name if cid in cat_map else "未分组",
+                    "sku": 0,
+                    "boxes": 0.0,
+                    "cost": 0.0,
+                    "retail": 0.0,
+                    "retail_min": 0.0,
+                    "retail_max": 0.0,
+                },
             )
             data["sku"] += 1
             data["boxes"] += total_units / spec_qty
             data["cost"] += product.base_cost_price * total_units
-            data["retail"] += price_info.price * total_units
+            data["retail"] += price_max * total_units
+            data["retail_min"] += price_min * total_units
+            data["retail_max"] += price_max * total_units
 
     # round numbers
     for d in cat_data.values():
         d["boxes"] = round2(d["boxes"])
         d["cost"] = round2(d["cost"])
         d["retail"] = round2(d["retail"])
+        d["retail_min"] = round2(d.get("retail_min") or 0)
+        d["retail_max"] = round2(d.get("retail_max") or d.get("retail") or 0)
     # sort by cost desc
     return sorted(cat_data.values(), key=lambda x: x["cost"], reverse=True)
 

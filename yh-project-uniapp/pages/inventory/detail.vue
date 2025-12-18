@@ -8,8 +8,8 @@
           <view class="value">¥{{ overview.cost_total.toFixed(2) }}</view>
         </view>
         <view class="block">
-          <view class="label">潜在零售价</view>
-          <view class="value">¥{{ overview.retail_total.toFixed(2) }}</view>
+          <view class="label">潜在零售价（区间）</view>
+          <view class="value">¥{{ overview.retail_total_min.toFixed(2) }} ~ ¥{{ overview.retail_total_max.toFixed(2) }}</view>
         </view>
         <view class="block">
           <view class="label">有库存商品数</view>
@@ -32,7 +32,7 @@
           </view>
           <view class="row-values">
             <view class="cost">成本 ¥{{ cat.cost }}</view>
-            <view class="retail">潜在 ¥{{ cat.retail }}</view>
+            <view class="retail">潜在 ¥{{ (cat.retail_min ?? cat.retail)?.toFixed(2) }} ~ ¥{{ (cat.retail_max ?? cat.retail)?.toFixed(2) }}</view>
           </view>
         </view>
       </view>
@@ -50,6 +50,8 @@ export default {
       overview: {
         cost_total: 0,
         retail_total: 0,
+        retail_total_min: 0,
+        retail_total_max: 0,
         sku_count: 0,
         total_boxes: 0
       },
@@ -68,6 +70,8 @@ export default {
         this.overview = {
           cost_total: res?.cost_total || 0,
           retail_total: res?.retail_total || 0,
+          retail_total_min: res?.retail_total_min ?? res?.retail_total ?? 0,
+          retail_total_max: res?.retail_total_max ?? res?.retail_total ?? 0,
           sku_count: res?.sku_count || 0,
           total_boxes: res?.total_boxes || 0
         }

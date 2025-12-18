@@ -470,6 +470,8 @@ async def dashboard_inventory_breakdown(session: AsyncSession = Depends(get_sess
     return schemas.InventoryBreakdownResponse(
         cost_total=round(cost, 2),
         retail_total=round(retail_max, 2),
+        retail_total_min=round(retail_min, 2),
+        retail_total_max=round(retail_max, 2),
         sku_count=sku_count,
         total_boxes=total_boxes,
         categories=[
@@ -480,6 +482,8 @@ async def dashboard_inventory_breakdown(session: AsyncSession = Depends(get_sess
                 boxes=cat["boxes"],
                 cost=cat["cost"],
                 retail=cat["retail"],
+                retail_min=cat.get("retail_min"),
+                retail_max=cat.get("retail_max"),
             )
             for cat in categories
         ],

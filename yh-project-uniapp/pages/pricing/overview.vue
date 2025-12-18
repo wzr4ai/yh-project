@@ -35,7 +35,7 @@
           </view>
         </view>
         <view class="right">
-          <view class="price">¥{{ Number(item.standard_price || 0).toFixed(2) }}</view>
+          <view class="price">¥{{ Number(item.displayPrice || 0).toFixed(2) }}</view>
           <view v-if="item.effect_url" class="preview">
             <button size="mini" @tap="openEffect(item.effect_url)">效果</button>
           </view>
@@ -105,7 +105,12 @@ export default {
           onlyInStock: true,
           customCategoryId: this.selectedCustomCategoryId()
         })
-        this.items = res?.items || []
+        this.items = (res?.items || []).map((it) => {
+          const priceMin = it.price_min ?? it.standard_price ?? 0
+          const priceMax = it.price_max ?? it.standard_price ?? priceMin
+          const display = it.standard_price ?? priceMin ?? priceMax ?? 0
+          return { ...it, price_min: priceMin, price_max: priceMax, displayPrice: display }
+        })
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
         this.items = []

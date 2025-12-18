@@ -176,11 +176,15 @@ class InventoryCategoryStat(BaseModel):
     boxes: float
     cost: float
     retail: float
+    retail_min: float | None = None
+    retail_max: float | None = None
 
 
 class InventoryBreakdownResponse(BaseModel):
     cost_total: float
     retail_total: float
+    retail_total_min: float | None = None
+    retail_total_max: float | None = None
     sku_count: int
     total_boxes: float
     categories: list[InventoryCategoryStat]
