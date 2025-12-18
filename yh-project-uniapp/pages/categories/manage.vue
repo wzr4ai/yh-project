@@ -8,11 +8,11 @@
       </view>
       <view class="form-row">
         <view class="label">系数区间</view>
-        <input class="input" type="digit" v-model.number="form.retail_multiplier_min" placeholder="最小系数 (可空)" />
+        <input class="input" type="number" inputmode="decimal" v-model="form.retail_multiplier_min" placeholder="最小系数 (可空，可小数)" />
       </view>
       <view class="form-row">
         <view class="label">系数上限</view>
-        <input class="input" type="digit" v-model.number="form.retail_multiplier_max" placeholder="最大系数 (可空)" />
+        <input class="input" type="number" inputmode="decimal" v-model="form.retail_multiplier_max" placeholder="最大系数 (可空，可小数)" />
       </view>
       <view class="hint">说明：若只填一个数，则按单点系数；若留空则不设系数。</view>
       <button type="primary" class="ghost" @tap="goQuickAssign">快速分类</button>
@@ -93,22 +93,17 @@ export default {
       }
       this.saving = true
       try {
+        const payload = {
+          name: this.form.name,
+          retail_multiplier: this.form.retail_multiplier !== '' ? Number(this.form.retail_multiplier) : null,
+          retail_multiplier_min: this.form.retail_multiplier_min !== '' ? Number(this.form.retail_multiplier_min) : null,
+          retail_multiplier_max: this.form.retail_multiplier_max !== '' ? Number(this.form.retail_multiplier_max) : null,
+          is_custom: this.form.is_custom
+        }
         if (this.form.id) {
-          await api.updateCategory(this.form.id, {
-            name: this.form.name,
-            retail_multiplier: this.form.retail_multiplier,
-            retail_multiplier_min: this.form.retail_multiplier_min,
-            retail_multiplier_max: this.form.retail_multiplier_max,
-            is_custom: this.form.is_custom
-          })
+          await api.updateCategory(this.form.id, payload)
         } else {
-          await api.createCategory({
-            name: this.form.name,
-            retail_multiplier: this.form.retail_multiplier,
-            retail_multiplier_min: this.form.retail_multiplier_min,
-            retail_multiplier_max: this.form.retail_multiplier_max,
-            is_custom: this.form.is_custom
-          })
+          await api.createCategory(payload)
         }
         uni.showToast({ title: '已保存', icon: 'success' })
         this.form = { id: '', name: '', retail_multiplier: null, retail_multiplier_min: null, retail_multiplier_max: null, is_custom: true }
