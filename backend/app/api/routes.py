@@ -465,11 +465,11 @@ async def dashboard_inventory_value(session: AsyncSession = Depends(get_session)
 
 @router.get("/dashboard/inventory_breakdown", response_model=schemas.InventoryBreakdownResponse)
 async def dashboard_inventory_breakdown(session: AsyncSession = Depends(get_session)):
-    cost, retail, sku_count, total_boxes = await logic.dashboard_inventory_value(session)
+    cost, retail_min, retail_max, sku_count, total_boxes = await logic.dashboard_inventory_value(session)
     categories = await logic.inventory_by_category(session)
     return schemas.InventoryBreakdownResponse(
         cost_total=round(cost, 2),
-        retail_total=round(retail, 2),
+        retail_total=round(retail_max, 2),
         sku_count=sku_count,
         total_boxes=total_boxes,
         categories=[
