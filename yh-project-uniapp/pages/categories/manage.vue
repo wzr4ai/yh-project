@@ -7,9 +7,14 @@
         <input class="input" v-model="form.name" placeholder="分类名称" />
       </view>
       <view class="form-row">
-        <view class="label">系数</view>
-        <input class="input" type="digit" v-model.number="form.retail_multiplier" placeholder="零售价系数 (可空)" />
+        <view class="label">系数区间</view>
+        <input class="input" type="digit" v-model.number="form.retail_multiplier_min" placeholder="最小系数 (可空)" />
       </view>
+      <view class="form-row">
+        <view class="label">系数上限</view>
+        <input class="input" type="digit" v-model.number="form.retail_multiplier_max" placeholder="最大系数 (可空)" />
+      </view>
+      <view class="hint">说明：若只填一个数，则按单点系数；若留空则不设系数。</view>
       <button type="primary" class="ghost" @tap="goQuickAssign">快速分类</button>
       <button type="primary" @tap="save" :loading="saving">{{ form.id ? '更新分类' : '新增分类' }}</button>
     </view>
@@ -19,7 +24,16 @@
         <view class="item-header">
           <view class="item-name">{{ cat.name }}</view>
           <view class="item-meta">
-            <text>系数：{{ cat.retail_multiplier || '—' }}</text>
+            <text v-if="cat.retail_multiplier_min || cat.retail_multiplier_max">
+              系数：
+              <text v-if="cat.retail_multiplier_min === cat.retail_multiplier_max">
+                {{ cat.retail_multiplier_min || cat.retail_multiplier || '—' }}
+              </text>
+              <text v-else>
+                {{ cat.retail_multiplier_min || '—' }} ~ {{ cat.retail_multiplier_max || '—' }}
+              </text>
+            </text>
+            <text v-else>系数：{{ cat.retail_multiplier || '—' }}</text>
             <text class="flag" :class="cat.is_custom ? 'custom' : 'merchant'">{{ cat.is_custom ? '自定义' : '商家' }}</text>
           </view>
         </view>
@@ -46,6 +60,8 @@ export default {
         id: '',
         name: '',
         retail_multiplier: null,
+        retail_multiplier_min: null,
+        retail_multiplier_max: null,
         is_custom: true
       },
       saving: false
@@ -81,17 +97,21 @@ export default {
           await api.updateCategory(this.form.id, {
             name: this.form.name,
             retail_multiplier: this.form.retail_multiplier,
+            retail_multiplier_min: this.form.retail_multiplier_min,
+            retail_multiplier_max: this.form.retail_multiplier_max,
             is_custom: this.form.is_custom
           })
         } else {
           await api.createCategory({
             name: this.form.name,
             retail_multiplier: this.form.retail_multiplier,
+            retail_multiplier_min: this.form.retail_multiplier_min,
+            retail_multiplier_max: this.form.retail_multiplier_max,
             is_custom: this.form.is_custom
           })
         }
         uni.showToast({ title: '已保存', icon: 'success' })
-        this.form = { id: '', name: '', retail_multiplier: null, is_custom: true }
+        this.form = { id: '', name: '', retail_multiplier: null, retail_multiplier_min: null, retail_multiplier_max: null, is_custom: true }
         this.loadCategories()
       } catch (err) {
         uni.showToast({ title: '保存失败', icon: 'none' })
@@ -177,6 +197,13 @@ export default {
   border-radius: 12rpx;
   padding: 14rpx;
   font-size: 26rpx;
+}
+
+.hint {
+  color: #6b7280;
+  font-size: 22rpx;
+  margin-top: -4rpx;
+  margin-bottom: 12rpx;
 }
 
 .list .item {

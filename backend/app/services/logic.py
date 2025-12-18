@@ -311,6 +311,8 @@ async def create_category(session: AsyncSession, payload: schemas.Category) -> C
         id=payload.id or None,
         name=payload.name,
         retail_multiplier=payload.retail_multiplier,
+        retail_multiplier_min=payload.retail_multiplier_min,
+        retail_multiplier_max=payload.retail_multiplier_max,
         is_custom=payload.is_custom if payload.is_custom is not None else True,
     )
     session.add(category)
@@ -342,6 +344,8 @@ async def upsert_category(session: AsyncSession, category_id: str, payload: sche
     if existing:
         existing.name = payload.name
         existing.retail_multiplier = payload.retail_multiplier
+        existing.retail_multiplier_min = payload.retail_multiplier_min
+        existing.retail_multiplier_max = payload.retail_multiplier_max
         if payload.is_custom is not None:
             existing.is_custom = payload.is_custom
         await session.flush()
@@ -350,6 +354,8 @@ async def upsert_category(session: AsyncSession, category_id: str, payload: sche
         id=payload.id or category_id,
         name=payload.name,
         retail_multiplier=payload.retail_multiplier,
+        retail_multiplier_min=payload.retail_multiplier_min,
+        retail_multiplier_max=payload.retail_multiplier_max,
         is_custom=payload.is_custom if payload.is_custom is not None else True,
     )
     session.add(category)

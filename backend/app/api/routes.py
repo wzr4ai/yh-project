@@ -237,7 +237,12 @@ async def create_category(category: schemas.Category, session: AsyncSession = De
     created = await logic.create_category(session, category)
     await session.commit()
     return schemas.Category(
-        id=created.id, name=created.name, retail_multiplier=created.retail_multiplier, is_custom=created.is_custom
+        id=created.id,
+        name=created.name,
+        retail_multiplier=created.retail_multiplier,
+        retail_multiplier_min=created.retail_multiplier_min,
+        retail_multiplier_max=created.retail_multiplier_max,
+        is_custom=created.is_custom,
     )
 
 
@@ -297,7 +302,12 @@ async def update_category(category_id: str, category: schemas.Category, session:
     updated = await logic.upsert_category(session, category_id, category)
     await session.commit()
     return schemas.Category(
-        id=updated.id, name=updated.name, retail_multiplier=updated.retail_multiplier, is_custom=updated.is_custom
+        id=updated.id,
+        name=updated.name,
+        retail_multiplier=updated.retail_multiplier,
+        retail_multiplier_min=updated.retail_multiplier_min,
+        retail_multiplier_max=updated.retail_multiplier_max,
+        is_custom=updated.is_custom,
     )
 
 
