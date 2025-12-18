@@ -2,7 +2,6 @@
   <view class="page">
     <view class="header card">
       <view class="title">货物定价总览</view>
-      <view class="sub">仅展示标准零售价（不含进价/成本数据）</view>
 
       <view class="search-row">
         <input
@@ -37,7 +36,6 @@
         </view>
         <view class="right">
           <view class="price">¥{{ Number(item.standard_price || 0).toFixed(2) }}</view>
-          <view class="basis">{{ item.price_basis }}</view>
           <view v-if="item.effect_url" class="preview">
             <button size="mini" @tap="openEffect(item.effect_url)">效果</button>
           </view>
