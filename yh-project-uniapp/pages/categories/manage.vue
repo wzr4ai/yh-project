@@ -8,11 +8,11 @@
       </view>
       <view class="form-row">
         <view class="label">系数区间</view>
-        <input class="input" type="number" inputmode="decimal" v-model="form.retail_multiplier_min" placeholder="最小系数 (可空，可小数)" />
+        <input class="input" type="text" inputmode="decimal" v-model="form.retail_multiplier_min" placeholder="最小系数 (可空，可小数)" />
       </view>
       <view class="form-row">
         <view class="label">系数上限</view>
-        <input class="input" type="number" inputmode="decimal" v-model="form.retail_multiplier_max" placeholder="最大系数 (可空，可小数)" />
+        <input class="input" type="text" inputmode="decimal" v-model="form.retail_multiplier_max" placeholder="最大系数 (可空，可小数)" />
       </view>
       <view class="hint">说明：若只填一个数，则按单点系数；若留空则不设系数。</view>
       <button type="primary" class="ghost" @tap="goQuickAssign">快速分类</button>
