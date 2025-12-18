@@ -188,13 +188,22 @@ async def pricing_overview(
     offset: int = 0,
     limit: int = 200,
     keyword: str | None = None,
+    only_in_stock: bool = False,
+    custom_category_id: str | None = None,
     session: AsyncSession = Depends(get_session),
     request: Request = None,
     response: Response = None,
     current_user=Depends(deps.get_current_user),
 ):
     limit = max(1, min(limit, 500))
-    items, total, version = await logic.list_pricing_overview(session, offset=offset, limit=limit, keyword=keyword)
+    items, total, version = await logic.list_pricing_overview(
+        session,
+        offset=offset,
+        limit=limit,
+        keyword=keyword,
+        only_in_stock=only_in_stock,
+        custom_category_id=custom_category_id,
+    )
     etag = f'W/"{version}"'
     inm = request.headers.get("if-none-match") if request else None
     if inm == etag:

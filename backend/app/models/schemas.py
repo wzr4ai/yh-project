@@ -226,6 +226,9 @@ class PricingOverviewItem(BaseModel):
     name: str
     spec: Optional[str] = None
     category_name: Optional[str] = None
+    category_ids: List[str] = []
+    custom_category_ids: List[str] = []
+    stock: int = 0
     standard_price: float
     price_basis: PricingBasis
     img_url: Optional[str] = None

@@ -831,6 +831,8 @@ async def list_pricing_overview(
     offset: int = 0,
     limit: int = 100,
     keyword: str | None = None,
+    only_in_stock: bool = False,
+    custom_category_id: str | None = None,
 ) -> tuple[list[schemas.PricingOverviewItem], int, str]:
     limit = max(1, min(limit, 500))
     offset = max(0, offset)
@@ -839,6 +841,9 @@ async def list_pricing_overview(
     if keyword:
         like = f"%{keyword}%"
         where_clause.append(Product.name.ilike(like))
+    if custom_category_id:
+        subq = sa.select(ProductCategory.product_id).where(ProductCategory.category_id == custom_category_id)
+        where_clause.append(Product.id.in_(subq))
 
     count_stmt = sa.select(sa.func.count()).select_from(Product)
     if where_clause:
@@ -854,6 +859,16 @@ async def list_pricing_overview(
         return [], 0, "empty"
 
     product_ids = [p.id for p in products]
+
+    inv_stmt = (
+        sa.select(Inventory.product_id, sa.func.sum(Inventory.current_stock), sa.func.sum(Inventory.loose_units))
+        .where(Inventory.product_id.in_(product_ids))
+        .group_by(Inventory.product_id)
+    )
+    inv_rows = await session.execute(inv_stmt)
+    inventory_map: dict[str, tuple[int, int]] = {}
+    for pid, box_qty, loose_qty in inv_rows.all():
+        inventory_map[pid] = (int(box_qty or 0), int(loose_qty or 0))
 
     pc_stmt = sa.select(ProductCategory.product_id, ProductCategory.category_id).where(
         ProductCategory.product_id.in_(product_ids)
@@ -879,6 +894,13 @@ async def list_pricing_overview(
     result: list[schemas.PricingOverviewItem] = []
     max_ts = None
     for product in products:
+        box_qty, loose_qty = inventory_map.get(product.id, (0, 0))
+        spec_qty = parse_spec_qty(product.spec)
+        total_units = box_qty * spec_qty + (loose_qty or 0)
+        stock_units = int(total_units)
+        if only_in_stock and stock_units <= 0:
+            continue
+
         spec_clean = normalize_spec(product.spec)
         if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
             price_val = product.fixed_retail_price
@@ -905,12 +927,22 @@ async def list_pricing_overview(
                 basis = "全局系数"
 
         category_names: list[str] = []
+        all_category_ids: list[str] = []
+        custom_category_ids: list[str] = []
         if product.category_id and product.category_id in category_map:
-            category_names.append(category_map[product.category_id].name)
+            cat = category_map[product.category_id]
+            category_names.append(cat.name)
+            all_category_ids.append(cat.id)
+            if getattr(cat, "is_custom", False):
+                custom_category_ids.append(cat.id)
         for cid in product_to_category_ids.get(product.id, []):
             cat = category_map.get(cid)
             if cat and cat.name not in category_names:
                 category_names.append(cat.name)
+            if cat and cat.id not in all_category_ids:
+                all_category_ids.append(cat.id)
+            if cat and getattr(cat, "is_custom", False) and cat.id not in custom_category_ids:
+                custom_category_ids.append(cat.id)
         category_label = "、".join([n for n in category_names if n]) or None
 
         result.append(
@@ -919,6 +951,9 @@ async def list_pricing_overview(
                 name=product.name,
                 spec=spec_clean,
                 category_name=category_label,
+                category_ids=all_category_ids,
+                custom_category_ids=custom_category_ids,
+                stock=stock_units,
                 standard_price=price_val,
                 price_basis=basis,
                 img_url=product.img_url,

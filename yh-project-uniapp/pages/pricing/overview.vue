@@ -14,6 +14,13 @@
         />
         <button size="mini" type="primary" @tap="reload">搜索</button>
       </view>
+
+      <view class="filter-row">
+        <view class="filter-label">自定义分类</view>
+        <picker :range="customCategoryNames" :value="customCategoryIndex" @change="onCategoryChange">
+          <view class="picker">{{ customCategoryNames[customCategoryIndex] }}</view>
+        </picker>
+      </view>
     </view>
 
     <view class="list">
@@ -24,11 +31,16 @@
             <text>{{ item.spec || '—' }}</text>
             <text class="sep">｜</text>
             <text>{{ item.category_name || '—' }}</text>
+            <text class="sep">｜</text>
+            <text>库存 {{ item.stock }}</text>
           </view>
         </view>
         <view class="right">
           <view class="price">¥{{ Number(item.standard_price || 0).toFixed(2) }}</view>
           <view class="basis">{{ item.price_basis }}</view>
+          <view v-if="item.effect_url" class="preview">
+            <button size="mini" @tap="openEffect(item.effect_url)">效果</button>
+          </view>
         </view>
       </view>
       <view v-if="!loading && !items.length" class="empty">暂无数据</view>
@@ -50,17 +62,51 @@ export default {
     return {
       keyword: '',
       items: [],
-      loading: false
+      loading: false,
+      customCategories: [],
+      customCategoryIndex: 0
+    }
+  },
+  computed: {
+    customCategoryNames() {
+      const names = ['全部自定义分类']
+      for (const c of this.customCategories) {
+        if (c && c.name) names.push(c.name)
+      }
+      return names
     }
   },
   onShow() {
+    this.loadCategories()
     this.reload()
   },
   methods: {
+    async loadCategories() {
+      try {
+        const list = await api.getCategories()
+        this.customCategories = (list || []).filter(c => c.is_custom)
+      } catch (err) {
+        this.customCategories = []
+      }
+    },
+    onCategoryChange(e) {
+      this.customCategoryIndex = Number(e.detail.value) || 0
+      this.reload()
+    },
+    selectedCustomCategoryId() {
+      if (this.customCategoryIndex <= 0) return ''
+      const cat = this.customCategories[this.customCategoryIndex - 1]
+      return cat && cat.id ? cat.id : ''
+    },
     async reload() {
       this.loading = true
       try {
-        const res = await api.getPricingOverview({ limit: 500, keyword: this.keyword.trim() })
+        const res = await api.getPricingOverview({
+          limit: 500,
+          keyword: this.keyword.trim(),
+          onlyInStock: true,
+          customCategoryId: this.selectedCustomCategoryId()
+        })
         this.items = res?.items || []
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
@@ -68,6 +114,11 @@ export default {
       } finally {
         this.loading = false
       }
+    },
+    openEffect(url) {
+      if (!url) return
+      const safe = encodeURIComponent(url)
+      uni.navigateTo({ url: `/pages/webview/view?url=${safe}` })
     },
     forceRelogin() {
       setToken('')
@@ -131,6 +182,28 @@ export default {
   background: #fff;
 }
 
+.filter-row {
+  margin-top: 12rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.filter-label {
+  font-size: 24rpx;
+  color: #374151;
+  width: 180rpx;
+}
+
+.picker {
+  flex: 1;
+  padding: 12rpx 16rpx;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #0b1f3a;
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -176,6 +249,10 @@ export default {
   color: #9ca3af;
 }
 
+.preview {
+  margin-top: 8rpx;
+}
+
 .empty {
   text-align: center;
   color: #9ca3af;
@@ -193,5 +270,9 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 12rpx;
+}
+
+.picker {
+  background: #fff;
 }
 </style>
