@@ -792,6 +792,22 @@ def _price_range_for_product(
     product_to_category_ids: dict[str, list[str]],
     global_range: tuple[float, float],
 ) -> tuple[float, float]:
+    def snap_range(min_price: float, max_price: float) -> tuple[float, float]:
+        # 尝试在区间内找到 5 的倍数上下界，若区间过窄则退化为原值取 5 的倍数近似
+        if max_price < min_price:
+            max_price = min_price
+        lower = math.ceil(min_price / 5.0) * 5.0
+        upper = math.floor(max_price / 5.0) * 5.0
+        if lower <= upper:
+            return round2(lower), round2(upper)
+        # 无法找到 5 的倍数，退化为就近 5 的倍数，但仍保障在原区间附近
+        approx = round(min_price / 5.0) * 5.0
+        if approx < min_price:
+            approx = min_price
+        if approx > max_price:
+            approx = max_price
+        return round2(approx), round2(approx)
+
     base = float(product.base_cost_price or 0)
     if product.fixed_retail_price is not None and product.fixed_retail_price > 0:
         val = float(product.fixed_retail_price)
@@ -820,10 +836,10 @@ def _price_range_for_product(
         consider(cid)
 
     if best_range:
-        return round2(base * best_range[0]), round2(base * best_range[1])
+        return snap_range(base * best_range[0], base * best_range[1])
 
     gmin, gmax = global_range
-    return round2(base * gmin), round2(base * gmax)
+    return snap_range(base * gmin, base * gmax)
 
 
 async def list_products_with_inventory(
