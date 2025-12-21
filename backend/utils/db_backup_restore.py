@@ -82,8 +82,8 @@ def require_cmd(cmd: str) -> None:
         raise RuntimeError(f"缺少命令：{cmd}（请安装 postgresql-client）")
 
 
-def run_cmd(cmd: list[str], env: dict[str, str]) -> None:
-    subprocess.run(cmd, env=env, check=True)
+def run_cmd(cmd: list[str], env: dict[str, str], capture: bool = False) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, env=env, check=True, text=True, capture_output=capture)
 
 
 def do_backup(db_url: str, output_dir: Path, file_path: Path | None) -> Path:
@@ -122,7 +122,13 @@ def do_restore(db_url: str, file_path: Path, reset_schema: bool) -> None:
         ]
         run_cmd(cmd_reset, env)
     cmd = ["psql", "--set", "ON_ERROR_STOP=on", "--file", str(file_path)]
-    run_cmd(cmd, env)
+    try:
+        run_cmd(cmd, env, capture=True)
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or "").lower()
+        if "already exists" in stderr or "relation" in stderr:
+            print("恢复失败：目标库已有表/对象。可用 --reset-schema 先清空 schema，或恢复到空库。")
+        raise
 
 
 def parse_args() -> argparse.Namespace:

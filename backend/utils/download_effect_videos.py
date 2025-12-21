@@ -1,7 +1,7 @@
 """
 从商品表中读取 effect_url（燃放效果网页），抓取网页里的视频文件并下载。
 
-默认下载 >5MB 的视频文件，支持 mp4/mov/webm/m4v。
+默认下载 >200KB 的视频文件，支持 mp4/mov/webm/m4v。
 
 运行：
   cd backend
@@ -10,7 +10,8 @@
 
 可选参数：
   --output-dir         下载目录（默认：backend/files/effect_videos）
-  --min-size-mb        最小文件大小（默认：5）
+  --log-file           下载日志路径（默认：<output-dir>/effect_videos.csv）
+  --min-size-mb        最小文件大小（默认：0.2 = 200KB）
   --limit              最多处理多少个商品（默认：0=不限制）
   --max-per-product    每个商品最多下载几个视频（默认：2）
   --timeout            网络超时时间（秒，默认：15）
@@ -21,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import csv
 import os
 import re
 from pathlib import Path
@@ -190,6 +192,7 @@ async def iter_products(session: AsyncSession, limit: int) -> Iterable[Product]:
 async def run(
     *,
     output_dir: Path,
+    log_file: Path,
     min_size_mb: float,
     limit: int,
     max_per_product: int,
@@ -201,6 +204,7 @@ async def run(
         raise RuntimeError("缺少 DATABASE_URL，请在环境变量或 .env 中配置后重试。")
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    log_file.parent.mkdir(parents=True, exist_ok=True)
     min_bytes = int(min_size_mb * 1024 * 1024)
     engine = create_async_engine(db_url, echo=False, future=True)
     headers = {
@@ -210,6 +214,14 @@ async def run(
         async with AsyncSession(engine) as session, httpx.AsyncClient(headers=headers, timeout=timeout) as client:
             products = await iter_products(session, limit)
             print(f"共发现 {len(products)} 个商品含 effect_url")
+            log_fp = None
+            csv_writer = None
+            if not dry_run:
+                is_new = (not log_file.exists()) or log_file.stat().st_size == 0
+                log_fp = log_file.open("a", encoding="utf-8", newline="")
+                csv_writer = csv.writer(log_fp)
+                if is_new:
+                    csv_writer.writerow(["product_id", "video_url", "saved_path"])
             for product in products:
                 page_url = normalize_url(product.effect_url or "")
                 if not page_url:
@@ -238,16 +250,22 @@ async def run(
                     dest_path = output_dir / file_name
                     if dest_path.exists():
                         print(f"[已存在] {dest_path.name}")
+                        if csv_writer:
+                            csv_writer.writerow([product.id, video_url, str(dest_path)])
                         downloaded += 1
                         continue
 
                     size = await fetch_content_length(client, video_url)
                     if size is not None and size < min_bytes:
                         print(f"[小于阈值] {product.name}: {video_url}")
+                        if csv_writer:
+                            csv_writer.writerow([product.id, video_url, "<200k"])
                         continue
 
                     if dry_run:
                         print(f"[预览] {product.name}: {video_url}")
+                        if csv_writer:
+                            csv_writer.writerow([product.id, video_url, "skip"])
                         downloaded += 1
                         continue
 
@@ -256,17 +274,24 @@ async def run(
                     )
                     if ok:
                         print(f"[已下载] {dest_path.name} ({bytes_written / 1024 / 1024:.2f}MB)")
+                        if csv_writer:
+                            csv_writer.writerow([product.id, video_url, str(dest_path)])
                         downloaded += 1
                     else:
                         print(f"[失败/过小] {product.name}: {video_url}")
+                        if csv_writer:
+                            csv_writer.writerow([product.id, video_url, "fail"])
+            if log_fp:
+                log_fp.close()
     finally:
         await engine.dispose()
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="从 effect_url 页面中下载 >5MB 的视频文件")
+    parser = argparse.ArgumentParser(description="从 effect_url 页面中下载 >200KB 的视频文件")
     parser.add_argument("--output-dir", default=None, help="下载目录（默认：backend/files/effect_videos）")
-    parser.add_argument("--min-size-mb", type=float, default=5.0, help="最小视频大小（MB）")
+    parser.add_argument("--log-file", default=None, help="下载日志路径（默认：<output-dir>/effect_videos.csv）")
+    parser.add_argument("--min-size-mb", type=float, default=0.2, help="最小视频大小（MB，默认 0.2=200KB）")
     parser.add_argument("--limit", type=int, default=0, help="最多处理多少个商品（0=不限）")
     parser.add_argument("--max-per-product", type=int, default=2, help="每个商品最多下载几个视频")
     parser.add_argument("--timeout", type=float, default=15.0, help="网络超时秒数")
@@ -277,9 +302,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     output_dir = Path(args.output_dir) if args.output_dir else Path(__file__).resolve().parent.parent / "files" / "effect_videos"
+    log_file = Path(args.log_file) if args.log_file else output_dir / "effect_videos.csv"
     asyncio.run(
         run(
             output_dir=output_dir,
+            log_file=log_file,
             min_size_mb=args.min_size_mb,
             limit=args.limit,
             max_per_product=args.max_per_product,
