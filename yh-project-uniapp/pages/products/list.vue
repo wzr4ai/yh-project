@@ -63,7 +63,7 @@
               <text v-if="item.price_max > item.price_min"> ~ ¥{{ item.price_max.toFixed(2) }}</text>
             </view>
             <button
-              v-if="item.video_url"
+              v-if="item.video_url || item.effect_url"
               size="mini"
               type="primary"
               class="effect-btn"

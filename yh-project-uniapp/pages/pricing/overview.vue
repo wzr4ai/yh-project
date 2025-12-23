@@ -36,7 +36,7 @@
         </view>
         <view class="right">
           <view class="price">¥{{ Number(item.displayPrice || 0).toFixed(2) }}</view>
-          <view v-if="item.video_url" class="preview">
+          <view v-if="item.video_url || item.effect_url" class="preview">
             <button size="mini" @tap="openVideo(item.id)">效果</button>
           </view>
         </view>
