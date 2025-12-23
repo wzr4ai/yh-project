@@ -6,15 +6,17 @@
     </view>
 
     <view class="card video-card">
-      <video
-        v-if="videoUrl"
-        :src="videoUrl"
-        controls
-        autoplay
-        object-fit="contain"
-        @error="onError"
-      ></video>
-      <view v-else class="empty">正在获取视频链接...</view>
+      <view class="video-frame" :style="{ height: videoHeight + 'px' }">
+        <video
+          v-if="videoUrl"
+          :src="videoUrl"
+          controls
+          autoplay
+          object-fit="contain"
+          @error="onError"
+        ></video>
+        <view v-else class="empty">正在获取视频链接...</view>
+      </view>
     </view>
 
     <view class="footer">
@@ -35,16 +37,31 @@ export default {
     return {
       productId: '',
       videoUrl: '',
-      loading: false
+      loading: false,
+      videoHeight: 500
     }
   },
   onLoad(options) {
     this.productId = options.id || options.product_id || ''
+    this.updateVideoSize()
   },
   onShow() {
     this.loadVideoUrl()
   },
   methods: {
+    updateVideoSize() {
+      try {
+        const info = uni.getSystemInfoSync()
+        const width = info.windowWidth || 375
+        const height = info.windowHeight || 667
+        const target = Math.round((width * 16) / 9)
+        const reserved = 220
+        const maxHeight = Math.max(280, height - reserved)
+        this.videoHeight = Math.max(280, Math.min(target, maxHeight))
+      } catch (e) {
+        this.videoHeight = 500
+      }
+    },
     cacheKey() {
       return `${CACHE_PREFIX}${this.productId}`
     },
@@ -126,11 +143,20 @@ export default {
 .video-card {
   padding: 0;
   overflow: hidden;
+  background: #000;
+}
+
+.video-frame {
+  width: 100%;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 video {
   width: 100%;
-  height: 500rpx;
+  height: 100%;
   background: #000;
 }
 
@@ -148,7 +174,7 @@ video {
 
 .empty {
   text-align: center;
-  color: #9ca3af;
+  color: #d1d5db;
   padding: 40rpx 0;
 }
 
