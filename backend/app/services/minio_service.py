@@ -6,6 +6,9 @@ from datetime import timedelta
 from minio import Minio
 
 
+VIDEO_OBJECT_PREFIX = "yh_videos/"
+
+
 def _bool_env(value: str | None, default: bool = False) -> bool:
     if value is None:
         return default
@@ -42,9 +45,20 @@ def resolve_bucket_and_object(value: str) -> tuple[str, str]:
     if default_bucket:
         prefix = f"{default_bucket}/"
         if raw.startswith(prefix):
-            return default_bucket, raw[len(prefix):]
-        return default_bucket, raw
+            return default_bucket, _normalize_object_name(raw[len(prefix):])
+        return default_bucket, _normalize_object_name(raw)
     parts = raw.split("/", 1)
     if len(parts) == 2:
-        return parts[0], parts[1]
+        return parts[0], _normalize_object_name(parts[1])
     raise ValueError("MINIO_VIDEO_BUCKET 未配置，且 video_url 未包含 bucket 前缀")
+
+
+def _normalize_object_name(value: str) -> str:
+    name = (value or "").strip().lstrip("/")
+    if not name:
+        return name
+    if name.startswith(VIDEO_OBJECT_PREFIX):
+        return name
+    if "/" not in name:
+        return f"{VIDEO_OBJECT_PREFIX}{name}"
+    return name
