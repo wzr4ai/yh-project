@@ -224,6 +224,11 @@ export const api = {
     const path = `/api/pricing/overview?${params.join('&')}`
     return cachedRequest(path, {}, `cache:${path}`)
   },
+  getProductVideoUrl(productId, expiresDays) {
+    if (!productId) return Promise.reject({ message: 'missing product id' })
+    const qs = expiresDays ? `?expires_days=${encodeURIComponent(expiresDays)}` : ''
+    return request(`/api/products/${encodeURIComponent(productId)}/video-url${qs}`)
+  },
   getInventoryOverview() {
     const path = '/api/inventory/overview'
     return cachedRequest(path, {}, `cache:${path}`)

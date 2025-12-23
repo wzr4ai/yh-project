@@ -63,11 +63,11 @@
               <text v-if="item.price_max > item.price_min"> ~ ¥{{ item.price_max.toFixed(2) }}</text>
             </view>
             <button
-              v-if="item.effect_url"
+              v-if="item.video_url"
               size="mini"
               type="primary"
               class="effect-btn"
-              @tap.stop="openEffect(item.effect_url)"
+              @tap.stop="openVideo(item.id)"
             >效果</button>
           </view>
         </view>
@@ -304,20 +304,11 @@ export default {
         url: `/pages/products/detail?id=${id}`
       })
     },
-    openEffect(url) {
-      if (!url) return
-      /* #ifdef MP-WEIXIN */
-      uni.navigateTo({ url: `/pages/webview/view?url=${encodeURIComponent(url)}` })
-      /* #endif */
-      /* #ifdef H5 */
-      window.open(url, '_blank')
-      /* #endif */
-      /* #ifndef MP-WEIXIN */
-      /* #ifndef H5 */
-      uni.setClipboardData({ data: url })
-      uni.showToast({ title: '链接已复制', icon: 'none' })
-      /* #endif */
-      /* #endif */
+    openVideo(id) {
+      if (!id) return
+      uni.navigateTo({
+        url: `/pages/videos/play?id=${encodeURIComponent(id)}`
+      })
     }
   }
 }

@@ -36,8 +36,8 @@
         </view>
         <view class="right">
           <view class="price">¥{{ Number(item.displayPrice || 0).toFixed(2) }}</view>
-          <view v-if="item.effect_url" class="preview">
-            <button size="mini" @tap="openEffect(item.effect_url)">效果</button>
+          <view v-if="item.video_url" class="preview">
+            <button size="mini" @tap="openVideo(item.id)">效果</button>
           </view>
         </view>
       </view>
@@ -118,10 +118,9 @@ export default {
         this.loading = false
       }
     },
-    openEffect(url) {
-      if (!url) return
-      const safe = encodeURIComponent(url)
-      uni.navigateTo({ url: `/pages/webview/view?url=${safe}` })
+    openVideo(id) {
+      if (!id) return
+      uni.navigateTo({ url: `/pages/videos/play?id=${encodeURIComponent(id)}` })
     },
     forceRelogin() {
       setToken('')

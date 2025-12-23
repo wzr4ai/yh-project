@@ -212,6 +212,7 @@ class ProductListItem(BaseModel):
     stock: int
     retail_total: float
     cost_total: float
+    video_url: Optional[str] = None
     effect_url: Optional[str] = None
 
 
@@ -243,6 +244,7 @@ class PricingOverviewItem(BaseModel):
     standard_price: float
     price_basis: PricingBasis
     img_url: Optional[str] = None
+    video_url: Optional[str] = None
     effect_url: Optional[str] = None
 
 

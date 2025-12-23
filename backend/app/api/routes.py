@@ -1,4 +1,5 @@
 from datetime import datetime
+import time
 from typing import List
 
 import sqlalchemy as sa
@@ -225,6 +226,28 @@ async def minio_presign(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"url": url}
+
+
+@router.get("/products/{product_id}/video-url")
+async def get_product_video_url(
+    product_id: str,
+    expires_days: int | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    product = await session.get(Product, product_id)
+    if not product or not product.video_url:
+        raise HTTPException(status_code=404, detail="video not found")
+    try:
+        bucket, obj = minio_service.resolve_bucket_and_object(product.video_url)
+        url = minio_service.presign_get_object(bucket, obj, expires_days=expires_days)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # 返回过期时间戳，便于前端缓存
+    days = expires_days if expires_days is not None else int(os.getenv("MINIO_PRESIGN_EXPIRE_DAYS", "7") or 7)
+    days = max(1, min(days, 30))
+    expires_at = int(time.time()) + days * 86400
+    return {"url": url, "expires_at": expires_at}
 
 
 @router.get("/products/{product_id}", response_model=schemas.Product)

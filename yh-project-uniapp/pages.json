@@ -20,6 +20,12 @@
       }
     },
     {
+      "path": "pages/videos/play",
+      "style": {
+        "navigationBarTitleText": "视频预览"
+      }
+    },
+    {
       "path": "pages/sales/create",
       "style": {
         "navigationBarTitleText": "新增销售"

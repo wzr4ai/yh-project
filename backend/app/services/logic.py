@@ -1030,6 +1030,7 @@ async def list_products_with_inventory(
                 stock=stock,
                 retail_total=round2(price_max * total_units if basis != "例外价" else retail_total),
                 cost_total=round2(cost_total),
+                video_url=product.video_url,
                 effect_url=product.effect_url,
             )
         )
@@ -1153,6 +1154,7 @@ async def list_pricing_overview(
                 standard_price=price_val,
                 price_basis=basis,
                 img_url=product.img_url,
+                video_url=product.video_url,
                 effect_url=product.effect_url,
             )
         )
