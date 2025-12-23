@@ -243,6 +243,8 @@ async def get_product_video_url(
         url = minio_service.presign_get_object(bucket, obj, expires_days=expires_days)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="minio unavailable") from exc
     # 返回过期时间戳，便于前端缓存
     days = expires_days if expires_days is not None else int(os.getenv("MINIO_PRESIGN_EXPIRE_DAYS", "7") or 7)
     days = max(1, min(days, 30))

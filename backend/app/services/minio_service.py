@@ -17,9 +17,10 @@ def _get_minio_client() -> Minio:
     access_key = os.getenv("MINIO_ACCESS_KEY")
     secret_key = os.getenv("MINIO_SECRET_KEY")
     secure = _bool_env(os.getenv("MINIO_SECURE"), default=False)
+    region = (os.getenv("MINIO_REGION") or "").strip() or "us-east-1"
     if not endpoint or not access_key or not secret_key:
         raise ValueError("MINIO_ENDPOINT/MINIO_ACCESS_KEY/MINIO_SECRET_KEY 未配置")
-    return Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=secure)
+    return Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=secure, region=region)
 
 
 def presign_get_object(bucket: str, object_name: str, expires_days: int | None = None) -> str:
