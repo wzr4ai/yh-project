@@ -218,6 +218,7 @@ async def create_product(session: AsyncSession, payload: schemas.Product) -> Pro
         retail_multiplier=payload.retail_multiplier,
         pack_price_ref=payload.pack_price_ref,
         img_url=payload.img_url,
+        video_url=payload.video_url,
         effect_url=payload.effect_url,
     )
     session.add(product)
@@ -244,6 +245,7 @@ async def update_product(session: AsyncSession, product_id: str, payload: schema
     product.retail_multiplier = payload.retail_multiplier
     product.pack_price_ref = payload.pack_price_ref
     product.img_url = payload.img_url
+    product.video_url = payload.video_url
     product.effect_url = payload.effect_url
     product.updated_at = datetime.utcnow()
     if payload.categories is not None:
@@ -302,6 +304,7 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
         retail_multiplier=product.retail_multiplier,
         pack_price_ref=product.pack_price_ref,
         img_url=product.img_url,
+        video_url=product.video_url,
         effect_url=product.effect_url,
     )
 

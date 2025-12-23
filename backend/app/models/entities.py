@@ -52,6 +52,7 @@ class Product(Base):
     retail_multiplier: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     pack_price_ref: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     img_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
+    video_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
     effect_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

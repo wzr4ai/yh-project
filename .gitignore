@@ -1,15 +1,40 @@
+# env
 .env
 .env.local
 .env.*
+
+# python
 __pycache__/
 *.pyc
 *.pyo
-.DS_Store
 .venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage/
+
+# node
 node_modules/
+
+# build output
+dist/
+build/
+unpackage/
+
+# runtime/output
+logs/
+files/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# local config
 yh-project-uniapp/common/config.js
 
-logs/
-
-files
+# compose override
 docker-compose.yml

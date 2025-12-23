@@ -11,7 +11,7 @@ from app.api import deps
 from app.db import get_session
 from app.models import schemas
 from app.models.entities import InventoryLog, Product, PurchaseOrder, Category, ProductCategory
-from app.services import auth, logic, llm_agent, exports as export_service
+from app.services import auth, logic, llm_agent, exports as export_service, minio_service
 from app.services.llm import LLMService, LLMServiceError
 
 router = APIRouter(prefix="/api")
@@ -142,6 +142,7 @@ async def create_product(product: schemas.Product, session: AsyncSession = Depen
         base_cost_price=created.base_cost_price,
         fixed_retail_price=created.fixed_retail_price,
         img_url=created.img_url,
+        video_url=created.video_url,
     )
 
 
@@ -210,6 +211,20 @@ async def pricing_overview(
         return Response(status_code=304)
     response.headers["ETag"] = etag
     return schemas.PricingOverviewResponse(items=items, total=total)
+
+
+@router.get("/minio/presign")
+async def minio_presign(
+    bucket: str,
+    object_name: str,
+    expires_days: int | None = None,
+    current_user=Depends(deps.get_current_user),
+):
+    try:
+        url = minio_service.presign_get_object(bucket, object_name, expires_days=expires_days)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"url": url}
 
 
 @router.get("/products/{product_id}", response_model=schemas.Product)

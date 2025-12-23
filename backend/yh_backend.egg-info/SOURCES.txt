@@ -11,6 +11,9 @@ app/models/entities.py
 app/models/schemas.py
 app/services/__init__.py
 app/services/auth.py
+app/services/exports.py
+app/services/llm.py
+app/services/llm_agent.py
 app/services/logic.py
 app/services/mock_store.py
 app/services/pricing.py
