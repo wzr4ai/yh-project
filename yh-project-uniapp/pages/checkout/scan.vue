@@ -39,7 +39,7 @@
         <button size="mini" type="primary" :loading="loading" @tap="addByBarcode">添加</button>
         <button size="mini" @tap="scanCode" :loading="scanning">扫码</button>
       </view>
-      <view class="hint">每次扫码默认 +1 箱，可在下方调整数量。</view>
+      <view class="hint">每次扫码默认 +1 个，可在下方调整数量。</view>
     </view>
 
     <view class="card" v-if="activeItems.length">
@@ -236,8 +236,8 @@ export default {
       const order = this.activeOrder
       if (!order) return
       const specQty = this.parseSpecQty(product.spec)
-      const addBox = 1
-      const addLoose = 0
+      const addBox = specQty > 1 ? 0 : 1
+      const addLoose = specQty > 1 ? 1 : 0
       const addUnits = addBox * specQty + (specQty > 1 ? addLoose : 0)
       const existing = order.items.find(i => i.id === product.id)
       const usedUnits = existing ? this.calcUnits(existing) : 0

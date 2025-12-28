@@ -3,6 +3,7 @@ Lightweight schema migration to align DB with current models.
 Creates missing tables from SQLAlchemy metadata and adds known new columns if absent.
 
 Usage:
+  set -a; source .env; set +a
   uv run python backend/utils/schema_migrate.py
 
 Reads DATABASE_URL from environment (asyncpg URL will be converted to sync driver).
