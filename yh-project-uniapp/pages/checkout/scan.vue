@@ -1,7 +1,10 @@
 <template>
   <view class="page">
     <view class="card header">
-      <view class="title">扫码结账</view>
+      <view class="header-row">
+        <view class="title">扫码结账</view>
+        <button size="mini" class="nav-btn" @tap="goHome">{{ homeLabel }}</button>
+      </view>
       <view class="sub">支持同时挂多单，切换订单继续扫码。</view>
     </view>
 
@@ -97,6 +100,7 @@
 
 <script>
 import { api } from '../../common/api.js'
+import { getRole, isOwner } from '../../common/auth.js'
 
 const STORAGE_KEY = 'checkout-orders'
 
@@ -111,7 +115,8 @@ export default {
       scanning: false,
       submitting: false,
       showMatchDialog: false,
-      matchedProducts: []
+      matchedProducts: [],
+      role: getRole()
     }
   },
   computed: {
@@ -126,9 +131,14 @@ export default {
     }
   },
   onShow() {
+    this.role = getRole()
     this.loadOrders()
   },
   methods: {
+    goHome() {
+      const target = this.isOwner ? '/pages/dashboard/index' : '/pages/pricing/overview'
+      uni.navigateTo({ url: target })
+    },
     loadOrders() {
       try {
         const cached = uni.getStorageSync(STORAGE_KEY)
@@ -424,6 +434,18 @@ export default {
   color: #0b1f3a;
 }
 
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.nav-btn {
+  background: #0f6a7b;
+  color: #ffffff;
+}
+
 .header .sub {
   margin-top: 6rpx;
   color: #6b7280;
@@ -647,3 +669,9 @@ export default {
   margin-top: 4rpx;
 }
 </style>
+    isOwner() {
+      return isOwner(this.role)
+    },
+    homeLabel() {
+      return this.isOwner ? '运营总览' : '货物定价总览'
+    },
