@@ -172,7 +172,7 @@ async def get_or_create_user_by_openid(session: AsyncSession, openid: str, nickn
     user = (await session.execute(stmt)).scalars().first()
     if user:
         return user
-    user = User(username=nickname or "店员", role="clerk", openid=openid)
+    user = User(username=nickname or "用户", role="user", openid=openid)
     session.add(user)
     await session.flush()
     return user

@@ -100,7 +100,7 @@
 
 <script>
 import { api } from '../../common/api.js'
-import { isOwner } from '../../common/auth.js'
+import { getRole, isOwner } from '../../common/auth.js'
 
 const STORAGE_KEY = 'checkout-orders'
 
@@ -132,15 +132,29 @@ export default {
       return isOwner()
     },
     homeLabel() {
-      return this.isOwner ? '运营总览' : '货物定价总览'
+      const role = getRole()
+      if (role === 'owner') return '运营总览'
+      if (role === 'user') return '商品展示'
+      return '货物定价总览'
     }
   },
   onShow() {
+    const role = getRole()
+    if (role === 'user') {
+      uni.reLaunch({ url: '/pages/products/showcase' })
+      return
+    }
     this.loadOrders()
   },
   methods: {
     goHome() {
-      const target = this.isOwner ? '/pages/dashboard/index' : '/pages/pricing/overview'
+      const role = getRole()
+      const target =
+        role === 'owner'
+          ? '/pages/dashboard/index'
+          : role === 'user'
+            ? '/pages/products/showcase'
+            : '/pages/pricing/overview'
       uni.navigateTo({ url: target })
     },
     loadOrders() {

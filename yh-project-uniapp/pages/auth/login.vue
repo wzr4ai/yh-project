@@ -21,7 +21,8 @@
 import { setRole, setToken, getToken, getRole, isTokenValid } from '../../common/auth.js'
 import { API_BASE_URL } from '../../common/config.js'
 
-const HOME = '/pages/checkout/scan'
+const OWNER_HOME = '/pages/checkout/scan'
+const USER_HOME = '/pages/products/showcase'
 
 export default {
   data() {
@@ -34,9 +35,11 @@ export default {
     if (token && isTokenValid(token)) {
       // 已登录且 token 未过期，直接跳转
       if (!getRole()) {
-        setRole('clerk')
+        setRole('user')
       }
-      uni.reLaunch({ url: HOME })
+      const role = getRole()
+      const target = role === 'user' ? USER_HOME : OWNER_HOME
+      uni.reLaunch({ url: target })
       return
     }
     this.autoWeappLogin()
@@ -67,7 +70,8 @@ export default {
             setToken(data.token)
             setRole(data.role)
             uni.setStorageSync('yh-username', data.username)
-            uni.reLaunch({ url: HOME })
+            const target = data.role === 'user' ? USER_HOME : OWNER_HOME
+            uni.reLaunch({ url: target })
           } else {
             this.failToast()
           }

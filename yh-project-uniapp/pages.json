@@ -62,6 +62,12 @@
       }
     },
     {
+      "path": "pages/products/showcase",
+      "style": {
+        "navigationBarTitleText": "商品展示"
+      }
+    },
+    {
       "path": "pages/products/detail",
       "style": {
         "navigationBarTitleText": "商品详情"

@@ -5,7 +5,7 @@ from typing import Literal, Optional, List, Dict
 from pydantic import BaseModel, Field, ConfigDict
 
 
-Role = Literal["owner", "clerk"]
+Role = Literal["owner", "clerk", "user"]
 PricingBasis = Literal["例外价", "分类系数", "全局系数"]
 
 

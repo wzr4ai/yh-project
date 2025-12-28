@@ -168,8 +168,8 @@ def get_or_create_user_by_openid(openid: str, nickname: str | None = None) -> Us
         return existing
     user = User(
         id=f"u-{len(USERS)+1}",
-        username=nickname or f"店员{len(USERS)+1}",
-        role="clerk",
+        username=nickname or f"用户{len(USERS)+1}",
+        role="user",
         openid=openid,
     )
     USERS.append(user)

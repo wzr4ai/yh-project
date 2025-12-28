@@ -84,7 +84,7 @@ class User(Base):
 
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
     username: Mapped[str] = mapped_column(sa.String(200), nullable=False)
-    role: Mapped[str] = mapped_column(sa.String(10), nullable=False, default="clerk")
+    role: Mapped[str] = mapped_column(sa.String(10), nullable=False, default="user")
     openid: Mapped[str] = mapped_column(sa.String(100), nullable=False, unique=True)
 
 
