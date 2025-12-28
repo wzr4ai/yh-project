@@ -315,6 +315,7 @@ export default {
       }
       if (existing) {
         existing.box += addBox
+        existing.loose += addLoose
       } else {
         order.items.push({
           id: product.id,
