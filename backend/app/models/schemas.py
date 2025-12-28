@@ -65,6 +65,7 @@ class Product(ORMBase):
     img_url: Optional[str] = None
     video_url: Optional[str] = None
     effect_url: Optional[str] = None
+    barcode: Optional[str] = None
 
 
 class PriceCalcResponse(BaseModel):
@@ -214,6 +215,7 @@ class ProductListItem(BaseModel):
     cost_total: float
     video_url: Optional[str] = None
     effect_url: Optional[str] = None
+    barcode: Optional[str] = None
 
 
 class InventoryOverviewItem(BaseModel):
@@ -246,6 +248,7 @@ class PricingOverviewItem(BaseModel):
     img_url: Optional[str] = None
     video_url: Optional[str] = None
     effect_url: Optional[str] = None
+    barcode: Optional[str] = None
 
 
 class PricingOverviewResponse(BaseModel):

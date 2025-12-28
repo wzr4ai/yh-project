@@ -246,6 +246,11 @@ export const api = {
   getProduct(id) {
     return request(`/api/products/${id}`) // 单个商品更新频率高，暂不缓存
   },
+  getProductByBarcode(barcode) {
+    if (!barcode) return Promise.reject({ message: 'missing barcode' })
+    const qs = encodeURIComponent(barcode)
+    return request(`/api/products/by-barcode?barcode=${qs}`)
+  },
   getCategories() {
     const path = '/api/categories'
     return cachedRequest(path, {}, `cache:${path}`)

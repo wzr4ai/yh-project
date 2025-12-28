@@ -145,6 +145,8 @@ async def create_product(product: schemas.Product, session: AsyncSession = Depen
         fixed_retail_price=created.fixed_retail_price,
         img_url=created.img_url,
         video_url=created.video_url,
+        effect_url=created.effect_url,
+        barcode=created.barcode,
     )
 
 
@@ -184,6 +186,19 @@ async def list_products(
         return Response(status_code=304)
     response.headers["ETag"] = etag
     return schemas.ProductListResponse(items=items, total=total)
+
+
+@router.get("/products/by-barcode", response_model=schemas.ProductListItem)
+async def get_product_by_barcode(
+    barcode: str,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    try:
+        return await logic.product_by_barcode(session, barcode)
+    except ValueError as exc:
+        status = 400 if str(exc) == "barcode empty" else 404
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
 @router.get("/pricing/overview", response_model=schemas.PricingOverviewResponse)

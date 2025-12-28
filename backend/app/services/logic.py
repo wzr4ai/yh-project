@@ -220,6 +220,7 @@ async def create_product(session: AsyncSession, payload: schemas.Product) -> Pro
         img_url=payload.img_url,
         video_url=payload.video_url,
         effect_url=payload.effect_url,
+        barcode=payload.barcode,
     )
     session.add(product)
     await session.flush()
@@ -247,6 +248,7 @@ async def update_product(session: AsyncSession, product_id: str, payload: schema
     product.img_url = payload.img_url
     product.video_url = payload.video_url
     product.effect_url = payload.effect_url
+    product.barcode = payload.barcode
     product.updated_at = datetime.utcnow()
     if payload.categories is not None:
         category_ids = extract_category_ids(payload.categories)
@@ -306,6 +308,7 @@ async def product_with_category(session: AsyncSession, product_id: str) -> schem
         img_url=product.img_url,
         video_url=product.video_url,
         effect_url=product.effect_url,
+        barcode=product.barcode,
     )
 
 
@@ -1032,12 +1035,94 @@ async def list_products_with_inventory(
                 cost_total=round2(cost_total),
                 video_url=product.video_url,
                 effect_url=product.effect_url,
+                barcode=product.barcode,
             )
         )
         if product.updated_at:
             max_ts = max(max_ts or product.updated_at, product.updated_at)
     version = (max_ts or datetime.utcnow()).isoformat()
     return result, total, version
+
+
+async def product_by_barcode(session: AsyncSession, barcode: str) -> schemas.ProductListItem:
+    code = (barcode or "").strip()
+    if not code:
+        raise ValueError("barcode empty")
+    product = (await session.execute(sa.select(Product).where(Product.barcode == code))).scalars().first()
+    if not product:
+        raise ValueError("product not found")
+
+    inv_stmt = sa.select(sa.func.sum(Inventory.current_stock), sa.func.sum(Inventory.loose_units)).where(
+        Inventory.product_id == product.id
+    )
+    box_qty, loose_qty = (await session.execute(inv_stmt)).first() or (0, 0)
+    spec_qty = parse_spec_qty(product.spec)
+    total_units = int((box_qty or 0) * spec_qty + (loose_qty or 0))
+
+    pc_rows = (await session.execute(
+        sa.select(ProductCategory.category_id).where(ProductCategory.product_id == product.id)
+    )).all()
+    extra_category_ids = [row[0] for row in pc_rows]
+
+    category_ids_needed = set(extra_category_ids)
+    if product.category_id:
+        category_ids_needed.add(product.category_id)
+    category_map: dict[str, Category] = {}
+    if category_ids_needed:
+        cats = (await session.execute(sa.select(Category).where(Category.id.in_(category_ids_needed)))).scalars().all()
+        category_map = {c.id: c for c in cats}
+
+    product_to_category_ids = {product.id: extra_category_ids}
+    global_range = await get_global_multiplier_range(session)
+    price_val, basis = _standard_price_for_product(
+        product,
+        category_map=category_map,
+        product_to_category_ids=product_to_category_ids,
+        global_range=global_range,
+    )
+    price_min, price_max = _price_range_for_product(
+        product,
+        category_map=category_map,
+        product_to_category_ids=product_to_category_ids,
+        global_range=global_range,
+    )
+
+    category_names: list[str] = []
+    category_ids: list[str] = []
+    if product.category_id and product.category_id in category_map:
+        category = category_map[product.category_id]
+        category_names.append(category.name)
+        category_ids.append(category.id)
+    for cid in extra_category_ids:
+        cat = category_map.get(cid)
+        if not cat:
+            continue
+        if cat.name not in category_names:
+            category_names.append(cat.name)
+        if cat.id not in category_ids:
+            category_ids.append(cat.id)
+
+    retail_total = price_val * total_units
+    cost_total = (product.base_cost_price or 0) * total_units
+    spec_clean = normalize_spec(product.spec)
+    return schemas.ProductListItem(
+        id=product.id,
+        name=product.name,
+        spec=spec_clean,
+        category_name="、".join([n for n in category_names if n]) or None,
+        category_ids=category_ids,
+        base_cost_price=product.base_cost_price,
+        standard_price=price_val,
+        price_min=price_min,
+        price_max=price_max,
+        price_basis=basis,
+        stock=total_units,
+        retail_total=round2(price_max * total_units if basis != "例外价" else retail_total),
+        cost_total=round2(cost_total),
+        video_url=product.video_url,
+        effect_url=product.effect_url,
+        barcode=product.barcode,
+    )
 
 
 async def list_pricing_overview(
@@ -1156,6 +1241,7 @@ async def list_pricing_overview(
                 img_url=product.img_url,
                 video_url=product.video_url,
                 effect_url=product.effect_url,
+                barcode=product.barcode,
             )
         )
         if product.updated_at:

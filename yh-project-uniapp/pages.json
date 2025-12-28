@@ -32,6 +32,12 @@
       }
     },
     {
+      "path": "pages/checkout/scan",
+      "style": {
+        "navigationBarTitleText": "扫码结账"
+      }
+    },
+    {
       "path": "pages/inventory/overview",
       "style": {
         "navigationBarTitleText": "库存总览"

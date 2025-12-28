@@ -7,6 +7,10 @@
         <input class="input" v-model="form.name" placeholder="商品名称" />
       </view>
       <view class="form-row">
+        <view class="label">条码</view>
+        <input class="input" v-model="form.barcode" placeholder="商品条码 (可选)" />
+      </view>
+      <view class="form-row">
         <view class="label">规格</view>
         <input class="input" v-model="form.spec" placeholder="规格（数量缺省按1计算）" />
       </view>
@@ -51,6 +55,7 @@ export default {
     return {
       form: {
         name: '',
+        barcode: '',
         spec: '',
         base_cost_price: null,
         fixed_retail_price: null,

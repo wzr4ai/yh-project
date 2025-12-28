@@ -7,6 +7,10 @@
         <input class="input" v-model="form.name" :disabled="!isOwner" placeholder="商品名称" />
       </view>
       <view class="form-row">
+        <view class="label">条码</view>
+        <input class="input" v-model="form.barcode" :disabled="!isOwner" placeholder="商品条码 (可选)" />
+      </view>
+      <view class="form-row">
       <view class="label">规格</view>
       <input class="input" v-model="form.spec" :disabled="!isOwner" placeholder="规格" />
     </view>
@@ -115,6 +119,7 @@ export default {
       role: getRole(),
       form: {
         name: '',
+        barcode: '',
         spec: '',
         category_id: '',
         category_name: '',
@@ -201,6 +206,7 @@ export default {
         const data = await api.getProduct(this.id)
         this.form = {
           name: data.name,
+          barcode: data.barcode || '',
           spec: data.spec,
           category_id: data.category_id,
           category_name: data.category_name || '',

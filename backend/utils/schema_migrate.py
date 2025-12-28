@@ -53,6 +53,8 @@ def ensure_columns(engine: Engine):
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS effect_url varchar(500)"))
         if "video_url" not in product_columns:
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS video_url varchar(500)"))
+        if "barcode" not in product_columns:
+            conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS barcode varchar(200)"))
         if "updated_at" not in product_columns:
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now()"))
         if "is_custom" not in category_columns:

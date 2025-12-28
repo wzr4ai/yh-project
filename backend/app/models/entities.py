@@ -54,6 +54,7 @@ class Product(Base):
     img_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
     video_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
     effect_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
+    barcode: Mapped[str | None] = mapped_column(sa.String(200), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     category: Mapped[Category | None] = relationship(back_populates="products")
