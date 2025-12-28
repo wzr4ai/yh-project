@@ -3,7 +3,7 @@
     <view class="card header">
       <view class="header-row">
         <view class="title">扫码结账</view>
-        <button size="mini" class="nav-btn" @tap="goHome">{{ homeLabel }}</button>
+        <view class="nav-btn" @tap="goHome">{{ homeLabel }}</view>
       </view>
       <view class="sub">支持同时挂多单，切换订单继续扫码。</view>
     </view>
@@ -442,6 +442,12 @@ export default {
 }
 
 .nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
   background: #0f6a7b;
   color: #ffffff;
 }
