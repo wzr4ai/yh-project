@@ -100,7 +100,7 @@
 
 <script>
 import { api } from '../../common/api.js'
-import { getRole, isOwner } from '../../common/auth.js'
+import { isOwner } from '../../common/auth.js'
 
 const STORAGE_KEY = 'checkout-orders'
 
@@ -115,8 +115,7 @@ export default {
       scanning: false,
       submitting: false,
       showMatchDialog: false,
-      matchedProducts: [],
-      role: getRole()
+      matchedProducts: []
     }
   },
   computed: {
@@ -128,10 +127,15 @@ export default {
     },
     activeSummary() {
       return this.calcSummary(this.activeOrder)
+    },
+    isOwner() {
+      return isOwner()
+    },
+    homeLabel() {
+      return this.isOwner ? '运营总览' : '货物定价总览'
     }
   },
   onShow() {
-    this.role = getRole()
     this.loadOrders()
   },
   methods: {
@@ -675,9 +679,3 @@ export default {
   margin-top: 4rpx;
 }
 </style>
-    isOwner() {
-      return isOwner(this.role)
-    },
-    homeLabel() {
-      return this.isOwner ? '运营总览' : '货物定价总览'
-    },
