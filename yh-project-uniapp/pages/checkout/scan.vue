@@ -171,7 +171,7 @@ export default {
     },
     createOrder(silent) {
       const id = `order_${Date.now()}_${Math.floor(Math.random() * 1000)}`
-      const name = `结算单${this.orders.length + 1}`
+      const name = this.nextOrderName()
       const order = { id, name, items: [], count: 0, total: 0 }
       this.orders.push(order)
       this.activeOrderId = id
@@ -181,6 +181,23 @@ export default {
       if (!silent) {
         uni.showToast({ title: '已新开单', icon: 'success' })
       }
+    },
+    nextOrderName() {
+      const names = new Set(
+        this.orders
+          .map(o => String(o.name || '').trim())
+          .filter(Boolean)
+      )
+      const used = new Set()
+      names.forEach((name) => {
+        const match = name.match(/^结算单(\d+)$/)
+        if (match) used.add(Number(match[1]))
+      })
+      let idx = 1
+      while (used.has(idx) || names.has(`结算单${idx}`)) {
+        idx += 1
+      }
+      return `结算单${idx}`
     },
     switchOrder(id) {
       if (id === this.activeOrderId) return
