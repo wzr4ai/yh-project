@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.db import Base, engine, SessionLocal
-from app.db.migrate import ensure_columns
+from app.db_migrate import ensure_columns
 from app.services.logic import ensure_defaults
 
 
