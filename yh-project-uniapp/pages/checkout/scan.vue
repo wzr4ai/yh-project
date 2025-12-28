@@ -34,9 +34,9 @@
           v-model="barcodeInput"
           placeholder="输入条码"
           confirm-type="search"
-          @confirm="addByBarcode"
+          @confirm="manualAdd"
         />
-        <button size="mini" type="primary" :loading="loading" @tap="addByBarcode">添加</button>
+        <button size="mini" type="primary" :loading="loading" @tap="manualAdd">添加</button>
         <button size="mini" @tap="scanCode" :loading="scanning">扫码</button>
       </view>
       <view class="hint">每次扫码默认 +1 个，可在下方调整数量。</view>
@@ -76,6 +76,22 @@
       <button size="mini" @tap="clearActiveOrder" :disabled="!activeItems.length">清空</button>
       <button size="mini" type="primary" :loading="submitting" @tap="submitOrder">提交结算单</button>
     </view>
+
+    <view class="dialog" v-if="showMatchDialog">
+      <view class="dialog-content">
+        <view class="dialog-header">
+          <view class="dialog-title">选择匹配条码</view>
+          <button size="mini" @tap="closeMatchDialog">关闭</button>
+        </view>
+        <scroll-view class="dialog-body" scroll-y>
+          <view class="match-row" v-for="item in matchedProducts" :key="item.id" @tap="selectMatched(item)">
+            <view class="match-name">{{ item.name }}</view>
+            <view class="match-meta">条码 {{ item.barcode || '—' }} ｜ 规格 {{ item.spec || '—' }}</view>
+          </view>
+          <view v-if="!matchedProducts.length" class="empty">无匹配结果</view>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -93,7 +109,9 @@ export default {
       barcodeInput: '',
       loading: false,
       scanning: false,
-      submitting: false
+      submitting: false,
+      showMatchDialog: false,
+      matchedProducts: []
     }
   },
   computed: {
@@ -208,7 +226,7 @@ export default {
         scanType: ['barCode', 'qrCode'],
         success: (res) => {
           this.barcodeInput = res.result || ''
-          this.addByBarcode()
+          this.scanAdd()
         },
         fail: () => {
           uni.showToast({ title: '扫码失败', icon: 'none' })
@@ -218,11 +236,29 @@ export default {
         }
       })
     },
-    async addByBarcode() {
+    manualAdd() {
+      this.addByBarcode(true)
+    },
+    scanAdd() {
+      this.addByBarcode(false)
+    },
+    async addByBarcode(useSuffixMatch) {
       const code = this.barcodeInput.trim()
       if (!code) return
       this.loading = true
       try {
+        if (useSuffixMatch) {
+          const matches = await api.getProductsByBarcodeSuffix(code, 20)
+          if (matches.length === 1) {
+            this.addProduct(matches[0])
+            this.barcodeInput = ''
+            return
+          }
+          if (matches.length > 1) {
+            this.openMatchDialog(matches)
+            return
+          }
+        }
         const product = await api.getProductByBarcode(code)
         this.addProduct(product)
         this.barcodeInput = ''
@@ -264,6 +300,21 @@ export default {
       this.refreshOrderStats()
       this.persistOrders()
       uni.showToast({ title: '已加入', icon: 'success' })
+    },
+    openMatchDialog(matches) {
+      this.matchedProducts = matches || []
+      this.showMatchDialog = true
+    },
+    closeMatchDialog() {
+      this.showMatchDialog = false
+      this.matchedProducts = []
+    },
+    selectMatched(item) {
+      this.closeMatchDialog()
+      if (item) {
+        this.addProduct(item)
+        this.barcodeInput = ''
+      }
     },
     parseSpecQty(spec) {
       const match = String(spec || '').match(/(\d+(\.\d+)?)/)
@@ -535,5 +586,64 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 4rpx;
+}
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.dialog-content {
+  width: 86%;
+  max-height: 70vh;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 16rpx;
+  box-shadow: 0 12rpx 30rpx rgba(15, 23, 42, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.dialog-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #0b1f3a;
+}
+
+.dialog-body {
+  max-height: 50vh;
+}
+
+.match-row {
+  padding: 12rpx 0;
+  border-bottom: 1rpx dashed #e5e7eb;
+}
+
+.match-row:last-child {
+  border-bottom: none;
+}
+
+.match-name {
+  font-size: 26rpx;
+  color: #0b1f3a;
+  font-weight: 600;
+}
+
+.match-meta {
+  font-size: 22rpx;
+  color: #6b7280;
+  margin-top: 4rpx;
 }
 </style>

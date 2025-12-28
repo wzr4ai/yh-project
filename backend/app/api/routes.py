@@ -201,6 +201,19 @@ async def get_product_by_barcode(
         raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
+@router.get("/products/by-barcode-suffix", response_model=list[schemas.ProductListItem])
+async def get_products_by_barcode_suffix(
+    query: str,
+    limit: int = 10,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    try:
+        return await logic.list_products_by_barcode_suffix(session, query, limit=limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/pricing/overview", response_model=schemas.PricingOverviewResponse)
 async def pricing_overview(
     offset: int = 0,

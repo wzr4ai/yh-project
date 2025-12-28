@@ -251,6 +251,11 @@ export const api = {
     const qs = encodeURIComponent(barcode)
     return request(`/api/products/by-barcode?barcode=${qs}`)
   },
+  getProductsByBarcodeSuffix(query, limit = 10) {
+    if (!query) return Promise.reject({ message: 'missing barcode' })
+    const qs = encodeURIComponent(query)
+    return request(`/api/products/by-barcode-suffix?query=${qs}&limit=${limit}`)
+  },
   getCategories() {
     const path = '/api/categories'
     return cachedRequest(path, {}, `cache:${path}`)
