@@ -54,6 +54,12 @@ def ensure_columns(engine: Engine):
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS effect_url varchar(500)"))
         if "video_url" not in product_columns:
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS video_url varchar(500)"))
+        if "units_per_box" not in product_columns:
+            conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS units_per_box integer DEFAULT 1"))
+        if "pieces_per_unit" not in product_columns:
+            conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS pieces_per_unit integer DEFAULT 1"))
+        if "box_cost_price" not in product_columns:
+            conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS box_cost_price double precision DEFAULT 0"))
         if "barcode" not in product_columns:
             conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS barcode varchar(200)"))
         if "updated_at" not in product_columns:
@@ -85,6 +91,22 @@ def ensure_product_category(engine: Engine):
     )
     meta.create_all(engine)
 
+
+def ensure_product_barcode(engine: Engine):
+    inspector = sa.inspect(engine)
+    if "product_barcode" in inspector.get_table_names():
+        return
+    meta = sa.MetaData()
+    sa.Table(
+        "product_barcode",
+        meta,
+        sa.Column("id", sa.String(64), primary_key=True),
+        sa.Column("product_id", sa.String(64), sa.ForeignKey("product.id"), nullable=False),
+        sa.Column("barcode", sa.String(200), nullable=False, unique=True),
+        sa.Column("level", sa.String(10), nullable=False, default="PIECE"),
+    )
+    meta.create_all(engine)
+
 def ensure_daily_receipt(engine: Engine):
     inspector = sa.inspect(engine)
     if "daily_receipt" in inspector.get_table_names():
@@ -112,6 +134,7 @@ def main():
 
     # Ensure product_category table exists
     ensure_product_category(engine)
+    ensure_product_barcode(engine)
     ensure_daily_receipt(engine)
 
     print("Schema migration done.")

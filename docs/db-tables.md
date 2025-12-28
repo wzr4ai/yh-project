@@ -14,8 +14,12 @@
 
 ## product
 - **用途**：商品主表。
-- **关键字段**：`name`、`spec`（规格，数字化）、`base_cost_price`、`fixed_retail_price`、`retail_multiplier`、`pack_price_ref`、`img_url`、`category_id`（商家主分类）。
+- **关键字段**：`name`、`spec`（规格描述）、`units_per_box`、`pieces_per_unit`、`box_cost_price`、`base_cost_price`（兼容字段，按最小单位）、`fixed_retail_price`、`retail_multiplier`、`pack_price_ref`、`img_url`、`category_id`（商家主分类）。
 - **关联**：`product_category`（自定义分类多选）、`inventory`、`inventory_log`、`sales_item`、`purchase_item`。
+
+## product_barcode
+- **用途**：商品条码表，支持一物多码与包装层级。
+- **关键字段**：`product_id`、`barcode`、`level`（BOX/UNIT/PIECE）。
 
 ## product_category
 - **用途**：商品与自定义分类的多对多关联。
@@ -36,7 +40,7 @@
 ## inventory
 - **用途**：库存记录（按商品+仓库）。
 - **主键**：`product_id` + `warehouse_id`。
-- **关键字段**：`current_stock`（箱数或件数，按规格为箱）、`loose_units`（散件数量，规格为 1 时为 0）。
+- **关键字段**：`current_stock`（最小单位总数，按箱/包折算）、`loose_units`（历史兼容字段，当前不使用）。
 
 ## inventory_log
 - **用途**：库存变动日志。

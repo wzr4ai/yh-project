@@ -46,7 +46,7 @@
           <view v-for="prod in searchResults" :key="prod.id" class="row">
             <view class="info">
               <view class="name">{{ prod.name }}</view>
-              <view class="meta">{{ prod.spec || '—' }} ｜ 库存 {{ prod.stock }}</view>
+              <view class="meta">{{ prod.spec || '—' }} ｜ 库存 {{ formatStock(prod.stock, prod) }}</view>
             </view>
             <view class="inputs">
               <view class="field">
@@ -70,6 +70,7 @@
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
 import { api } from '../../common/api.js'
+import { piecesPerBox, formatStock } from '../../common/stock.js'
 
 export default {
   data() {
@@ -89,6 +90,8 @@ export default {
     }
   },
   methods: {
+    piecesPerBox,
+    formatStock,
     openDialog() {
       this.showDialog = true
       this.searchResults = []
@@ -110,7 +113,7 @@ export default {
           .filter(p => (p.stock || 0) > 0)
           .map(p => ({
             ...p,
-            specQty: this.parseSpecQty(p.spec)
+            specQty: this.piecesPerBox(p)
           }))
         this.searchResults.forEach(p => {
           if (!this.draft[p.id]) {
@@ -122,11 +125,6 @@ export default {
       } catch (err) {
         uni.showToast({ title: '搜索失败', icon: 'none' })
       }
-    },
-    parseSpecQty(spec) {
-      const match = String(spec || '').match(/(\d+(\.\d+)?)/)
-      const val = match ? parseFloat(match[1]) : 1
-      return val > 0 ? val : 1
     },
     addToCart(prod) {
       const draft = this.draft[prod.id] || { box: 0, loose: 0, specQty: prod.specQty }

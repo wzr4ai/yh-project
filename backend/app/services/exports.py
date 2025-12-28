@@ -40,7 +40,7 @@ def _price_for_product(
     global_range: tuple[float, float],
 ) -> float:
     if price_mode == "cost":
-        return float(product.base_cost_price or 0)
+        return float(logic.get_box_cost_price(product) or 0)
 
     price, _ = logic._standard_price_for_product(
         product,
@@ -79,22 +79,22 @@ async def export_replenishment_csv(
     products = (await session.execute(stmt)).scalars().all()
 
     product_ids = [p.id for p in products]
-    inventory_map: dict[str, tuple[int, int]] = {}
+    inventory_map: dict[str, int] = {}
     product_to_category_ids: dict[str, list[str]] = {}
     category_map: dict[str, Category] = {}
     global_range = (1.0, 1.0)
 
     if product_ids:
         inv_stmt = (
-            sa.select(Inventory.product_id, sa.func.sum(Inventory.current_stock), sa.func.sum(Inventory.loose_units))
+            sa.select(Inventory.product_id, sa.func.sum(Inventory.current_stock))
             .where(Inventory.product_id.in_(product_ids))
             .group_by(Inventory.product_id)
         )
         if warehouse_id:
             inv_stmt = inv_stmt.where(Inventory.warehouse_id == warehouse_id)
         inv_rows = await session.execute(inv_stmt)
-        for pid, box_qty, loose_qty in inv_rows.all():
-            inventory_map[pid] = (int(box_qty or 0), int(loose_qty or 0))
+        for pid, total_qty in inv_rows.all():
+            inventory_map[pid] = int(total_qty or 0)
 
         if price_mode == "standard":
             pc_stmt = sa.select(ProductCategory.product_id, ProductCategory.category_id).where(
@@ -126,10 +126,10 @@ async def export_replenishment_csv(
 
     written = 0
     for p in products:
-        box_qty, loose_qty = inventory_map.get(p.id, (0, 0))
-        spec_qty = logic.parse_spec_qty(p.spec)
-        total_units = box_qty * spec_qty + (loose_qty or 0)
-        current_boxes_equiv = (total_units / spec_qty) if spec_qty else float(box_qty)
+        total_units = inventory_map.get(p.id, 0)
+        pieces_per_box = logic.get_pieces_per_box(p)
+        box_qty, unit_qty, piece_qty = logic.split_stock(total_units, p)
+        current_boxes_equiv = total_units / pieces_per_box if pieces_per_box else float(box_qty)
 
         if need_mode == "out_of_stock":
             should_include = current_boxes_equiv <= 0
@@ -152,7 +152,7 @@ async def export_replenishment_csv(
                 p.name,
                 p.spec or "",
                 int(box_qty or 0),
-                int(loose_qty or 0),
+                int(unit_qty * logic.get_pieces_per_unit(p) + piece_qty),
                 int(suggest_boxes),
                 f"{float(unit_price):.2f}",
                 (p.img_url or "").strip(),

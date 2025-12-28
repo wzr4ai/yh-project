@@ -23,7 +23,7 @@
             <view class="item-name">{{ item.name }}</view>
             <view class="item-meta">{{ item.spec || '—' }} ｜ {{ item.category_name || '—' }}</view>
           </view>
-          <view class="pill">箱 {{ item.box_count }} / 散 {{ item.loose_count }}</view>
+          <view class="pill">箱 {{ item.box_count }} / 包 {{ item.unit_count }} / 个 {{ item.piece_count }}</view>
         </view>
         <view class="item-grid">
           <view>

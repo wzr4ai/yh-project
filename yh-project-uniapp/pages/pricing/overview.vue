@@ -31,7 +31,7 @@
             <text class="sep">｜</text>
             <text>{{ item.category_name || '—' }}</text>
             <text class="sep">｜</text>
-            <text>库存 {{ item.stock }}</text>
+            <text>库存 {{ formatStock(item.stock, item) }}</text>
           </view>
         </view>
         <view class="right">
@@ -54,6 +54,7 @@
 <script>
 import { api } from '../../common/api.js'
 import { setToken, setRole } from '../../common/auth.js'
+import { formatStock } from '../../common/stock.js'
 
 export default {
   data() {
@@ -79,6 +80,7 @@ export default {
     this.reload()
   },
   methods: {
+    formatStock,
     async loadCategories() {
       try {
         const list = await api.getCategories()

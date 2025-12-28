@@ -47,6 +47,9 @@ class Product(Base):
     name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     category_id: Mapped[str | None] = mapped_column(sa.String(64), sa.ForeignKey("category.id"), nullable=True)
     spec: Mapped[str] = mapped_column(sa.String(200), nullable=True)
+    units_per_box: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    pieces_per_unit: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    box_cost_price: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
     base_cost_price: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
     fixed_retail_price: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     retail_multiplier: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
@@ -59,6 +62,7 @@ class Product(Base):
 
     category: Mapped[Category | None] = relationship(back_populates="products")
     aliases: Mapped[list["ProductAlias"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    barcodes: Mapped[list["ProductBarcode"]] = relationship(back_populates="product", cascade="all, delete-orphan")
 
 
 class ProductCategory(Base):
@@ -77,6 +81,17 @@ class ProductAlias(Base):
     alias_name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
 
     product: Mapped[Product] = relationship(back_populates="aliases")
+
+
+class ProductBarcode(Base):
+    __tablename__ = "product_barcode"
+
+    id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
+    product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
+    barcode: Mapped[str] = mapped_column(sa.String(200), nullable=False, unique=True)
+    level: Mapped[str] = mapped_column(sa.String(10), nullable=False, default="PIECE")
+
+    product: Mapped[Product] = relationship(back_populates="barcodes")
 
 
 class User(Base):

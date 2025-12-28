@@ -73,7 +73,7 @@
         </view>
         <view class="footer">
           <view class="footer-item" v-if="isOwner">成本 ¥{{ item.base_cost_price }}</view>
-          <view class="footer-item">库存 {{ item.stock }}</view>
+          <view class="footer-item">库存 {{ formatStock(item.stock, item) }}</view>
           <view class="footer-item tag">{{ item.price_basis }}</view>
           <view class="footer-item">潜在总价 ¥{{ item.retail_total.toFixed(2) }}</view>
         </view>
@@ -98,6 +98,7 @@
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
 import { api } from '../../common/api.js'
+import { formatStock } from '../../common/stock.js'
 
 export default {
   data() {
@@ -172,6 +173,7 @@ export default {
     uni.setStorageSync('products-page', this.page)
   },
   methods: {
+    formatStock,
     tryLoadCache() {
       try {
         const cached = uni.getStorageSync(this.cacheKey)

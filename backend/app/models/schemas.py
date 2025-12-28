@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 Role = Literal["owner", "clerk", "user"]
+BarcodeLevel = Literal["BOX", "UNIT", "PIECE"]
 PricingBasis = Literal["例外价", "分类系数", "全局系数"]
 
 
@@ -57,8 +58,11 @@ class Product(ORMBase):
     category_id: Optional[str] = None
     category_name: Optional[str] = None
     categories: List["Category"] = []
-    spec: str
-    base_cost_price: float
+    spec: Optional[str] = None
+    units_per_box: int = 1
+    pieces_per_unit: int = 1
+    box_cost_price: float = 0
+    base_cost_price: float = 0
     fixed_retail_price: Optional[float] = None
     retail_multiplier: Optional[float] = None
     pack_price_ref: Optional[float] = None
@@ -66,6 +70,16 @@ class Product(ORMBase):
     video_url: Optional[str] = None
     effect_url: Optional[str] = None
     barcode: Optional[str] = None
+    barcodes: List["ProductBarcode"] = []
+
+
+class ProductBarcode(BaseModel):
+    id: Optional[str] = None
+    barcode: str
+    level: BarcodeLevel = "PIECE"
+
+
+Product.model_rebuild()
 
 
 class PriceCalcResponse(BaseModel):
@@ -206,6 +220,9 @@ class ProductListItem(BaseModel):
     category_name: Optional[str] = None
     category_ids: List[str] = []
     base_cost_price: float
+    units_per_box: int = 1
+    pieces_per_unit: int = 1
+    box_cost_price: float = 0
     standard_price: float
     price_min: float
     price_max: float
@@ -224,15 +241,27 @@ class InventoryOverviewItem(BaseModel):
     spec: Optional[str] = None
     category_name: Optional[str] = None
     base_cost_price: float
+    box_cost_price: float = 0
+    units_per_box: int = 1
+    pieces_per_unit: int = 1
     box_price: float
     box_count: int
     loose_count: int
+    unit_count: int = 0
+    piece_count: int = 0
     cost_total: float
 
 
 class ProductListResponse(BaseModel):
     items: List[ProductListItem]
     total: int
+
+
+class BarcodeLookupResponse(BaseModel):
+    product: ProductListItem
+    barcode: str
+    level: BarcodeLevel
+    multiplier: int
 
 
 class PricingOverviewItem(BaseModel):
@@ -243,6 +272,8 @@ class PricingOverviewItem(BaseModel):
     category_ids: List[str] = []
     custom_category_ids: List[str] = []
     stock: int = 0
+    units_per_box: int = 1
+    pieces_per_unit: int = 1
     standard_price: float
     price_basis: PricingBasis
     img_url: Optional[str] = None

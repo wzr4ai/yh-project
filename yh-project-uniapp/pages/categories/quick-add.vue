@@ -21,7 +21,7 @@
       <view v-for="item in products" :key="item.id" class="row">
         <view class="info">
           <view class="name">{{ item.name }}</view>
-          <view class="meta">{{ item.spec || '—' }} ｜ 库存 {{ item.stock }}</view>
+          <view class="meta">{{ item.spec || '—' }} ｜ 库存 {{ formatStock(item.stock, item) }}</view>
         </view>
         <view
           class="add-btn"
@@ -47,6 +47,7 @@
 
 <script>
 import { api } from '../../common/api.js'
+import { formatStock } from '../../common/stock.js'
 
 export default {
   data() {
@@ -79,6 +80,7 @@ export default {
     this.loadPage()
   },
   methods: {
+    formatStock,
     async loadPage() {
       this.loading = true
       try {

@@ -11,8 +11,16 @@
         <input class="input" v-model="form.barcode" placeholder="商品条码 (可选)" />
       </view>
       <view class="form-row">
-        <view class="label">规格</view>
-        <input class="input" v-model="form.spec" placeholder="规格（数量缺省按1计算）" />
+        <view class="label">规格说明</view>
+        <input class="input" v-model="form.spec" placeholder="规格描述（如：1x10x6）" />
+      </view>
+      <view class="form-row">
+        <view class="label">每箱中包数</view>
+        <input class="input" type="number" v-model.number="form.units_per_box" placeholder="如：10" />
+      </view>
+      <view class="form-row">
+        <view class="label">每包件数</view>
+        <input class="input" type="number" v-model.number="form.pieces_per_unit" placeholder="如：6" />
       </view>
       <view class="form-row">
         <view class="label">分类</view>
@@ -28,8 +36,8 @@
         </view>
       </view>
       <view class="form-row">
-        <view class="label">进价</view>
-        <input class="input" type="digit" inputmode="decimal" v-model="form.base_cost_price" placeholder="进价（可小数）" />
+        <view class="label">整箱进价</view>
+        <input class="input" type="digit" inputmode="decimal" v-model="form.box_cost_price" placeholder="整箱进价（可小数）" />
       </view>
       <view class="form-row">
         <view class="label">固定零售价</view>
@@ -57,6 +65,9 @@ export default {
         name: '',
         barcode: '',
         spec: '',
+        units_per_box: 1,
+        pieces_per_unit: 1,
+        box_cost_price: null,
         base_cost_price: null,
         fixed_retail_price: null,
         img_url: ''
@@ -87,12 +98,18 @@ export default {
         uni.showToast({ title: '请输入名称', icon: 'none' })
         return
       }
-      const baseCost = this.parsePrice(this.form.base_cost_price)
+      const units = this.parseInt(this.form.units_per_box, 1)
+      const pieces = this.parseInt(this.form.pieces_per_unit, 1)
+      const boxCost = this.parsePrice(this.form.box_cost_price)
+      const baseCost = boxCost && units > 0 && pieces > 0 ? boxCost / (units * pieces) : 0
       const fixedRetail = this.parsePrice(this.form.fixed_retail_price)
       this.saving = true
       try {
         await api.createProduct({
           ...this.form,
+          units_per_box: units,
+          pieces_per_unit: pieces,
+          box_cost_price: boxCost,
           base_cost_price: baseCost,
           fixed_retail_price: fixedRetail,
           categories: this.selectedCategoryIds.map(id => ({ id })),
@@ -109,6 +126,10 @@ export default {
     parsePrice(val) {
       const num = parseFloat(val)
       return Number.isFinite(num) ? num : null
+    },
+    parseInt(val, fallback) {
+      const num = parseInt(val, 10)
+      return Number.isFinite(num) && num > 0 ? num : fallback
     }
   }
 }

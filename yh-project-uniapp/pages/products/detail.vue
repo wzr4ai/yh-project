@@ -10,9 +10,30 @@
         <view class="label">条码</view>
         <input class="input" v-model="form.barcode" :disabled="!isOwner" placeholder="商品条码 (可选)" />
       </view>
-      <view class="form-row">
-      <view class="label">规格</view>
-      <input class="input" v-model="form.spec" :disabled="!isOwner" placeholder="规格" />
+      <view class="form-row" v-if="isOwner">
+        <view class="label">条码列表</view>
+        <view class="barcode-list">
+          <view class="barcode-row" v-for="(item, idx) in form.barcodes" :key="idx">
+            <input class="input barcode-input" v-model="item.barcode" placeholder="条码" />
+            <picker :range="barcodeLevels" :value="barcodeLevelIndex(item.level)" @change="onBarcodeLevelChange(idx, $event)">
+              <view class="picker-value">{{ item.level || 'PIECE' }}</view>
+            </picker>
+            <button size="mini" type="warn" @tap="removeBarcode(idx)">删除</button>
+          </view>
+          <button size="mini" @tap="addBarcode">添加条码</button>
+        </view>
+      </view>
+    <view class="form-row">
+      <view class="label">规格说明</view>
+      <input class="input" v-model="form.spec" :disabled="!isOwner" placeholder="规格描述（如：1x10x6）" />
+    </view>
+    <view class="form-row">
+      <view class="label">每箱中包数</view>
+      <input class="input" type="number" v-model.number="form.units_per_box" :disabled="!isOwner" placeholder="如：10" />
+    </view>
+    <view class="form-row">
+      <view class="label">每包件数</view>
+      <input class="input" type="number" v-model.number="form.pieces_per_unit" :disabled="!isOwner" placeholder="如：6" />
     </view>
     <view class="form-row">
       <view class="label">商家分类</view>
@@ -34,19 +55,19 @@
       </view>
     </view>
       <view class="form-row">
-        <view class="label">进价</view>
-        <input class="input" type="digit" inputmode="decimal" v-model="form.base_cost_price" :disabled="!isOwner" placeholder="进价（可小数）" />
+        <view class="label">整箱进价</view>
+        <input class="input" type="digit" inputmode="decimal" v-model="form.box_cost_price" :disabled="!isOwner" placeholder="整箱进价（可小数）" />
       </view>
       <view class="info-row">
-        <view class="info-label">一件数量</view>
-        <view class="info-value">{{ specQty }}</view>
+        <view class="info-label">每箱件数</view>
+        <view class="info-value">{{ piecesPerBox }}</view>
       </view>
       <view class="info-row">
-        <view class="info-label">一件价格</view>
-        <view class="info-value">¥{{ packPriceCalc.toFixed(2) }}</view>
+        <view class="info-label">箱价</view>
+        <view class="info-value">¥{{ boxPriceCalc.toFixed(2) }}</view>
       </view>
       <view class="form-row" v-if="showPackPriceRef">
-        <view class="label">一件价格(参考)</view>
+        <view class="label">箱价(参考)</view>
         <input class="input" type="digit" v-model.number="form.pack_price_ref" :disabled="!isOwner" placeholder="参考箱价" />
       </view>
       <view class="form-row">
@@ -71,7 +92,7 @@
       </view>
       <view v-if="isOwner">
         <view class="quick-actions">
-          <view class="quick-row" v-if="specUnits > 1">
+          <view class="quick-row" v-if="piecesPerBox > 1">
             <button size="mini" class="quick-btn danger" @tap="quickAdjustBox(-1)">-1箱</button>
             <button size="mini" class="quick-btn" @tap="quickAdjustBox(1)">+1箱</button>
           </view>
@@ -79,14 +100,14 @@
             <button size="mini" class="quick-btn danger" @tap="quickAdjustUnit(-1)">-1个</button>
             <button size="mini" class="quick-btn" @tap="quickAdjustUnit(1)">+1个</button>
           </view>
-          <view class="quick-hint" v-if="specUnits > 1">说明：箱按 {{ specUnits }} 个/箱 折算</view>
+          <view class="quick-hint" v-if="piecesPerBox > 1">说明：箱按 {{ piecesPerBox }} 个/箱 折算</view>
         </view>
 
         <view class="form-row">
           <view class="label">调整箱数</view>
           <input class="input" type="number" v-model.number="adjustBoxDelta" placeholder="+/- 箱" />
         </view>
-        <view class="form-row" v-if="specUnits > 1">
+        <view class="form-row" v-if="piecesPerBox > 1">
           <view class="label">调整散件</view>
           <input class="input" type="number" v-model.number="adjustLooseDelta" placeholder="+/- 个" />
         </view>
@@ -111,6 +132,7 @@
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
 import { api } from '../../common/api.js'
+import { formatStock } from '../../common/stock.js'
 
 export default {
   data() {
@@ -121,13 +143,17 @@ export default {
         name: '',
         barcode: '',
         spec: '',
+        units_per_box: 1,
+        pieces_per_unit: 1,
         category_id: '',
         category_name: '',
+        box_cost_price: null,
         base_cost_price: null,
         fixed_retail_price: null,
         pack_price_ref: null,
         img_url: '',
-        effect_url: ''
+        effect_url: '',
+        barcodes: []
       },
       price: {
         price: null,
@@ -137,12 +163,12 @@ export default {
       merchantCategories: [],
       selectedCustomIds: [],
       selectedMerchantId: '',
-      stockBox: 0,
-      stockLoose: 0,
+      stockPieces: 0,
       adjustBoxDelta: 0,
       adjustLooseDelta: 0,
       adjustReason: '',
-      saving: false
+      saving: false,
+      barcodeLevels: ['BOX', 'UNIT', 'PIECE']
     }
   },
   computed: {
@@ -157,29 +183,30 @@ export default {
       const cat = this.merchantCategories[this.merchantIndex]
       return cat ? cat.name : '未选择'
     },
-    specQty() {
-      const match = String(this.form.spec || '').match(/(\d+(\.\d+)?)/)
-      const val = match ? parseFloat(match[1]) : 1
-      return val > 0 ? val : 1
+    unitsPerBox() {
+      return this.parseInt(this.form.units_per_box, 1)
     },
-    specUnits() {
-      const val = Number(this.specQty) || 1
-      const rounded = Math.round(val)
-      if (Math.abs(val - rounded) < 1e-6) return Math.max(1, rounded)
-      return Math.max(1, Math.floor(val))
+    piecesPerUnit() {
+      return this.parseInt(this.form.pieces_per_unit, 1)
     },
-    packPriceCalc() {
-      const qty = this.specQty
-      const single = Number(this.form.base_cost_price) || 0
-      return single * qty
+    piecesPerBox() {
+      return this.unitsPerBox * this.piecesPerUnit
+    },
+    boxPriceCalc() {
+      const boxCost = Number(this.form.box_cost_price) || 0
+      if (boxCost > 0) return boxCost
+      const pieceCost = Number(this.form.base_cost_price) || 0
+      return pieceCost * this.piecesPerBox
     },
     stockDisplay() {
-      if (this.specUnits <= 1) return `${this.stockBox}`
-      return `${this.stockBox}箱 ${this.stockLoose}个`
+      return formatStock(this.stockPieces, {
+        units_per_box: this.unitsPerBox,
+        pieces_per_unit: this.piecesPerUnit
+      })
     },
     showPackPriceRef() {
       if (this.form.pack_price_ref === null || this.form.pack_price_ref === undefined) return false
-      return Math.abs((Number(this.form.pack_price_ref) || 0) - this.packPriceCalc) > 0.01
+      return Math.abs((Number(this.form.pack_price_ref) || 0) - this.boxPriceCalc) > 0.01
     }
   },
   onLoad(options) {
@@ -208,13 +235,17 @@ export default {
           name: data.name,
           barcode: data.barcode || '',
           spec: data.spec,
+          units_per_box: data.units_per_box || 1,
+          pieces_per_unit: data.pieces_per_unit || 1,
           category_id: data.category_id,
           category_name: data.category_name || '',
+          box_cost_price: data.box_cost_price || null,
           base_cost_price: data.base_cost_price,
           fixed_retail_price: data.fixed_retail_price,
           pack_price_ref: data.pack_price_ref,
           img_url: data.img_url,
-          effect_url: data.effect_url
+          effect_url: data.effect_url,
+          barcodes: (data.barcodes || []).map(b => ({ barcode: b.barcode, level: b.level || 'PIECE' }))
         }
         const custom = (data.categories || []).filter(c => c.is_custom).map(c => c.id).filter(Boolean)
         this.selectedCustomIds = custom
@@ -229,11 +260,9 @@ export default {
     async fetchInventory() {
       try {
         const inv = await api.getInventory(this.id)
-        this.stockBox = inv?.current_stock || 0
-        this.stockLoose = inv?.loose_units || 0
+        this.stockPieces = inv?.current_stock || 0
       } catch (err) {
-        this.stockBox = 0
-        this.stockLoose = 0
+        this.stockPieces = 0
       }
     },
     async fetchPrice() {
@@ -247,14 +276,21 @@ export default {
     async save() {
       this.saving = true
       try {
-        const baseCost = this.parsePrice(this.form.base_cost_price)
+        const units = this.parseInt(this.form.units_per_box, 1)
+        const pieces = this.parseInt(this.form.pieces_per_unit, 1)
+        const boxCost = this.parsePrice(this.form.box_cost_price)
+        const baseCost = boxCost && units > 0 && pieces > 0 ? boxCost / (units * pieces) : 0
         const fixedRetail = this.parsePrice(this.form.fixed_retail_price)
         const packRef = this.parsePrice(this.form.pack_price_ref)
         await api.updateProduct(this.id, {
           ...this.form,
+          units_per_box: units,
+          pieces_per_unit: pieces,
+          box_cost_price: boxCost,
           base_cost_price: baseCost,
           fixed_retail_price: fixedRetail,
           pack_price_ref: this.showPackPriceRef ? packRef : null,
+          barcodes: (this.form.barcodes || []).filter(b => b && b.barcode),
           categories: this.selectedCustomIds.map(id => ({ id })),
           category_id: this.selectedMerchantId || null,
           // 上面已填充 pack_price_ref
@@ -286,6 +322,28 @@ export default {
     parsePrice(val) {
       const num = parseFloat(val)
       return Number.isFinite(num) ? num : null
+    },
+    parseInt(val, fallback) {
+      const num = parseInt(val, 10)
+      return Number.isFinite(num) && num > 0 ? num : fallback
+    },
+    addBarcode() {
+      this.form.barcodes.push({ barcode: '', level: 'PIECE' })
+    },
+    removeBarcode(idx) {
+      if (idx < 0) return
+      this.form.barcodes.splice(idx, 1)
+    },
+    barcodeLevelIndex(level) {
+      const idx = this.barcodeLevels.indexOf(level)
+      return idx >= 0 ? idx : 2
+    },
+    onBarcodeLevelChange(idx, e) {
+      const val = Number(e.detail.value)
+      const level = this.barcodeLevels[val] || 'PIECE'
+      if (this.form.barcodes[idx]) {
+        this.form.barcodes[idx].level = level
+      }
     },
     resetAdjust() {
       this.adjustBoxDelta = 0
@@ -325,13 +383,13 @@ export default {
     async adjustInventory(skipToast = false) {
       const box = Number(this.adjustBoxDelta) || 0
       const loose = Number(this.adjustLooseDelta) || 0
-      const totalUnits = box * this.specUnits + (this.specUnits > 1 ? loose : 0)
+      const totalUnits = box * this.piecesPerBox + loose
       return this.adjustInventoryWithUnits(totalUnits, this.adjustReason || '手动调整', skipToast)
     },
     async quickAdjustBox(deltaBoxes) {
       const boxes = Number(deltaBoxes) || 0
       if (!boxes) return
-      const deltaUnits = boxes * this.specUnits
+      const deltaUnits = boxes * this.piecesPerBox
       return this.adjustInventoryWithUnits(deltaUnits, `快速调整 ${boxes > 0 ? '+' : ''}${boxes} 箱`)
     },
     async quickAdjustUnit(deltaUnits) {
@@ -430,6 +488,31 @@ export default {
   background: #0f6a7b;
   color: #fff;
   border-color: #0f6a7b;
+}
+
+.barcode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.barcode-row {
+  display: flex;
+  gap: 10rpx;
+  align-items: center;
+}
+
+.barcode-input {
+  flex: 1;
+}
+
+.picker-value {
+  padding: 10rpx 12rpx;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 10rpx;
+  background: #f9fafb;
+  color: #0b1f3a;
+  font-size: 24rpx;
 }
 
 .info-row {

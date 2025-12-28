@@ -8,7 +8,7 @@
 * **包管理:** uv
 * **容器化:** Docker + Docker Compose
 * **网关/安全:** **Nginx** (必须，用于反向代理和 **SSL 证书**配置，满足小程序 HTTPS 要求)
-* **权限模型:** 轻量 RBAC，仅有 **老板**、**店员** 两个角色。老板全量可见/可操作；店员仅可见销售价格与销售相关功能，不可见成本、毛利、采购金额等敏感数据。
+* **权限模型:** 轻量 RBAC，角色包含 **老板**、**店员**、**用户**。老板全量可见/可操作；店员仅可见销售价格与销售相关功能，不可见成本、毛利、采购金额等敏感数据；用户仅可浏览商品展示与效果链接。
 
 ## 🧠 二、核心业务逻辑 (精细化)
 
@@ -21,6 +21,7 @@
 ### 2. 角色与权限原则
 * **老板:** 可访问全部模块与数据 (采购、库存、成本、毛利、报表、配置)。
 * **店员:** 仅能执行销售录入、查看可售商品及其标准零售价/实际成交价、执行库存扣减；不可查看成本、进价、毛利、库存货值、采购单金额。
+* **用户:** 仅可浏览商品展示、图片与效果链接，不可进入扫码结账或库存/采购模块。
 * **数据隔离:** API 层按角色裁剪字段；前端路由与组件层隐藏敏感入口。
 
 ### 3. 数据导入 (商品录入)
@@ -50,7 +51,8 @@
 | :--- | :--- | :--- |
 | `system_config` | `key` (PK), `value` | 存储 `global_retail_multiplier` (全局系数)。 |
 | `category` | `id`, `name`, **`retail_multiplier` (Nullable)** | 分类信息及分类系数。 |
-| `product` | `id`, `name`, `category_id`, `spec`, `base_cost_price`, **`fixed_retail_price` (Nullable)**, `img_url` | 商品主表。`fixed_retail_price` 不为空即为“例外价格”。 |
+| `product` | `id`, `name`, `category_id`, `spec`, `units_per_box`, `pieces_per_unit`, `box_cost_price`, `base_cost_price`, **`fixed_retail_price` (Nullable)**, `img_url` | 商品主表。`spec` 为描述性字段；`box_cost_price` 为整箱成本；`base_cost_price` 作为兼容字段（按最小单位）。 |
+| `product_barcode` | `id`, `product_id`, `barcode`, `level` | 商品条码表，支持一物多码与层级（BOX/UNIT/PIECE）。 |
 | `product_alias` | `id`, `product_id`, `alias_name` | 商品别名，辅助搜索。 |
 | `user` | `id`, `username`, `password_hash`, `role` (`owner`/`clerk`) | 基础账号表。 |
 | `warehouse` (预留) | `id`, `name` | 单仓模式下固定一条默认仓记录，便于未来扩展多仓。 |
@@ -58,7 +60,7 @@
 ### 2. 业务记录表
 | 表名 | 字段 (关键) | 描述 |
 | :--- | :--- | :--- |
-| `inventory` | `product_id`, `warehouse_id`, `current_stock` | 实时库存。 |
+| `inventory` | `product_id`, `warehouse_id`, `current_stock` | 实时库存（最小物理单位总数）。 |
 | `inventory_log` | `id`, `product_id`, `warehouse_id`, `change_date`, `change_qty`, `type`, `ref_type`, `ref_id` | 每日库存变动日志 (入库/出库/盘点/采购到货/销售)。 |
 | `purchase_order` | `id`, `status`, `supplier`, `expected_date`, `created_by`, `remark` | 采购单主表。 |
 | `purchase_item` | `id`, `purchase_order_id`, `product_id`, `quantity`, `expected_cost`, `received_qty`, `actual_cost` | 采购明细，支持部分到货。 |

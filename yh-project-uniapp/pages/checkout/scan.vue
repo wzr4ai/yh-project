@@ -50,7 +50,7 @@
       <view class="cart-item" v-for="(item, idx) in activeItems" :key="item.id">
         <view class="cart-header">
           <view class="name">{{ item.name }}</view>
-          <view class="spec">规格 {{ item.spec || '—' }} ｜ 库存 {{ item.stock }}</view>
+          <view class="spec">规格 {{ item.spec || '—' }} ｜ 库存 {{ formatStock(item.stock, item) }}</view>
         </view>
         <view class="cart-row">
           <view class="field">
@@ -87,9 +87,9 @@
           <button size="mini" @tap="closeMatchDialog">关闭</button>
         </view>
         <scroll-view class="dialog-body" scroll-y>
-          <view class="match-row" v-for="item in matchedProducts" :key="item.id" @tap="selectMatched(item)">
-            <view class="match-name">{{ item.name }}</view>
-            <view class="match-meta">条码 {{ item.barcode || '—' }} ｜ 规格 {{ item.spec || '—' }}</view>
+          <view class="match-row" v-for="item in matchedProducts" :key="item.barcode" @tap="selectMatched(item)">
+            <view class="match-name">{{ item.product?.name }}</view>
+            <view class="match-meta">条码 {{ item.barcode || '—' }} ｜ 规格 {{ item.product?.spec || '—' }}</view>
           </view>
           <view v-if="!matchedProducts.length" class="empty">无匹配结果</view>
         </scroll-view>
@@ -101,6 +101,7 @@
 <script>
 import { api } from '../../common/api.js'
 import { getRole, isOwner } from '../../common/auth.js'
+import { piecesPerBox, formatStock } from '../../common/stock.js'
 
 const STORAGE_KEY = 'checkout-orders'
 
@@ -147,6 +148,8 @@ export default {
     this.loadOrders()
   },
   methods: {
+    piecesPerBox,
+    formatStock,
     goHome() {
       const role = getRole()
       const target =
@@ -295,7 +298,7 @@ export default {
         if (useSuffixMatch) {
           const matches = await api.getProductsByBarcodeSuffix(code, 20)
           if (matches.length === 1) {
-            this.addProduct(matches[0])
+            this.addProduct(matches[0].product, matches[0].multiplier)
             this.barcodeInput = ''
             return
           }
@@ -304,8 +307,8 @@ export default {
             return
           }
         }
-        const product = await api.getProductByBarcode(code)
-        this.addProduct(product)
+        const result = await api.getProductByBarcode(code)
+        this.addProduct(result.product, result.multiplier)
         this.barcodeInput = ''
       } catch (err) {
         uni.showToast({ title: '未找到条码商品', icon: 'none' })
@@ -313,13 +316,14 @@ export default {
         this.loading = false
       }
     },
-    addProduct(product) {
+    addProduct(product, multiplier = 1) {
       const order = this.activeOrder
       if (!order) return
-      const specQty = this.parseSpecQty(product.spec)
-      const addBox = specQty > 1 ? 0 : 1
-      const addLoose = specQty > 1 ? 1 : 0
-      const addUnits = addBox * specQty + (specQty > 1 ? addLoose : 0)
+      const specQty = this.piecesPerBox(product)
+      const totalAdd = Math.max(1, Math.floor(multiplier || 1))
+      const addBox = Math.floor(totalAdd / specQty)
+      const addLoose = totalAdd % specQty
+      const addUnits = addBox * specQty + addLoose
       const existing = order.items.find(i => i.id === product.id)
       const usedUnits = existing ? this.calcUnits(existing) : 0
       const available = product.stock || 0
@@ -358,14 +362,9 @@ export default {
     selectMatched(item) {
       this.closeMatchDialog()
       if (item) {
-        this.addProduct(item)
+        this.addProduct(item.product, item.multiplier)
         this.barcodeInput = ''
       }
-    },
-    parseSpecQty(spec) {
-      const match = String(spec || '').match(/(\d+(\.\d+)?)/)
-      const val = match ? parseFloat(match[1]) : 1
-      return val > 0 ? val : 1
     },
     calcUnits(item) {
       const specQty = item.specQty || 1

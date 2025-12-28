@@ -136,18 +136,7 @@ async def create_product(product: schemas.Product, session: AsyncSession = Depen
         raise HTTPException(status_code=400, detail="product id already exists")
     created = await logic.create_product(session, product)
     await session.commit()
-    return schemas.Product(
-        id=created.id,
-        name=created.name,
-        category_id=created.category_id,
-        spec=created.spec,
-        base_cost_price=created.base_cost_price,
-        fixed_retail_price=created.fixed_retail_price,
-        img_url=created.img_url,
-        video_url=created.video_url,
-        effect_url=created.effect_url,
-        barcode=created.barcode,
-    )
+    return await logic.product_with_category(session, created.id)
 
 
 @router.get("/products", response_model=schemas.ProductListResponse)
@@ -188,7 +177,7 @@ async def list_products(
     return schemas.ProductListResponse(items=items, total=total)
 
 
-@router.get("/products/by-barcode", response_model=schemas.ProductListItem)
+@router.get("/products/by-barcode", response_model=schemas.BarcodeLookupResponse)
 async def get_product_by_barcode(
     barcode: str,
     session: AsyncSession = Depends(get_session),
@@ -201,7 +190,7 @@ async def get_product_by_barcode(
         raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
-@router.get("/products/by-barcode-suffix", response_model=list[schemas.ProductListItem])
+@router.get("/products/by-barcode-suffix", response_model=list[schemas.BarcodeLookupResponse])
 async def get_products_by_barcode_suffix(
     query: str,
     limit: int = 10,
