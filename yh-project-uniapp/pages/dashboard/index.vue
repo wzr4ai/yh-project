@@ -73,10 +73,6 @@
     <view class="section">
       <view class="section-title">快捷入口</view>
       <view class="quick-actions">
-        <view class="action" @tap="go('/pages/checkout/scan')">
-          <view class="action-title">扫码结账</view>
-          <view class="action-desc">条码添加，多单并行暂存</view>
-        </view>
         <view class="action" @tap="go('/pages/sales/create')">
           <view class="action-title">新增销售</view>
           <view class="action-desc">录入成交、对比标准价</view>
