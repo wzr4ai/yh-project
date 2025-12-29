@@ -66,8 +66,8 @@ async def migrate_inventory_to_purchase(
                     product_id=pid,
                     quantity=qty,
                     expected_cost=expected_cost,
-                    received_qty=qty,
-                    actual_cost=expected_cost,
+                    received_qty=0,
+                    actual_cost=None,
                 )
             )
 
@@ -76,7 +76,7 @@ async def migrate_inventory_to_purchase(
             return
 
         order = PurchaseOrder(
-            status="完成",
+            status="待到货",
             supplier=supplier,
             expected_date=expected_date,
             remark=remark,
