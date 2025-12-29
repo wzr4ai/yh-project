@@ -48,6 +48,36 @@
       </view>
     </view>
 
+    <view class="card">
+      <view class="title small">参数预览</view>
+      <view class="preview-grid">
+        <view class="preview-item">
+          <view class="preview-label">单据类型</view>
+          <view class="preview-value">{{ needModeOptions[needModeIndex] }}</view>
+        </view>
+        <view class="preview-item">
+          <view class="preview-label">分类</view>
+          <view class="preview-value">{{ categoryNames[categoryIndex] }}</view>
+        </view>
+        <view class="preview-item">
+          <view class="preview-label">目标库存</view>
+          <view class="preview-value">{{ Number(targetBoxes) || 0 }} 箱</view>
+        </view>
+        <view class="preview-item">
+          <view class="preview-label">仅导出需要补货</view>
+          <view class="preview-value">{{ onlyNeed ? '是' : '否' }}</view>
+        </view>
+        <view class="preview-item">
+          <view class="preview-label">单价口径</view>
+          <view class="preview-value">{{ priceMode === 'cost' ? '进价' : '标准零售价' }}</view>
+        </view>
+        <view class="preview-item" v-if="lastGeneratedAt">
+          <view class="preview-label">最近生成时间</view>
+          <view class="preview-value">{{ lastGeneratedAt }}</view>
+        </view>
+      </view>
+    </view>
+
     <view class="card" v-if="lastSavedPath">
       <view class="title small">最近生成</view>
       <view class="path">{{ lastSavedPath }}</view>
@@ -74,7 +104,8 @@ export default {
       onlyNeed: true,
       priceMode: 'cost',
       lastSavedPath: '',
-      lastDownloadUrl: ''
+      lastDownloadUrl: '',
+      lastGeneratedAt: ''
     }
   },
   computed: {
@@ -171,6 +202,7 @@ export default {
             success: (saveRes) => {
               uni.hideLoading()
               this.lastSavedPath = saveRes.savedFilePath
+              this.lastGeneratedAt = new Date().toLocaleString()
               uni.showToast({ title: '已生成', icon: 'success' })
               this.openSavedFile(saveRes.savedFilePath)
             },
@@ -313,5 +345,31 @@ export default {
   color: #6b7280;
   font-size: 22rpx;
   word-break: break-all;
+}
+
+.preview-grid {
+  margin-top: 12rpx;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220rpx, 1fr));
+  gap: 12rpx;
+}
+
+.preview-item {
+  background: #f9fafb;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 12rpx;
+  padding: 12rpx;
+}
+
+.preview-label {
+  font-size: 22rpx;
+  color: #6b7280;
+}
+
+.preview-value {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: #0b1f3a;
+  font-weight: 600;
 }
 </style>

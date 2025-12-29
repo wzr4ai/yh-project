@@ -3,24 +3,62 @@
     <view class="hint-bar" v-if="!isOwner">
       店员仅可查看到货进度，不显示成本
     </view>
+
+    <view class="card summary" v-if="orders.length">
+      <view class="summary-row">
+        <view>
+          <view class="mini-title">采购单数</view>
+          <view class="mini-value">{{ summary.orderCount }}</view>
+        </view>
+        <view>
+          <view class="mini-title">待到货</view>
+          <view class="mini-value">{{ summary.pendingCount }}</view>
+        </view>
+        <view>
+          <view class="mini-title">到货进度</view>
+          <view class="mini-value">{{ summary.progress }}%</view>
+        </view>
+        <view v-if="isOwner">
+          <view class="mini-title">预计总成本</view>
+          <view class="mini-value">¥{{ summary.totalCost.toFixed(2) }}</view>
+        </view>
+      </view>
+      <view class="progress-bar">
+        <view class="progress" :style="{ width: summary.progress + '%' }"></view>
+      </view>
+    </view>
+
     <view class="list">
       <view v-for="order in orders" :key="order.id" class="card">
         <view class="header">
           <view>
             <view class="order-id">{{ order.id }}</view>
             <view class="meta">{{ order.supplier || '—' }} ｜ 期望到货 {{ order.expected_date || '—' }}</view>
+            <view class="meta" v-if="order.remark">备注：{{ order.remark }}</view>
           </view>
           <view class="status" :class="statusClass(order.status)">{{ order.status }}</view>
         </view>
+        <view class="order-stats">
+          <view class="stat">计划 {{ order.stats.total }} 箱</view>
+          <view class="stat">已到 {{ order.stats.received }} 箱</view>
+          <view class="stat">进度 {{ order.stats.progress }}%</view>
+          <view class="stat" v-if="isOwner">预计成本 ¥{{ order.stats.cost.toFixed(2) }}</view>
+        </view>
+        <view class="progress-bar">
+          <view class="progress" :style="{ width: order.stats.progress + '%' }"></view>
+        </view>
         <view class="items">
           <view v-for="item in order.items" :key="item.product_id" class="item-row">
-            <view class="item-name">{{ item.product_id }}</view>
-            <view class="item-meta">需求 {{ item.quantity }} ｜ 已到 {{ item.received_qty }}</view>
-            <view class="item-meta" v-if="isOwner">预计成本 ¥{{ item.expected_cost }}</view>
+            <view class="item-name">{{ productName(item) }}</view>
+            <view class="item-meta">{{ productSpec(item) }} ｜ 计划 {{ item.quantity }} 箱 ｜ 已到 {{ item.received_qty }} 箱</view>
+            <view class="item-meta" v-if="isOwner">
+              单价 ¥{{ formatMoney(item.expected_cost) }} ｜ 小计 ¥{{ lineCost(item).toFixed(2) }}
+            </view>
           </view>
         </view>
       </view>
-      <view v-if="!orders.length" class="empty">暂无采购单</view>
+      <view v-if="!orders.length && !loading" class="empty">暂无采购单</view>
+      <view v-if="loading" class="empty">加载中...</view>
     </view>
   </view>
 </template>
@@ -33,12 +71,37 @@ export default {
   data() {
     return {
       role: getRole(),
-      orders: []
+      orders: [],
+      loading: false,
+      productMap: {}
     }
   },
   computed: {
     isOwner() {
       return isOwner(this.role)
+    },
+    summary() {
+      const orders = this.orders || []
+      let pendingCount = 0
+      let totalQty = 0
+      let received = 0
+      let totalCost = 0
+      orders.forEach(order => {
+        if (order.status !== '完成') pendingCount += 1
+        const stats = order.stats || { total: 0, received: 0, cost: 0 }
+        totalQty += stats.total || 0
+        received += stats.received || 0
+        if (this.isOwner) totalCost += stats.cost || 0
+      })
+      const progress = totalQty ? Math.min(100, Math.round((received / totalQty) * 100)) : 0
+      return {
+        orderCount: orders.length,
+        pendingCount,
+        totalQty,
+        received,
+        progress,
+        totalCost
+      }
     }
   },
   onShow() {
@@ -51,12 +114,83 @@ export default {
       if (status === '部分到货') return 'partial'
       return 'pending'
     },
+    calcOrderStats(items) {
+      const list = items || []
+      let total = 0
+      let received = 0
+      let cost = 0
+      list.forEach(item => {
+        const qty = Number(item.quantity) || 0
+        const recv = Number(item.received_qty) || 0
+        total += qty
+        received += recv
+        if (this.isOwner) {
+          cost += (Number(item.expected_cost) || 0) * qty
+        }
+      })
+      const progress = total ? Math.min(100, Math.round((received / total) * 100)) : 0
+      return { total, received, progress, cost }
+    },
+    productName(item) {
+      const product = this.productMap[item.product_id]
+      return (product && product.name) || item.product_id
+    },
+    productSpec(item) {
+      const product = this.productMap[item.product_id]
+      return product && product.spec ? `规格 ${product.spec}` : '规格 —'
+    },
+    formatMoney(value) {
+      const num = Number(value)
+      if (!Number.isFinite(num)) return '—'
+      return num.toFixed(2)
+    },
+    lineCost(item) {
+      const qty = Number(item.quantity) || 0
+      const unit = Number(item.expected_cost) || 0
+      return qty * unit
+    },
+    async loadProductMap() {
+      const ids = new Set()
+      this.orders.forEach(order => {
+        ;(order.items || []).forEach(item => {
+          if (item.product_id && !this.productMap[item.product_id]) {
+            ids.add(item.product_id)
+          }
+        })
+      })
+      if (!ids.size) return
+      for (const id of ids) {
+        try {
+          const product = await api.getProduct(id)
+          this.$set(this.productMap, id, product)
+        } catch (err) {
+          this.$set(this.productMap, id, { id, name: id })
+        }
+      }
+    },
     async fetchOrders() {
+      this.loading = true
       try {
         const data = await api.getPurchaseOrders()
-        this.orders = data || []
+        this.orders = (data || []).map(order => {
+          const items = (order.items || []).map(item => ({
+            ...item,
+            quantity: Number(item.quantity) || 0,
+            received_qty: Number(item.received_qty) || 0,
+            expected_cost: item.expected_cost
+          }))
+          return {
+            ...order,
+            items,
+            stats: this.calcOrderStats(items)
+          }
+        })
+        await this.loadProductMap()
       } catch (err) {
         uni.showToast({ title: '加载采购单失败', icon: 'none' })
+        this.orders = []
+      } finally {
+        this.loading = false
       }
     }
   }
@@ -78,6 +212,29 @@ export default {
   border-radius: 12rpx;
   font-size: 24rpx;
   margin-bottom: 12rpx;
+}
+
+.summary {
+  margin-bottom: 14rpx;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+
+.mini-title {
+  color: #6b7280;
+  font-size: 22rpx;
+}
+
+.mini-value {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0b1f3a;
+  margin-top: 4rpx;
 }
 
 .list {
@@ -109,6 +266,34 @@ export default {
   color: #6b7280;
   margin-top: 6rpx;
   font-size: 24rpx;
+}
+
+.order-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #6b7280;
+}
+
+.stat {
+  background: #f3f4f6;
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+}
+
+.progress-bar {
+  height: 10rpx;
+  border-radius: 999rpx;
+  background: #e5e7eb;
+  margin-top: 10rpx;
+  overflow: hidden;
+}
+
+.progress {
+  height: 100%;
+  background: linear-gradient(90deg, #0f6a7b, #22c1c3);
 }
 
 .status {
