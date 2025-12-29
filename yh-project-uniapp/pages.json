@@ -62,6 +62,12 @@
       }
     },
     {
+      "path": "pages/purchase/receive",
+      "style": {
+        "navigationBarTitleText": "采购单入库"
+      }
+    },
+    {
       "path": "pages/products/list",
       "style": {
         "navigationBarTitleText": "商品目录"

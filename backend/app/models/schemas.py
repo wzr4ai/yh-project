@@ -79,6 +79,11 @@ class ProductBarcode(BaseModel):
     level: BarcodeLevel = "PIECE"
 
 
+class ProductBarcodeCreate(BaseModel):
+    barcode: str
+    level: BarcodeLevel = "PIECE"
+
+
 Product.model_rebuild()
 
 

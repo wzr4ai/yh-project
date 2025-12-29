@@ -199,6 +199,13 @@ export const api = {
     if (!orderId) return Promise.reject({ message: 'missing order id' })
     return request(`/api/purchase-orders/${encodeURIComponent(orderId)}`, { method: 'DELETE' })
   },
+  addProductBarcode(productId, payload) {
+    if (!productId) return Promise.reject({ message: 'missing product id' })
+    return request(`/api/products/${encodeURIComponent(productId)}/barcodes`, {
+      method: 'POST',
+      data: payload
+    })
+  },
   receivePurchaseOrder(orderId, items) {
     return request(`/api/purchase-orders/${encodeURIComponent(orderId)}/receive`, {
       method: 'PUT',

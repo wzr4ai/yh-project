@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.api import deps
 from app.db import get_session
 from app.models import schemas
-from app.models.entities import InventoryLog, Product, PurchaseOrder, Category, ProductCategory
+from app.models.entities import InventoryLog, Product, PurchaseOrder, Category, ProductCategory, ProductBarcode
 from app.services import auth, logic, llm_agent, exports as export_service, minio_service
 from app.services.llm import LLMService, LLMServiceError
 
@@ -268,6 +268,30 @@ async def get_product_video_url(
     days = max(1, min(days, 30))
     expires_at = int(time.time()) + days * 86400
     return {"url": url, "expires_at": expires_at}
+
+
+@router.post("/products/{product_id}/barcodes", response_model=schemas.ProductBarcode)
+async def add_product_barcode(
+    product_id: str,
+    payload: schemas.ProductBarcodeCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    product = await session.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="product not found")
+    code = (payload.barcode or "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="barcode empty")
+    existing = (await session.execute(sa.select(ProductBarcode).where(ProductBarcode.barcode == code))).scalars().first()
+    if existing and existing.product_id != product_id:
+        raise HTTPException(status_code=409, detail="barcode already bound")
+    await logic.ensure_product_barcode(session, product_id, code, payload.level)
+    await session.commit()
+    result = (await session.execute(sa.select(ProductBarcode).where(ProductBarcode.barcode == code))).scalars().first()
+    if not result:
+        raise HTTPException(status_code=500, detail="barcode not saved")
+    return schemas.ProductBarcode(id=result.id, barcode=result.barcode, level=result.level)
 
 
 @router.get("/products/{product_id}", response_model=schemas.Product)

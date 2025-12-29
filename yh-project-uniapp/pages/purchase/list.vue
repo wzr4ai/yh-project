@@ -46,6 +46,7 @@
           </view>
           <view class="header-actions">
             <view class="status" :class="statusClass(order.status)">{{ order.status }}</view>
+            <button v-if="isOwner" size="mini" class="receive-btn" @tap="openReceive(order.id)">入库</button>
             <button v-if="isOwner" size="mini" class="edit-btn" @tap="openEdit(order.id)">编辑</button>
           </view>
         </view>
@@ -128,6 +129,10 @@ export default {
     openEdit(orderId) {
       if (!orderId) return
       uni.navigateTo({ url: `/pages/purchase/edit?id=${encodeURIComponent(orderId)}` })
+    },
+    openReceive(orderId) {
+      if (!orderId) return
+      uni.navigateTo({ url: `/pages/purchase/receive?id=${encodeURIComponent(orderId)}` })
     },
     openCreate() {
       uni.navigateTo({ url: '/pages/purchase/edit' })
@@ -360,6 +365,15 @@ export default {
 
 .status.pending {
   background: #6b7280;
+}
+
+.receive-btn {
+  padding: 0 16rpx;
+  font-size: 22rpx;
+  line-height: 1.8;
+  background: #0f6a7b;
+  color: #ffffff;
+  border: 1rpx solid #0f6a7b;
 }
 
 .edit-btn {
