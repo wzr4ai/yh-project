@@ -184,6 +184,12 @@ export const api = {
   getPurchaseOrders() {
     return request('/api/purchase-orders')
   },
+  receivePurchaseOrder(orderId, items) {
+    return request(`/api/purchase-orders/${encodeURIComponent(orderId)}/receive`, {
+      method: 'PUT',
+      data: items
+    })
+  },
   createSales(items, username) {
     const qs = username ? `?username=${encodeURIComponent(username)}` : ''
     return request(`/api/sales${qs}`, {

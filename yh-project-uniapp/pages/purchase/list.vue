@@ -36,7 +36,10 @@
             <view class="meta">{{ order.supplier || '—' }} ｜ 期望到货 {{ order.expected_date || '—' }}</view>
             <view class="meta" v-if="order.remark">备注：{{ order.remark }}</view>
           </view>
-          <view class="status" :class="statusClass(order.status)">{{ order.status }}</view>
+          <view class="header-actions">
+            <view class="status" :class="statusClass(order.status)">{{ order.status }}</view>
+            <button v-if="isOwner" size="mini" class="edit-btn" @tap="openEdit(order.id)">编辑</button>
+          </view>
         </view>
         <view class="order-stats">
           <view class="stat">计划 {{ order.stats.total }} 箱</view>
@@ -113,6 +116,10 @@ export default {
       if (status === '完成') return 'done'
       if (status === '部分到货') return 'partial'
       return 'pending'
+    },
+    openEdit(orderId) {
+      if (!orderId) return
+      uni.navigateTo({ url: `/pages/purchase/edit?id=${encodeURIComponent(orderId)}` })
     },
     calcOrderStats(items) {
       const list = items || []
@@ -256,6 +263,12 @@ export default {
   align-items: center;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
 .order-id {
   font-size: 30rpx;
   font-weight: 600;
@@ -313,6 +326,15 @@ export default {
 
 .status.pending {
   background: #6b7280;
+}
+
+.edit-btn {
+  padding: 0 16rpx;
+  font-size: 22rpx;
+  line-height: 1.8;
+  background: #f1f5f9;
+  color: #0f6a7b;
+  border: 1rpx solid #cbd5f5;
 }
 
 .items {

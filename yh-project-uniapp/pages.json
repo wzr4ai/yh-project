@@ -56,6 +56,12 @@
       }
     },
     {
+      "path": "pages/purchase/edit",
+      "style": {
+        "navigationBarTitleText": "采购单编辑"
+      }
+    },
+    {
       "path": "pages/products/list",
       "style": {
         "navigationBarTitleText": "商品目录"
