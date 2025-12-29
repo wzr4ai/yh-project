@@ -457,11 +457,45 @@ async def list_purchase_orders(session: AsyncSession = Depends(get_session)):
     return orders
 
 
+@router.get("/purchase-orders/{po_id}", response_model=schemas.PurchaseOrder)
+async def get_purchase_order(po_id: str, session: AsyncSession = Depends(get_session)):
+    order = (
+        await session.execute(
+            sa.select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == po_id)
+        )
+    ).scalars().first()
+    if not order:
+        raise HTTPException(status_code=404, detail="purchase order not found")
+    return order
+
+
 @router.post("/purchase-orders", response_model=schemas.PurchaseOrder)
 async def create_purchase_order(po: schemas.PurchaseOrder, session: AsyncSession = Depends(get_session)):
     order = await logic.create_purchase_order(session, po)
     await session.commit()
     return order
+
+
+@router.put("/purchase-orders/{po_id}", response_model=schemas.PurchaseOrder)
+async def update_purchase_order(po_id: str, po: schemas.PurchaseOrder, session: AsyncSession = Depends(get_session)):
+    try:
+        order = await logic.update_purchase_order(session, po_id, po)
+        await session.commit()
+        return order
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/purchase-orders/{po_id}")
+async def delete_purchase_order(po_id: str, session: AsyncSession = Depends(get_session)):
+    try:
+        await logic.delete_purchase_order(session, po_id)
+        await session.commit()
+        return {"status": "ok"}
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.put("/purchase-orders/{po_id}/receive", response_model=schemas.PurchaseOrder)

@@ -4,6 +4,14 @@
       店员仅可查看到货进度，不显示成本
     </view>
 
+    <view class="card header-card">
+      <view class="header-top">
+        <view class="title">采购单列表</view>
+        <button v-if="isOwner" size="mini" type="primary" @tap="openCreate">新建采购单</button>
+      </view>
+      <view class="sub">维护订货计划，支持编辑与调整。</view>
+    </view>
+
     <view class="card summary" v-if="orders.length">
       <view class="summary-row">
         <view>
@@ -120,6 +128,9 @@ export default {
     openEdit(orderId) {
       if (!orderId) return
       uni.navigateTo({ url: `/pages/purchase/edit?id=${encodeURIComponent(orderId)}` })
+    },
+    openCreate() {
+      uni.navigateTo({ url: '/pages/purchase/edit' })
     },
     calcOrderStats(items) {
       const list = items || []
@@ -255,6 +266,29 @@ export default {
   border-radius: 16rpx;
   padding: 18rpx;
   box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.04);
+}
+
+.header-card {
+  margin-bottom: 14rpx;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0b1f3a;
+}
+
+.sub {
+  margin-top: 6rpx;
+  color: #6b7280;
+  font-size: 22rpx;
 }
 
 .header {

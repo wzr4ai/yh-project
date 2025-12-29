@@ -184,6 +184,21 @@ export const api = {
   getPurchaseOrders() {
     return request('/api/purchase-orders')
   },
+  getPurchaseOrder(orderId) {
+    if (!orderId) return Promise.reject({ message: 'missing order id' })
+    return request(`/api/purchase-orders/${encodeURIComponent(orderId)}`)
+  },
+  createPurchaseOrder(payload) {
+    return request('/api/purchase-orders', { method: 'POST', data: payload })
+  },
+  updatePurchaseOrder(orderId, payload) {
+    if (!orderId) return Promise.reject({ message: 'missing order id' })
+    return request(`/api/purchase-orders/${encodeURIComponent(orderId)}`, { method: 'PUT', data: payload })
+  },
+  deletePurchaseOrder(orderId) {
+    if (!orderId) return Promise.reject({ message: 'missing order id' })
+    return request(`/api/purchase-orders/${encodeURIComponent(orderId)}`, { method: 'DELETE' })
+  },
   receivePurchaseOrder(orderId, items) {
     return request(`/api/purchase-orders/${encodeURIComponent(orderId)}/receive`, {
       method: 'PUT',

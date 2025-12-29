@@ -704,6 +704,47 @@ async def create_purchase_order(session: AsyncSession, po: schemas.PurchaseOrder
     return order
 
 
+async def update_purchase_order(session: AsyncSession, po_id: str, po: schemas.PurchaseOrder) -> PurchaseOrder:
+    stmt = (
+        sa.select(PurchaseOrder)
+        .options(selectinload(PurchaseOrder.items))
+        .where(PurchaseOrder.id == po_id)
+        .with_for_update()
+    )
+    order = (await session.execute(stmt)).scalars().first()
+    if not order:
+        raise ValueError("purchase order not found")
+
+    order.status = po.status or order.status
+    order.supplier = po.supplier
+    order.expected_date = po.expected_date
+    order.remark = po.remark
+    if po.created_by:
+        order.created_by = po.created_by
+
+    order.items.clear()
+    order.items = [
+        PurchaseItem(
+            product_id=item.product_id,
+            quantity=item.quantity,
+            expected_cost=item.expected_cost,
+            received_qty=item.received_qty,
+            actual_cost=item.actual_cost,
+        )
+        for item in po.items
+    ]
+    await session.flush()
+    return order
+
+
+async def delete_purchase_order(session: AsyncSession, po_id: str) -> None:
+    order = await session.get(PurchaseOrder, po_id)
+    if not order:
+        raise ValueError("purchase order not found")
+    await session.delete(order)
+    await session.flush()
+
+
 async def dashboard_realtime(session: AsyncSession) -> Tuple[float, float, float, float, float, int, float, float | None]:
     from datetime import datetime, timezone
 
