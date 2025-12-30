@@ -202,6 +202,12 @@ export default {
   onLoad(options) {
     this.orderId = options.id || ''
   },
+  onHide() {
+    this.persistDraft()
+  },
+  onUnload() {
+    this.persistDraft()
+  },
   onShow() {
     this.role = getRole()
     if (!this.isOwner) {
@@ -216,6 +222,66 @@ export default {
     this.fetchOrder()
   },
   methods: {
+    draftKey() {
+      return this.orderId ? `purchase-receive-draft:${this.orderId}` : ''
+    },
+    persistDraft() {
+      const key = this.draftKey()
+      if (!key || !this.formItems.length) return
+      const items = this.formItems.map(item => {
+        const perBox = this.itemPiecesPerBox(item)
+        const receivedUnits = Number.isFinite(Number(item.received_units))
+          ? Math.floor(Number(item.received_units))
+          : Math.floor(Number(item.received_qty) || 0) * perBox
+        const maxUnits = (Number(item.quantity) || 0) * perBox
+        const safeUnits = maxUnits ? Math.min(receivedUnits, maxUnits) : receivedUnits
+        return {
+          product_id: item.product_id,
+          received_units: safeUnits < 0 ? 0 : safeUnits,
+          received_qty: Math.floor(Number(item.received_qty) || 0)
+        }
+      })
+      try {
+        uni.setStorageSync(key, { items, updated_at: Date.now() })
+      } catch (e) {}
+    },
+    loadDraft() {
+      const key = this.draftKey()
+      if (!key) return
+      let cached = null
+      try {
+        cached = uni.getStorageSync(key)
+      } catch (e) {
+        cached = null
+      }
+      if (!cached || !Array.isArray(cached.items)) return
+      const draftMap = {}
+      cached.items.forEach(item => {
+        if (item && item.product_id) {
+          draftMap[item.product_id] = item
+        }
+      })
+      this.formItems.forEach(item => {
+        const draft = draftMap[item.product_id]
+        if (!draft) return
+        const perBox = this.itemPiecesPerBox(item)
+        const draftUnits = Number(draft.received_units)
+        const units = Number.isFinite(draftUnits)
+          ? Math.floor(draftUnits)
+          : Math.floor(Number(draft.received_qty) || 0) * perBox
+        const maxUnits = (Number(item.quantity) || 0) * perBox
+        const safeUnits = maxUnits ? Math.min(units, maxUnits) : units
+        item.received_units = safeUnits < 0 ? 0 : safeUnits
+        item.received_qty = Math.min(Number(item.quantity) || 0, Math.floor(item.received_units / perBox))
+      })
+    },
+    clearDraft() {
+      const key = this.draftKey()
+      if (!key) return
+      try {
+        uni.removeStorageSync(key)
+      } catch (e) {}
+    },
     statusClass(status) {
       if (status === '完成') return 'done'
       if (status === '部分到货') return 'partial'
@@ -269,6 +335,7 @@ export default {
       const safeUnits = Math.floor(nextUnits)
       item.received_units = safeUnits
       item.received_qty = Math.min(qty, Math.floor(safeUnits / perBox))
+      this.persistDraft()
     },
     formatMoney(value) {
       const num = Number(value)
@@ -288,6 +355,7 @@ export default {
       item.received_qty = recv
       const perBox = this.itemPiecesPerBox(item)
       item.received_units = recv * perBox
+      this.persistDraft()
     },
     addReceived(item, delta) {
       const perBox = this.itemPiecesPerBox(item)
@@ -301,6 +369,7 @@ export default {
       row.received_qty = Number(row.quantity) || 0
       const perBox = this.itemPiecesPerBox(row)
       row.received_units = row.received_qty * perBox
+      this.persistDraft()
     },
     scanCode() {
       this.skipNextFetch = true
@@ -450,6 +519,7 @@ export default {
           received_units: item.received_units === null || item.received_units === undefined ? null : Number(item.received_units) || 0
         }))
         await this.loadProductMap()
+        this.loadDraft()
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
       } finally {
@@ -511,6 +581,7 @@ export default {
           received_units: item.received_units === null || item.received_units === undefined ? null : Number(item.received_units) || 0
         }))
         await this.loadProductMap()
+        this.clearDraft()
         uni.showToast({ title: '已保存', icon: 'success' })
       } catch (err) {
         uni.showToast({ title: '保存失败', icon: 'none' })
