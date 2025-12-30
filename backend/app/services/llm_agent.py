@@ -1,4 +1,5 @@
 import json
+import os
 import textwrap
 from typing import Dict, List, Tuple, Any
 
@@ -175,14 +176,34 @@ async def analyze_dashboard_report(report: Dict[str, Any], protocol: str | None 
     report_json = json.dumps(report, ensure_ascii=False)
     user_prompt = f"分析报告 JSON：\n{report_json}\n\n请给出分析建议："
 
-    service = LLMService()
+    deepseek_key = os.getenv("LLM_DEEPSEEK_KEY")
+    deepseek_url = os.getenv("LLM_DEEPSEEK_URL")
+    deepseek_model = os.getenv("LLM_DEEPSEEK_MODEL")
+    if not deepseek_url or not deepseek_model:
+        raise ValueError("LLM_DEEPSEEK_URL or LLM_DEEPSEEK_MODEL is not configured")
+
+    service = LLMService(base_url=deepseek_url, api_key=deepseek_key, default_protocol="openai")
     return await service.chat(
         messages=[
             schemas.LLMMessage(role="system", content=system_prompt),
             schemas.LLMMessage(role="user", content=user_prompt),
         ],
-        protocol=protocol,
+        protocol="openai",
+        model=deepseek_model,
         model_tier="high",
         temperature=0.4,
         max_output_tokens=2048,
     )
+
+    # Gemini fallback (kept for later use)
+    # service = LLMService()
+    # return await service.chat(
+    #     messages=[
+    #         schemas.LLMMessage(role="system", content=system_prompt),
+    #         schemas.LLMMessage(role="user", content=user_prompt),
+    #     ],
+    #     protocol=protocol,
+    #     model_tier="high",
+    #     temperature=0.4,
+    #     max_output_tokens=2048,
+    # )
