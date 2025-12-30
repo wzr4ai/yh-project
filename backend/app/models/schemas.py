@@ -217,6 +217,8 @@ class PerformanceResponse(BaseModel):
     price_diff_rate: float
     expected_sales: float
     actual_sales: float
+    cost_total: float = 0
+    gross_profit: float = 0
 
 
 class ProductListItem(BaseModel):

@@ -330,11 +330,15 @@ def dashboard_realtime() -> tuple[float, float, int, float]:
 def performance() -> PerformanceResponse:
     expected = sum(item.snapshot_standard_price * item.quantity for item in SALES_ITEMS)
     actual = sum(item.actual_sale_price * item.quantity for item in SALES_ITEMS)
+    cost_total = sum(item.snapshot_cost * item.quantity for item in SALES_ITEMS)
     diff = actual - expected
     rate = (diff / expected * 100) if expected else 0
+    gross_profit = actual - cost_total
     return PerformanceResponse(
         price_diff=round(diff, 2),
         price_diff_rate=round(rate, 2),
         expected_sales=round(expected, 2),
         actual_sales=round(actual, 2),
+        cost_total=round(cost_total, 2),
+        gross_profit=round(gross_profit, 2),
     )

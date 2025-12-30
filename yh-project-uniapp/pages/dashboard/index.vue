@@ -73,10 +73,6 @@
     <view class="section">
       <view class="section-title">快捷入口</view>
       <view class="quick-actions">
-        <view class="action" @tap="go('/pages/sales/create')">
-          <view class="action-title">新增销售</view>
-          <view class="action-desc">录入成交、对比标准价</view>
-        </view>
         <view class="action" @tap="go('/pages/inventory/overview')">
           <view class="action-title">库存总览</view>
           <view class="action-desc">库存与潜在售价</view>
@@ -97,10 +93,6 @@
           <view class="action-title">分类管理</view>
           <view class="action-desc">增删改查分类</view>
         </view>
-        <view class="action" v-if="isOwner" @tap="openReceiptDialog">
-          <view class="action-title">录入今日入账</view>
-          <view class="action-desc">输入今日真实入账</view>
-        </view>
         <view class="action" v-if="isOwner" @tap="go('/pages/costs/misc')">
           <view class="action-title">杂项成本</view>
           <view class="action-desc">记录运输、耗材等费用</view>
@@ -113,16 +105,6 @@
     </view>
   </view>
 
-  <view class="receipt-dialog" v-if="showReceiptDialog">
-    <view class="receipt-box">
-      <view class="title">录入今日入账</view>
-      <input class="receipt-input" type="digit" v-model="manualReceiptInput" placeholder="请输入今日入账金额" />
-      <view class="receipt-actions">
-        <button size="mini" @tap="closeReceiptDialog">取消</button>
-        <button size="mini" type="primary" @tap="saveReceipt">保存</button>
-      </view>
-    </view>
-  </view>
 </template>
 
 <script>
@@ -154,9 +136,7 @@ export default {
         cracker: '—',
         sparkler: '—'
       },
-      loading: false,
-      showReceiptDialog: false,
-      manualReceiptInput: ''
+      loading: false
     }
   },
   computed: {
@@ -180,11 +160,10 @@ export default {
     async fetchMetrics() {
       this.loading = true
       try {
-        const [realtime, inv, perf, totalReceipt, miscList] = await Promise.all([
+        const [realtime, inv, perf, miscList] = await Promise.all([
           api.getRealtime(),
           api.getInventoryValue(),
           api.getPerformance(),
-          api.getReceiptTotal(),
           api.listMiscCosts({ limit: 100 }),
         ])
         this.metrics = {
@@ -199,47 +178,23 @@ export default {
         this.inventoryRetail = inv.retail_total || 0
         this.inventorySku = inv.sku_count || 0
         this.inventoryBoxes = inv.total_boxes || 0
-        this.receiptTotal = totalReceipt?.total || 0
+        this.receiptTotal = perf?.actual_sales || 0
         const miscCosts = miscList || []
         const miscTotal = miscCosts.reduce((acc, cur) => {
           const qty = Number(cur.quantity) || 1
           const amt = Number(cur.amount) || 0
           return acc + qty * amt
         }, 0)
-        const totalCost = (inv.cost_total || 0) + miscTotal
+        const totalCost = (perf?.cost_total || 0) + miscTotal
         const netProfit = (this.receiptTotal || 0) - totalCost
         this.costMetrics = {
           totalCost,
           netProfit
         }
-        if (realtime.manual_receipt !== null && realtime.manual_receipt !== undefined) {
-          this.manualReceiptInput = String(realtime.manual_receipt)
-        }
       } catch (err) {
         uni.showToast({ title: '加载数据失败', icon: 'none' })
       } finally {
         this.loading = false
-      }
-    },
-    openReceiptDialog() {
-      this.showReceiptDialog = true
-    },
-    closeReceiptDialog() {
-      this.showReceiptDialog = false
-    },
-    async saveReceipt() {
-      const val = parseFloat(this.manualReceiptInput)
-      if (isNaN(val)) {
-        uni.showToast({ title: '请输入数字', icon: 'none' })
-        return
-      }
-      try {
-        await api.setManualReceipt(val)
-        uni.showToast({ title: '已录入', icon: 'success' })
-        this.showReceiptDialog = false
-        this.fetchMetrics()
-      } catch (err) {
-        uni.showToast({ title: '保存失败', icon: 'none' })
       }
     },
     go(url) {
@@ -309,47 +264,6 @@ export default {
   font-size: 24rpx;
 }
 
-.receipt-dialog {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 20;
-}
-
-.receipt-box {
-  width: 80%;
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 24rpx;
-}
-
-.receipt-box .title {
-  font-size: 30rpx;
-  font-weight: 700;
-  margin-bottom: 12rpx;
-}
-
-.receipt-actions {
-  display: flex;
-  gap: 10rpx;
-  margin-top: 12rpx;
-  justify-content: flex-end;
-}
-
-.receipt-input {
-  width: 100%;
-  border: 1rpx solid #e5e7eb;
-  border-radius: 12rpx;
-  padding: 12rpx;
-  font-size: 28rpx;
-  margin-top: 6rpx;
-}
 
 .card-sub.positive {
   color: #0ea76a;

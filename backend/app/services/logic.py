@@ -772,11 +772,9 @@ async def dashboard_realtime(session: AsyncSession) -> Tuple[float, float, float
     avg_ticket = actual / orders if orders else 0
     receipt_diff = actual - expected
     diff_rate = (receipt_diff / expected * 100) if expected else 0
-    manual = await get_manual_receipt(session)
-    actual_display = manual if manual is not None else actual
-    receipt_diff_display = actual_display - expected
+    receipt_diff_display = actual - expected
     diff_rate_display = (receipt_diff_display / expected * 100) if expected else 0
-    return actual_display, expected, receipt_diff_display, diff_rate_display, gross_profit, orders, avg_ticket, manual
+    return actual, expected, receipt_diff_display, diff_rate_display, gross_profit, orders, avg_ticket, None
 
 
 async def get_manual_receipt(session: AsyncSession) -> float | None:
@@ -959,13 +957,17 @@ async def dashboard_performance(session: AsyncSession) -> schemas.PerformanceRes
     items = (await session.execute(stmt)).scalars().all()
     expected = sum(item.snapshot_standard_price * item.quantity for item in items)
     actual = sum(item.actual_sale_price * item.quantity for item in items)
+    cost_total = sum(item.snapshot_cost * item.quantity for item in items)
     diff = actual - expected
     rate = (diff / expected * 100) if expected else 0
+    gross_profit = actual - cost_total
     return schemas.PerformanceResponse(
         price_diff=round(diff, 2),
         price_diff_rate=round(rate, 2),
         expected_sales=round(expected, 2),
         actual_sales=round(actual, 2),
+        cost_total=round(cost_total, 2),
+        gross_profit=round(gross_profit, 2),
     )
 
 

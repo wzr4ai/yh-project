@@ -26,12 +26,6 @@
       }
     },
     {
-      "path": "pages/sales/create",
-      "style": {
-        "navigationBarTitleText": "新增销售"
-      }
-    },
-    {
       "path": "pages/checkout/scan",
       "style": {
         "navigationBarTitleText": "扫码结账"
