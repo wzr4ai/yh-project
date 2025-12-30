@@ -239,7 +239,7 @@ export default {
     createOrder(silent) {
       const id = `order_${Date.now()}_${Math.floor(Math.random() * 1000)}`
       const name = this.nextOrderName()
-      const order = { id, name, items: [], count: 0, total: 0 }
+      const order = { id, name, items: [], count: 0, total: 0, discount_total: null }
       this.orders.push(order)
       this.activeOrderId = id
       this.activeOrderName = name
@@ -324,6 +324,12 @@ export default {
     },
     normalizeDiscount(order, baseTotal) {
       if (!order) return null
+      if (baseTotal <= 0) {
+        if (order.discount_total !== null && order.discount_total !== undefined) {
+          order.discount_total = null
+        }
+        return null
+      }
       const raw = Number(order.discount_total)
       if (!Number.isFinite(raw)) return null
       const clamped = Math.min(Math.max(raw, 0), Math.max(0, baseTotal))
@@ -363,10 +369,39 @@ export default {
       }
       const base = this.discountBaseTotal
       const clamped = Math.min(Math.max(value, 0), Math.max(0, base))
-      order.discount_total = clamped
-      this.refreshOrderStats()
-      this.persistOrders()
-      this.closeDiscountDialog()
+      const ratio = base > 0 ? clamped / base : 1
+      const role = getRole()
+      if (role !== 'owner' && ratio < 0.8) {
+        uni.showToast({ title: '店员最低可打8折', icon: 'none' })
+        return
+      }
+      const apply = () => {
+        if (Math.abs(clamped - base) <= 0.01) {
+          order.discount_total = null
+        } else {
+          order.discount_total = clamped
+        }
+        this.refreshOrderStats()
+        this.persistOrders()
+        this.closeDiscountDialog()
+      }
+      let content = `原合计 ¥${base.toFixed(2)}\n优惠后 ¥${clamped.toFixed(2)}`
+      let title = '确认优惠'
+      if (role === 'owner' && ratio < 0.5) {
+        title = '低于5折提醒'
+        content = `优惠低于5折，请确认。\n${content}`
+      }
+      uni.showModal({
+        title,
+        content,
+        confirmText: '确认',
+        cancelText: '返回',
+        success: (res) => {
+          if (res.confirm) {
+            apply()
+          }
+        }
+      })
     },
     clearDiscount() {
       const order = this.activeOrder
@@ -509,6 +544,7 @@ export default {
       const order = this.activeOrder
       if (!order) return
       order.items = []
+      order.discount_total = null
       this.refreshOrderStats()
       this.persistOrders()
     },
