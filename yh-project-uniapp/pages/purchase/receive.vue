@@ -155,6 +155,7 @@ export default {
       loading: false,
       scanning: false,
       saving: false,
+      skipNextFetch: false,
       showMatchDialog: false,
       matchedProducts: [],
       showBindDialog: false,
@@ -206,6 +207,10 @@ export default {
     if (!this.isOwner) {
       uni.showToast({ title: '仅老板可入库', icon: 'none' })
       uni.navigateBack()
+      return
+    }
+    if (this.skipNextFetch && this.order) {
+      this.skipNextFetch = false
       return
     }
     this.fetchOrder()
@@ -298,6 +303,7 @@ export default {
       row.received_units = row.received_qty * perBox
     },
     scanCode() {
+      this.skipNextFetch = true
       this.scanning = true
       uni.scanCode({
         onlyFromCamera: true,
