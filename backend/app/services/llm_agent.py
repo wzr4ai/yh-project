@@ -156,7 +156,14 @@ async def parse_and_validate(
     return schemas.OrderAnalyzeResponse(items=cleaned)
 
 
-async def analyze_dashboard_report(report: Dict[str, Any], protocol: str | None = None) -> schemas.LLMChatResponse:
+async def analyze_dashboard_report(
+    report: Dict[str, Any],
+    *,
+    provider: str | None = None,
+    model_tier: str | None = None,
+    model: str | None = None,
+    protocol: str | None = None,
+) -> schemas.LLMChatResponse:
     system_prompt = textwrap.dedent(
         """
         你是烟花爆竹门店的经营分析顾问。根据给定的报告 JSON 输出可执行的分析建议。
@@ -176,36 +183,39 @@ async def analyze_dashboard_report(report: Dict[str, Any], protocol: str | None 
     report_json = json.dumps(report, ensure_ascii=False)
     user_prompt = f"分析报告 JSON：\n{report_json}\n\n请给出分析建议："
 
-    deepseek_key = os.getenv("LLM_DEEPSEEK_KEY")
-    deepseek_url = (os.getenv("LLM_DEEPSEEK_URL") or "").rstrip("/")
-    deepseek_model = os.getenv("LLM_DEEPSEEK_MODEL")
-    if deepseek_url.endswith("/v1"):
-        deepseek_url = deepseek_url[:-3]
-    if not deepseek_url or not deepseek_model:
-        raise ValueError("LLM_DEEPSEEK_URL or LLM_DEEPSEEK_MODEL is not configured")
+    provider_val = (provider or "gemini").lower()
+    tier = model_tier or "high"
 
-    service = LLMService(base_url=deepseek_url, api_key=deepseek_key, default_protocol="openai")
+    if provider_val == "deepseek":
+        deepseek_key = os.getenv("LLM_DEEPSEEK_KEY")
+        deepseek_url = (os.getenv("LLM_DEEPSEEK_URL") or "").rstrip("/")
+        deepseek_model = model or os.getenv("LLM_DEEPSEEK_MODEL")
+        if deepseek_url.endswith("/v1"):
+            deepseek_url = deepseek_url[:-3]
+        if not deepseek_url or not deepseek_model:
+            raise ValueError("LLM_DEEPSEEK_URL or LLM_DEEPSEEK_MODEL is not configured")
+        service = LLMService(base_url=deepseek_url, api_key=deepseek_key, default_protocol="openai")
+        return await service.chat(
+            messages=[
+                schemas.LLMMessage(role="system", content=system_prompt),
+                schemas.LLMMessage(role="user", content=user_prompt),
+            ],
+            protocol="openai",
+            model=deepseek_model,
+            model_tier="high",
+            temperature=0.4,
+            max_output_tokens=2048,
+        )
+
+    service = LLMService()
     return await service.chat(
         messages=[
             schemas.LLMMessage(role="system", content=system_prompt),
             schemas.LLMMessage(role="user", content=user_prompt),
         ],
-        protocol="openai",
-        model=deepseek_model,
-        model_tier="high",
+        protocol=protocol or "gemini",
+        model_tier=tier,  # type: ignore[arg-type]
+        model=model,
         temperature=0.4,
         max_output_tokens=2048,
     )
-
-    # Gemini fallback (kept for later use)
-    # service = LLMService()
-    # return await service.chat(
-    #     messages=[
-    #         schemas.LLMMessage(role="system", content=system_prompt),
-    #         schemas.LLMMessage(role="user", content=user_prompt),
-    #     ],
-    #     protocol=protocol,
-    #     model_tier="high",
-    #     temperature=0.4,
-    #     max_output_tokens=2048,
-    # )

@@ -132,8 +132,11 @@ export const api = {
   getDashboardReport() {
     return request('/api/dashboard/report')
   },
-  getDashboardReportAnalysis() {
-    return request('/api/dashboard/report/analysis')
+  getDashboardReportAnalysis(payload) {
+    return request('/api/dashboard/report/analysis', {
+      method: 'POST',
+      data: payload || {}
+    })
   },
   getPricingMultiplier() {
     return request('/api/system/pricing-multiplier')

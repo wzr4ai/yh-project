@@ -257,6 +257,12 @@ class DashboardReportLLMResponse(BaseModel):
     raw_usage: Optional[Dict] = None
 
 
+class DashboardReportAnalyzeRequest(BaseModel):
+    provider: Literal["gemini", "deepseek"] = "gemini"
+    model_tier: Literal["low", "mid", "high"] = "high"
+    model: Optional[str] = None
+
+
 class PricingMultiplierConfig(BaseModel):
     min_multiplier: float
     max_multiplier: float

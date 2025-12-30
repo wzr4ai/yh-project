@@ -5,13 +5,22 @@
       <view class="sub">用于后续调用 LLM 进行深度分析</view>
       <view class="meta">生成时间：{{ generatedLabel }}</view>
       <view class="actions">
-        <button size="mini" type="primary" :loading="loading" @tap="fetchReport">生成/刷新</button>
+        <button size="mini" type="primary" :loading="loadingReport" @tap="fetchReport">生成/刷新</button>
         <button size="mini" @tap="copyJson" :disabled="!reportJson">复制 JSON</button>
       </view>
     </view>
 
     <view class="card">
       <view class="card-title">LLM 分析建议</view>
+      <view class="analysis-actions">
+        <view class="model-row">
+          <view class="label">模型</view>
+          <picker :range="modelLabels" :value="modelIndex" @change="onModelChange">
+            <view class="picker">{{ modelLabels[modelIndex] }}</view>
+          </picker>
+        </view>
+        <button size="mini" type="primary" :loading="loadingAnalysis" @tap="runAnalysis">LLM 分析</button>
+      </view>
       <view v-if="analysisError" class="error">分析失败：{{ analysisError }}</view>
       <scroll-view scroll-y class="report-box analysis-box">
         <text selectable class="report-text">{{ analysisText || '暂无分析内容' }}</text>
@@ -26,7 +35,7 @@
       </scroll-view>
     </view>
 
-    <view v-if="loading" class="loading">生成中...</view>
+    <view v-if="loadingReport || loadingAnalysis" class="loading">{{ loadingText }}</view>
   </view>
 </template>
 
@@ -38,7 +47,8 @@ export default {
   data() {
     return {
       role: getRole(),
-      loading: false,
+      loadingReport: false,
+      loadingAnalysis: false,
       report: null,
       reportJson: '',
       generatedAt: '',
@@ -48,7 +58,14 @@ export default {
         model: '',
         protocol: '',
         finishReason: ''
-      }
+      },
+      modelIndex: 0,
+      modelOptions: [
+        { label: 'Gemini-高', provider: 'gemini', modelTier: 'high' },
+        { label: 'Gemini-中', provider: 'gemini', modelTier: 'mid' },
+        { label: 'Gemini-低', provider: 'gemini', modelTier: 'low' },
+        { label: 'DeepSeek', provider: 'deepseek', modelTier: 'high' },
+      ]
     }
   },
   computed: {
@@ -62,6 +79,13 @@ export default {
       if (this.analysisMeta.protocol) parts.push(this.analysisMeta.protocol)
       if (this.analysisMeta.finishReason) parts.push(this.analysisMeta.finishReason)
       return parts.join(' / ')
+    },
+    modelLabels() {
+      return this.modelOptions.map(option => option.label)
+    },
+    loadingText() {
+      if (this.loadingAnalysis) return '分析中...'
+      return '生成中...'
     }
   },
   onShow() {
@@ -75,20 +99,16 @@ export default {
   },
   methods: {
     async fetchReport() {
-      if (this.loading) return
-      this.loading = true
+      if (this.loadingReport) return
+      this.loadingReport = true
       try {
-        const data = await api.getDashboardReportAnalysis()
+        const data = await api.getDashboardReport()
         this.report = data?.report || null
         this.reportJson = this.report ? JSON.stringify(this.report, null, 2) : ''
         this.generatedAt = data?.generated_at || ''
-        this.analysisText = data?.analysis || ''
-        this.analysisError = data?.analysis_error || ''
-        this.analysisMeta = {
-          model: data?.model || '',
-          protocol: data?.protocol || '',
-          finishReason: data?.finish_reason || ''
-        }
+        this.analysisText = ''
+        this.analysisError = ''
+        this.analysisMeta = { model: '', protocol: '', finishReason: '' }
       } catch (err) {
         this.report = null
         this.reportJson = ''
@@ -98,7 +118,40 @@ export default {
         this.analysisMeta = { model: '', protocol: '', finishReason: '' }
         uni.showToast({ title: '生成失败', icon: 'none' })
       } finally {
-        this.loading = false
+        this.loadingReport = false
+      }
+    },
+    onModelChange(e) {
+      this.modelIndex = Number(e.detail.value) || 0
+    },
+    async runAnalysis() {
+      if (this.loadingAnalysis) return
+      this.loadingAnalysis = true
+      const option = this.modelOptions[this.modelIndex] || this.modelOptions[0]
+      const payload = {
+        provider: option.provider,
+        model_tier: option.modelTier
+      }
+      if (option.model) payload.model = option.model
+      try {
+        const data = await api.getDashboardReportAnalysis(payload)
+        this.report = data?.report || this.report
+        this.reportJson = this.report ? JSON.stringify(this.report, null, 2) : ''
+        this.generatedAt = data?.generated_at || this.generatedAt
+        this.analysisText = data?.analysis || ''
+        this.analysisError = data?.analysis_error || ''
+        this.analysisMeta = {
+          model: data?.model || '',
+          protocol: data?.protocol || '',
+          finishReason: data?.finish_reason || ''
+        }
+      } catch (err) {
+        this.analysisText = ''
+        this.analysisError = '分析失败'
+        this.analysisMeta = { model: '', protocol: '', finishReason: '' }
+        uni.showToast({ title: '分析失败', icon: 'none' })
+      } finally {
+        this.loadingAnalysis = false
       }
     },
     copyJson() {
@@ -150,6 +203,35 @@ export default {
   margin-top: 12rpx;
   display: flex;
   gap: 12rpx;
+}
+
+.analysis-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-bottom: 10rpx;
+}
+
+.model-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.label {
+  font-size: 24rpx;
+  color: #4b5563;
+}
+
+.picker {
+  min-width: 220rpx;
+  padding: 10rpx 16rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #e5e7eb;
+  background: #fff;
+  color: #0b1f3a;
+  font-size: 24rpx;
 }
 
 .card-title {

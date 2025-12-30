@@ -112,13 +112,10 @@ async def dashboard_report(
     return await logic.dashboard_report(session)
 
 
-@router.get("/dashboard/report/analysis", response_model=schemas.DashboardReportLLMResponse)
-async def dashboard_report_analysis(
-    session: AsyncSession = Depends(get_session),
-    current_user=Depends(deps.get_current_user),
-):
-    if not current_user or getattr(current_user, "role", None) != "owner":
-        raise HTTPException(status_code=403, detail="forbidden")
+async def _run_dashboard_report_analysis(
+    session: AsyncSession,
+    payload: schemas.DashboardReportAnalyzeRequest,
+) -> schemas.DashboardReportLLMResponse:
     report = await logic.dashboard_report(session)
     analysis_text = ""
     analysis_error = None
@@ -127,7 +124,12 @@ async def dashboard_report_analysis(
     finish_reason = None
     raw_usage = None
     try:
-        llm_resp = await llm_agent.analyze_dashboard_report(report.report)
+        llm_resp = await llm_agent.analyze_dashboard_report(
+            report.report,
+            provider=payload.provider,
+            model_tier=payload.model_tier,
+            model=payload.model,
+        )
         analysis_text = llm_resp.content
         model = llm_resp.model
         protocol = llm_resp.protocol
@@ -146,3 +148,24 @@ async def dashboard_report_analysis(
         finish_reason=finish_reason,
         raw_usage=raw_usage,
     )
+
+
+@router.post("/dashboard/report/analysis", response_model=schemas.DashboardReportLLMResponse)
+async def dashboard_report_analysis(
+    payload: schemas.DashboardReportAnalyzeRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    return await _run_dashboard_report_analysis(session, payload)
+
+
+@router.get("/dashboard/report/analysis", response_model=schemas.DashboardReportLLMResponse)
+async def dashboard_report_analysis_default(
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    return await _run_dashboard_report_analysis(session, schemas.DashboardReportAnalyzeRequest())
