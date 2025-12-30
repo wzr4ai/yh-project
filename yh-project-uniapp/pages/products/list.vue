@@ -72,7 +72,11 @@
           </view>
         </view>
         <view class="footer">
-          <view class="footer-item" v-if="isOwner">成本 ¥{{ item.base_cost_price }}</view>
+          <view class="footer-item" v-if="isOwner">
+            成本 箱¥{{ item.cost_levels?.box.toFixed(2) }} 包¥{{ item.cost_levels?.unit.toFixed(2) }} 件¥{{
+              item.cost_levels?.piece.toFixed(2)
+            }}
+          </view>
           <view class="footer-item">库存 {{ formatStock(item.stock, item) }}</view>
           <view class="footer-item tag">{{ item.price_basis }}</view>
           <view class="footer-item">潜在总价 ¥{{ item.retail_total.toFixed(2) }}</view>
@@ -98,7 +102,7 @@
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
 import { api } from '../../common/api.js'
-import { formatStock } from '../../common/stock.js'
+import { formatStock, piecesPerBox } from '../../common/stock.js'
 
 export default {
   data() {
@@ -174,11 +178,31 @@ export default {
   },
   methods: {
     formatStock,
+    computeCostLevels(item) {
+      const perBox = piecesPerBox(item)
+      const units = Math.max(1, Number(item.units_per_box) || 1)
+      const boxCost = Number(item.box_cost_price) || 0
+      const baseCost = Number(item.base_cost_price) || 0
+      const calcBox = boxCost > 0 ? boxCost : baseCost * perBox
+      const unitCost = units ? calcBox / units : 0
+      const pieceCost = perBox ? calcBox / perBox : 0
+      return {
+        box: Number.isFinite(calcBox) ? calcBox : 0,
+        unit: Number.isFinite(unitCost) ? unitCost : 0,
+        piece: Number.isFinite(pieceCost) ? pieceCost : 0
+      }
+    },
+    applyCostLevels(list) {
+      return (list || []).map(item => ({
+        ...item,
+        cost_levels: this.computeCostLevels(item)
+      }))
+    },
     tryLoadCache() {
       try {
         const cached = uni.getStorageSync(this.cacheKey)
         if (cached && cached.data) {
-          this.products = cached.data.items || []
+          this.products = this.applyCostLevels(cached.data.items || [])
           this.total = cached.data.total || 0
         }
       } catch (e) {
@@ -204,7 +228,7 @@ export default {
         })
         const items = (data && data.items) || []
         this.total = data?.total || 0
-        this.products = items
+        this.products = this.applyCostLevels(items)
         // 写入缓存
         try {
           uni.setStorageSync(this.cacheKey, { etag: null, data })
