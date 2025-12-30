@@ -177,8 +177,10 @@ async def analyze_dashboard_report(report: Dict[str, Any], protocol: str | None 
     user_prompt = f"分析报告 JSON：\n{report_json}\n\n请给出分析建议："
 
     deepseek_key = os.getenv("LLM_DEEPSEEK_KEY")
-    deepseek_url = os.getenv("LLM_DEEPSEEK_URL")
+    deepseek_url = (os.getenv("LLM_DEEPSEEK_URL") or "").rstrip("/")
     deepseek_model = os.getenv("LLM_DEEPSEEK_MODEL")
+    if deepseek_url.endswith("/v1"):
+        deepseek_url = deepseek_url[:-3]
     if not deepseek_url or not deepseek_model:
         raise ValueError("LLM_DEEPSEEK_URL or LLM_DEEPSEEK_MODEL is not configured")
 
