@@ -182,7 +182,7 @@ async def analyze_dashboard_report(report: Dict[str, Any], protocol: str | None 
             schemas.LLMMessage(role="user", content=user_prompt),
         ],
         protocol=protocol,
-        model_tier="mid",
+        model_tier="high",
         temperature=0.4,
         max_output_tokens=2048,
     )
