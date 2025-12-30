@@ -72,7 +72,7 @@
     <view class="empty" v-else>请扫码或输入条码添加商品</view>
 
     <view class="footer">
-      <view class="summary">
+      <view class="summary" @tap="openDiscountDialog">
         <view>共 {{ activeSummary.count }} 件</view>
         <view>合计 ¥{{ activeSummary.total.toFixed(2) }}</view>
       </view>
@@ -93,6 +93,39 @@
           </view>
           <view v-if="!matchedProducts.length" class="empty">无匹配结果</view>
         </scroll-view>
+      </view>
+    </view>
+
+    <view class="dialog" v-if="showDiscountDialog">
+      <view class="dialog-content">
+        <view class="dialog-header">
+          <view class="dialog-title">订单优惠</view>
+          <button size="mini" @tap="closeDiscountDialog">关闭</button>
+        </view>
+        <view class="discount-body">
+          <view class="discount-row">
+            <view class="discount-label">原合计</view>
+            <view class="discount-value">¥{{ discountBaseTotal.toFixed(2) }}</view>
+          </view>
+          <view class="discount-row">
+            <view class="discount-label">优惠后</view>
+            <input
+              class="input discount-input"
+              type="digit"
+              inputmode="decimal"
+              v-model="discountInput"
+              placeholder="输入优惠后金额"
+            />
+          </view>
+          <view class="discount-row">
+            <view class="discount-label">优惠金额</view>
+            <view class="discount-value">-¥{{ discountDelta.toFixed(2) }}</view>
+          </view>
+          <view class="discount-actions">
+            <button size="mini" @tap="clearDiscount">不优惠</button>
+            <button size="mini" type="primary" @tap="applyDiscount">确认优惠</button>
+          </view>
+        </view>
       </view>
     </view>
   </view>
@@ -116,7 +149,10 @@ export default {
       scanning: false,
       submitting: false,
       showMatchDialog: false,
-      matchedProducts: []
+      matchedProducts: [],
+      showDiscountDialog: false,
+      discountInput: '',
+      discountBaseTotal: 0
     }
   },
   computed: {
@@ -127,7 +163,14 @@ export default {
       return this.activeOrder?.items || []
     },
     activeSummary() {
-      return this.calcSummary(this.activeOrder)
+      const base = this.calcSummary(this.activeOrder)
+      const discount = this.normalizeDiscount(this.activeOrder, base.total)
+      return {
+        ...base,
+        baseTotal: base.total,
+        total: discount === null ? base.total : discount,
+        discountTotal: discount
+      }
     },
     isOwner() {
       return isOwner()
@@ -137,6 +180,13 @@ export default {
       if (role === 'owner') return '运营总览'
       if (role === 'user') return '商品展示'
       return '货物定价总览'
+    },
+    discountDelta() {
+      const val = this.parsePrice(this.discountInput)
+      const base = Number(this.discountBaseTotal) || 0
+      if (val === null) return 0
+      const clamped = Math.min(Math.max(val, 0), base)
+      return Math.max(0, base - clamped)
     }
   },
   onShow() {
@@ -250,10 +300,15 @@ export default {
       this.persistOrders()
     },
     refreshOrderStats() {
-      this.orders = this.orders.map(o => ({
-        ...o,
-        ...this.calcSummary(o)
-      }))
+      this.orders = this.orders.map(o => {
+        const base = this.calcSummary(o)
+        const discount = this.normalizeDiscount(o, base.total)
+        return {
+          ...o,
+          count: base.count,
+          total: discount === null ? base.total : discount
+        }
+      })
     },
     calcSummary(order) {
       if (!order) return { count: 0, total: 0 }
@@ -266,6 +321,60 @@ export default {
         total += qty * (Number(item.actual_price) || 0)
       })
       return { count, total }
+    },
+    normalizeDiscount(order, baseTotal) {
+      if (!order) return null
+      const raw = Number(order.discount_total)
+      if (!Number.isFinite(raw)) return null
+      const clamped = Math.min(Math.max(raw, 0), Math.max(0, baseTotal))
+      if (clamped !== raw) {
+        order.discount_total = clamped
+      }
+      return clamped
+    },
+    parsePrice(val) {
+      const num = parseFloat(val)
+      return Number.isFinite(num) ? num : null
+    },
+    openDiscountDialog() {
+      const order = this.activeOrder
+      if (!order) return
+      const base = this.calcSummary(order)
+      if (base.total <= 0) {
+        uni.showToast({ title: '暂无可优惠金额', icon: 'none' })
+        return
+      }
+      const discount = this.normalizeDiscount(order, base.total)
+      this.discountBaseTotal = base.total
+      const preset = discount === null ? base.total : discount
+      this.discountInput = Number(preset).toFixed(2)
+      this.showDiscountDialog = true
+    },
+    closeDiscountDialog() {
+      this.showDiscountDialog = false
+    },
+    applyDiscount() {
+      const order = this.activeOrder
+      if (!order) return
+      const value = this.parsePrice(this.discountInput)
+      if (value === null) {
+        uni.showToast({ title: '请输入有效金额', icon: 'none' })
+        return
+      }
+      const base = this.discountBaseTotal
+      const clamped = Math.min(Math.max(value, 0), Math.max(0, base))
+      order.discount_total = clamped
+      this.refreshOrderStats()
+      this.persistOrders()
+      this.closeDiscountDialog()
+    },
+    clearDiscount() {
+      const order = this.activeOrder
+      if (!order) return
+      order.discount_total = null
+      this.refreshOrderStats()
+      this.persistOrders()
+      this.closeDiscountDialog()
     },
     scanCode() {
       this.scanning = true
@@ -409,6 +518,10 @@ export default {
         uni.showToast({ title: '请先添加商品', icon: 'none' })
         return
       }
+      const base = this.calcSummary(order)
+      const discount = this.normalizeDiscount(order, base.total)
+      const finalTotal = discount === null ? base.total : discount
+      const ratio = base.total > 0 ? finalTotal / base.total : 1
       const username = uni.getStorageSync('yh-username') || ''
       const payload = order.items
         .map(item => {
@@ -417,7 +530,7 @@ export default {
           return {
             product_id: item.id,
             quantity: qty,
-            actual_price: Number(item.actual_price) || 0
+            actual_price: Number(((Number(item.actual_price) || 0) * ratio).toFixed(2))
           }
         })
         .filter(Boolean)
@@ -651,6 +764,10 @@ export default {
   gap: 4rpx;
 }
 
+.summary:active {
+  opacity: 0.7;
+}
+
 .dialog {
   position: fixed;
   inset: 0;
@@ -687,6 +804,41 @@ export default {
 
 .dialog-body {
   max-height: 50vh;
+}
+
+.discount-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.discount-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.discount-label {
+  font-size: 24rpx;
+  color: #6b7280;
+}
+
+.discount-value {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0b1f3a;
+}
+
+.discount-input {
+  flex: 1;
+}
+
+.discount-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+  margin-top: 4rpx;
 }
 
 .match-row {
