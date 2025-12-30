@@ -44,6 +44,7 @@ def ensure_columns(engine: Engine):
     product_columns = {col["name"] for col in inspector.get_columns("product")}
     category_columns = {col["name"] for col in inspector.get_columns("category")}
     inventory_columns = {col["name"] for col in inspector.get_columns("inventory")}
+    purchase_item_columns = {col["name"] for col in inspector.get_columns("purchase_item")} if "purchase_item" in inspector.get_table_names() else set()
 
     with engine.begin() as conn:
         if "retail_multiplier" not in product_columns:
@@ -76,6 +77,8 @@ def ensure_columns(engine: Engine):
             conn.execute(text("ALTER TABLE inventory ADD COLUMN IF NOT EXISTS loose_units integer DEFAULT 0"))
         if "updated_at" not in inventory_columns:
             conn.execute(text("ALTER TABLE inventory ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now()"))
+        if "received_units" not in purchase_item_columns:
+            conn.execute(text("ALTER TABLE purchase_item ADD COLUMN IF NOT EXISTS received_units integer DEFAULT 0"))
 
 
 def ensure_product_category(engine: Engine):

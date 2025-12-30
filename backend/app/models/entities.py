@@ -156,6 +156,7 @@ class PurchaseItem(Base):
     quantity: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     expected_cost: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
     received_qty: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    received_units: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     actual_cost: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
 
     order: Mapped[PurchaseOrder] = relationship(back_populates="items")

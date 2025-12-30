@@ -655,20 +655,30 @@ async def receive_purchase(session: AsyncSession, po_id: str, items: List[schema
         target = item_map.get(update.product_id)
         if not target:
             continue
-        previous_received = target.received_qty or 0
-        target.received_qty = update.received_qty
+        product = await session.get(Product, update.product_id)
+        pieces_per_box = get_pieces_per_box(product) if product else 1
+        previous_units = target.received_units
+        min_units = (target.received_qty or 0) * pieces_per_box
+        if previous_units is None or previous_units < min_units:
+            previous_units = min_units
+        new_units = update.received_units if update.received_units is not None else (update.received_qty or 0) * pieces_per_box
+        if new_units < 0:
+            new_units = 0
+        max_units = (target.quantity or 0) * pieces_per_box
+        if max_units and new_units > max_units:
+            new_units = max_units
+        target.received_units = int(new_units)
+        target.received_qty = int(min(target.quantity or 0, new_units // pieces_per_box))
         actual_cost = update.actual_cost if update.actual_cost is not None else target.expected_cost
         target.actual_cost = actual_cost
         inv = await get_inventory_record(session, update.product_id, create_if_missing=True)
-        product = await session.get(Product, update.product_id)
         if product and actual_cost is not None and actual_cost > 0:
             product.box_cost_price = float(actual_cost)
             product.base_cost_price = float(actual_cost) / get_pieces_per_box(product)
-        delta = max(0, update.received_qty - previous_received)
-        if delta:
-            pieces_per_box = get_pieces_per_box(product) if product else 1
-            inv.current_stock += delta * pieces_per_box
-            await log_inventory(session, update.product_id, delta * pieces_per_box, "purchase", ref_id=order.id)
+        delta_units = max(0, int(new_units - previous_units))
+        if delta_units:
+            apply_unit_delta(inv, product, delta_units)
+            await log_inventory(session, update.product_id, delta_units, "purchase", ref_id=order.id)
 
     if all(i.received_qty >= i.quantity for i in order.items):
         order.status = "完成"
@@ -695,6 +705,7 @@ async def create_purchase_order(session: AsyncSession, po: schemas.PurchaseOrder
           quantity=item.quantity,
           expected_cost=item.expected_cost,
           received_qty=item.received_qty,
+          received_units=item.received_units or 0,
           actual_cost=item.actual_cost,
         )
         for item in po.items
@@ -722,6 +733,7 @@ async def update_purchase_order(session: AsyncSession, po_id: str, po: schemas.P
     if po.created_by:
         order.created_by = po.created_by
 
+    existing_units = {item.product_id: item.received_units for item in order.items}
     order.items.clear()
     order.items = [
         PurchaseItem(
@@ -729,6 +741,7 @@ async def update_purchase_order(session: AsyncSession, po_id: str, po: schemas.P
             quantity=item.quantity,
             expected_cost=item.expected_cost,
             received_qty=item.received_qty,
+            received_units=item.received_units if item.received_units is not None else (existing_units.get(item.product_id) or 0),
             actual_cost=item.actual_cost,
         )
         for item in po.items

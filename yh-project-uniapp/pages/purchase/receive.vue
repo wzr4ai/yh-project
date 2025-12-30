@@ -23,7 +23,7 @@
         <button size="mini" type="primary" :loading="loading" @tap="manualAdd">添加</button>
         <button size="mini" @tap="scanCode" :loading="scanning">扫码</button>
       </view>
-      <view class="hint">入库按箱计数，扫码成功默认 +1 箱。</view>
+      <view class="hint">入库按条码层级计数，箱/包/个扫码会累计。</view>
     </view>
 
     <view class="card summary" v-if="order">
@@ -60,6 +60,7 @@
           <view class="field">
             <view class="label">已入箱数</view>
             <input class="input" type="number" v-model.number="item.received_qty" @blur="normalizeReceived(item)" />
+            <view class="sub-value">合计 {{ receivedDetail(item) }}</view>
           </view>
           <view class="field">
             <view class="label">预计单价</view>
@@ -140,6 +141,7 @@
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
 import { api } from '../../common/api.js'
+import { piecesPerBox, formatStock } from '../../common/stock.js'
 
 export default {
   data() {
@@ -222,6 +224,47 @@ export default {
       const product = this.productMap[item.product_id]
       return product && product.spec ? `规格 ${product.spec}` : '规格 —'
     },
+    itemPiecesPerBox(item, productOverride) {
+      const product = productOverride || this.productMap[item.product_id] || item
+      return piecesPerBox(product)
+    },
+    ensureReceivedUnits(item, perBox) {
+      if (item.received_units === null || item.received_units === undefined) {
+        item.received_units = (Number(item.received_qty) || 0) * perBox
+      }
+    },
+    receivedDetail(item) {
+      const product = this.productMap[item.product_id]
+      if (!product) return '—'
+      if (item.received_units === null || item.received_units === undefined) return '—'
+      const units = Number(item.received_units)
+      if (!Number.isFinite(units)) return '—'
+      return formatStock(units, product)
+    },
+    barcodeLevelLabel(level) {
+      const lvl = (level || '').toUpperCase()
+      if (lvl === 'BOX') return '箱'
+      if (lvl === 'UNIT') return '包'
+      return '个'
+    },
+    barcodeUnitsForLevel(item, product, level) {
+      const lvl = (level || '').toUpperCase()
+      if (lvl === 'BOX') return this.itemPiecesPerBox(item, product)
+      if (lvl === 'UNIT') return Math.max(1, Number(product?.pieces_per_unit) || 1)
+      return 1
+    },
+    applyReceivedUnits(item, perBox, deltaUnits) {
+      const qty = Number(item.quantity) || 0
+      const maxUnits = qty * perBox
+      const delta = Number(deltaUnits) || 0
+      this.ensureReceivedUnits(item, perBox)
+      let nextUnits = (Number(item.received_units) || 0) + delta
+      if (nextUnits < 0) nextUnits = 0
+      if (maxUnits && nextUnits > maxUnits) nextUnits = maxUnits
+      const safeUnits = Math.floor(nextUnits)
+      item.received_units = safeUnits
+      item.received_qty = Math.min(qty, Math.floor(safeUnits / perBox))
+    },
     formatMoney(value) {
       const num = Number(value)
       if (!Number.isFinite(num)) return '—'
@@ -238,18 +281,21 @@ export default {
       if (recv < 0) recv = 0
       if (recv > max) recv = max
       item.received_qty = recv
+      const perBox = this.itemPiecesPerBox(item)
+      item.received_units = recv * perBox
     },
     addReceived(item, delta) {
-      const max = Number(item.quantity) || 0
-      let recv = Math.floor(Number(item.received_qty) || 0) + delta
-      if (recv < 0) recv = 0
-      if (recv > max) recv = max
-      item.received_qty = recv
+      const perBox = this.itemPiecesPerBox(item)
+      const deltaUnits = (Number(delta) || 0) * perBox
+      if (!deltaUnits) return
+      this.applyReceivedUnits(item, perBox, deltaUnits)
     },
     fillRowReceived(idx) {
       const row = this.formItems[idx]
       if (!row) return
       row.received_qty = Number(row.quantity) || 0
+      const perBox = this.itemPiecesPerBox(row)
+      row.received_units = row.received_qty * perBox
     },
     scanCode() {
       this.scanning = true
@@ -311,9 +357,11 @@ export default {
         uni.showToast({ title: '该商品不在采购单中', icon: 'none' })
         return
       }
-      this.addReceived(target, 1)
+      const perBox = this.itemPiecesPerBox(target, product)
+      const deltaUnits = Math.max(1, Math.floor(Number(result.multiplier) || 1))
+      this.applyReceivedUnits(target, perBox, deltaUnits)
       this.barcodeInput = ''
-      uni.showToast({ title: '已入库 +1', icon: 'success' })
+      uni.showToast({ title: `已入库 +1${this.barcodeLevelLabel(result.level)}`, icon: 'success' })
     },
     openMatchDialog(matches) {
       this.matchedProducts = matches || []
@@ -367,7 +415,12 @@ export default {
         })
         if (withReceive) {
           const target = this.formItems.find(item => item.product_id === this.bindProductId)
-          if (target) this.addReceived(target, 1)
+          if (target) {
+            const product = this.productMap[target.product_id]
+            const perBox = this.itemPiecesPerBox(target, product)
+            const deltaUnits = this.barcodeUnitsForLevel(target, product, this.bindLevel)
+            this.applyReceivedUnits(target, perBox, deltaUnits)
+          }
         }
         uni.showToast({ title: '已绑定', icon: 'success' })
         this.closeBindDialog()
@@ -387,7 +440,8 @@ export default {
         this.formItems = (order.items || []).map(item => ({
           ...item,
           quantity: Number(item.quantity) || 0,
-          received_qty: Number(item.received_qty) || 0
+          received_qty: Number(item.received_qty) || 0,
+          received_units: item.received_units === null || item.received_units === undefined ? null : Number(item.received_units) || 0
         }))
         await this.loadProductMap()
       } catch (err) {
@@ -411,15 +465,31 @@ export default {
           this.$set(this.productMap, id, { id, name: id })
         }
       }
+      this.formItems.forEach(item => {
+        if (item.received_units === null || item.received_units === undefined) {
+          const perBox = this.itemPiecesPerBox(item)
+          item.received_units = (Number(item.received_qty) || 0) * perBox
+        }
+      })
     },
     buildPayload() {
-      return this.formItems.map(item => ({
-        product_id: item.product_id,
-        quantity: Number(item.quantity) || 0,
-        expected_cost: Number(item.expected_cost) || 0,
-        received_qty: Math.floor(Number(item.received_qty) || 0),
-        actual_cost: item.actual_cost === '' || item.actual_cost === null ? null : Number(item.actual_cost)
-      }))
+      return this.formItems.map(item => {
+        const perBox = this.itemPiecesPerBox(item)
+        const qty = Number(item.quantity) || 0
+        const receivedUnits = Number.isFinite(Number(item.received_units))
+          ? Math.floor(Number(item.received_units))
+          : Math.floor(Number(item.received_qty) || 0) * perBox
+        const maxUnits = qty * perBox
+        const safeUnits = maxUnits ? Math.min(receivedUnits, maxUnits) : receivedUnits
+        return {
+          product_id: item.product_id,
+          quantity: qty,
+          expected_cost: Number(item.expected_cost) || 0,
+          received_qty: Math.floor(Number(item.received_qty) || 0),
+          received_units: safeUnits < 0 ? 0 : safeUnits,
+          actual_cost: item.actual_cost === '' || item.actual_cost === null ? null : Number(item.actual_cost)
+        }
+      })
     },
     async submitReceive() {
       if (!this.orderId) return
@@ -431,7 +501,8 @@ export default {
         this.formItems = (updated.items || []).map(item => ({
           ...item,
           quantity: Number(item.quantity) || 0,
-          received_qty: Number(item.received_qty) || 0
+          received_qty: Number(item.received_qty) || 0,
+          received_units: item.received_units === null || item.received_units === undefined ? null : Number(item.received_units) || 0
         }))
         await this.loadProductMap()
         uni.showToast({ title: '已保存', icon: 'success' })
@@ -615,6 +686,12 @@ export default {
   font-size: 24rpx;
   color: #0b1f3a;
   font-weight: 600;
+}
+
+.field .sub-value {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #9ca3af;
 }
 
 .row-actions {

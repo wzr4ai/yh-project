@@ -120,6 +120,7 @@
 <script>
 import { getRole, isOwner } from '../../common/auth.js'
 import { api } from '../../common/api.js'
+import { piecesPerBox } from '../../common/stock.js'
 
 export default {
   data() {
@@ -218,6 +219,7 @@ export default {
           quantity: Number(item.quantity) || 0,
           expected_cost: item.expected_cost,
           received_qty: Number(item.received_qty) || 0,
+          received_units: item.received_units === null || item.received_units === undefined ? null : Number(item.received_units) || 0,
           actual_cost: item.actual_cost
         }))
         await this.loadProductMap()
@@ -241,6 +243,10 @@ export default {
     productSpec(item) {
       const product = this.productMap[item.product_id]
       return product && product.spec ? `规格 ${product.spec}` : '规格 —'
+    },
+    itemPiecesPerBox(item) {
+      const product = this.productMap[item.product_id] || item
+      return piecesPerBox(product)
     },
     lineCost(item) {
       const qty = Number(item.quantity) || 0
@@ -289,6 +295,7 @@ export default {
           quantity: 1,
           expected_cost: expected,
           received_qty: 0,
+          received_units: 0,
           actual_cost: null
         })
       }
@@ -313,13 +320,23 @@ export default {
     },
     buildPayload() {
       const items = this.formItems
-        .map(item => ({
-          product_id: item.product_id,
-          quantity: Math.floor(Number(item.quantity) || 0),
-          expected_cost: Number(item.expected_cost) || 0,
-          received_qty: Number(item.received_qty) || 0,
-          actual_cost: item.actual_cost === '' || item.actual_cost === null ? null : Number(item.actual_cost)
-        }))
+        .map(item => {
+          const perBox = this.itemPiecesPerBox(item)
+          const qty = Math.floor(Number(item.quantity) || 0)
+          const receivedUnits = Number.isFinite(Number(item.received_units))
+            ? Math.floor(Number(item.received_units))
+            : Math.floor(Number(item.received_qty) || 0) * perBox
+          const maxUnits = qty * perBox
+          const safeUnits = maxUnits ? Math.min(receivedUnits, maxUnits) : receivedUnits
+          return {
+            product_id: item.product_id,
+            quantity: qty,
+            expected_cost: Number(item.expected_cost) || 0,
+            received_qty: Number(item.received_qty) || 0,
+            received_units: safeUnits < 0 ? 0 : safeUnits,
+            actual_cost: item.actual_cost === '' || item.actual_cost === null ? null : Number(item.actual_cost)
+          }
+        })
         .filter(item => item.product_id && item.quantity > 0)
       return {
         id: this.isCreate ? undefined : this.orderId,

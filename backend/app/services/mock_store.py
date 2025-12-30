@@ -106,6 +106,7 @@ PURCHASE_ORDERS: List[PurchaseOrder] = [
                 quantity=50,
                 expected_cost=68,
                 received_qty=20,
+                received_units=20,
                 actual_cost=68,
             ),
             PurchaseItem(
@@ -113,6 +114,7 @@ PURCHASE_ORDERS: List[PurchaseOrder] = [
                 quantity=30,
                 expected_cost=42,
                 received_qty=0,
+                received_units=0,
                 actual_cost=None,
             ),
         ],
@@ -130,6 +132,7 @@ PURCHASE_ORDERS: List[PurchaseOrder] = [
                 quantity=120,
                 expected_cost=12,
                 received_qty=120,
+                received_units=120,
                 actual_cost=12,
             )
         ],
@@ -269,13 +272,28 @@ def receive_purchase_order(po_id: str, item_receipts: List[PurchaseItem]) -> Pur
         target = next((i for i in order.items if i.product_id == update.product_id), None)
         if not target:
             continue
-        target.received_qty = update.received_qty
+        product = get_product(update.product_id)
+        units_per_box = int(getattr(product, "units_per_box", 1) or 1) if product else 1
+        pieces_per_unit = int(getattr(product, "pieces_per_unit", 1) or 1) if product else 1
+        pieces_per_box = max(1, units_per_box * pieces_per_unit)
+        prev_units = target.received_units
+        min_units = (target.received_qty or 0) * pieces_per_box
+        if prev_units is None or prev_units < min_units:
+            prev_units = min_units
+        new_units = update.received_units if update.received_units is not None else (update.received_qty or 0) * pieces_per_box
+        if new_units < 0:
+            new_units = 0
+        max_units = (target.quantity or 0) * pieces_per_box
+        if max_units and new_units > max_units:
+            new_units = max_units
+        target.received_units = int(new_units)
+        target.received_qty = int(min(target.quantity or 0, new_units // pieces_per_box))
         target.actual_cost = update.actual_cost or target.expected_cost
         # sync inventory
         inv = get_inventory_record(update.product_id)
-        delta = update.received_qty
-        inv.current_stock += delta
-        log_inventory_change(update.product_id, delta, "purchase", order.id)
+        delta_units = max(0, int(new_units - prev_units))
+        inv.current_stock += delta_units
+        log_inventory_change(update.product_id, delta_units, "purchase", order.id)
 
     # status update
     if all(i.received_qty >= i.quantity for i in order.items):

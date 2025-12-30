@@ -11,8 +11,10 @@ def ensure_columns(conn: Connection) -> None:
     product_columns = {col["name"] for col in inspector.get_columns("product")}
     has_category = inspector.has_table("category")
     has_inventory = inspector.has_table("inventory")
+    has_purchase_item = inspector.has_table("purchase_item")
     category_columns = {col["name"] for col in inspector.get_columns("category")} if has_category else set()
     inventory_columns = {col["name"] for col in inspector.get_columns("inventory")} if has_inventory else set()
+    purchase_item_columns = {col["name"] for col in inspector.get_columns("purchase_item")} if has_purchase_item else set()
 
     if "retail_multiplier" not in product_columns:
         conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS retail_multiplier double precision"))
@@ -48,3 +50,7 @@ def ensure_columns(conn: Connection) -> None:
             conn.execute(text("ALTER TABLE inventory ADD COLUMN IF NOT EXISTS loose_units integer DEFAULT 0"))
         if "updated_at" not in inventory_columns:
             conn.execute(text("ALTER TABLE inventory ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now()"))
+
+    if has_purchase_item:
+        if "received_units" not in purchase_item_columns:
+            conn.execute(text("ALTER TABLE purchase_item ADD COLUMN IF NOT EXISTS received_units integer DEFAULT 0"))

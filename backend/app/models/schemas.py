@@ -156,6 +156,7 @@ class PurchaseItem(ORMBase):
     quantity: int
     expected_cost: float
     received_qty: int = 0
+    received_units: Optional[int] = None
     actual_cost: Optional[float] = None
 
 
