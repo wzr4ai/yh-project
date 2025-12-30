@@ -331,6 +331,25 @@ def performance() -> PerformanceResponse:
     expected = sum(item.snapshot_standard_price * item.quantity for item in SALES_ITEMS)
     actual = sum(item.actual_sale_price * item.quantity for item in SALES_ITEMS)
     cost_total = sum(item.snapshot_cost * item.quantity for item in SALES_ITEMS)
+    purchase_total = 0.0
+    for order in PURCHASE_ORDERS:
+        for item in order.items:
+            product = get_product(item.product_id)
+            units_per_box = int(getattr(product, "units_per_box", 1) or 1) if product else 1
+            pieces_per_unit = int(getattr(product, "pieces_per_unit", 1) or 1) if product else 1
+            pieces_per_box = max(1, units_per_box * pieces_per_unit)
+            cost_per_box = item.actual_cost if item.actual_cost is not None else item.expected_cost
+            cost_per_box = float(cost_per_box or 0)
+            if cost_per_box <= 0:
+                continue
+            received_units = item.received_units
+            if received_units is not None and received_units > 0:
+                boxes_equiv = received_units / pieces_per_box
+            else:
+                boxes_equiv = float(item.received_qty or 0)
+            if boxes_equiv <= 0:
+                continue
+            purchase_total += boxes_equiv * cost_per_box
     diff = actual - expected
     rate = (diff / expected * 100) if expected else 0
     gross_profit = actual - cost_total
@@ -341,4 +360,5 @@ def performance() -> PerformanceResponse:
         actual_sales=round(actual, 2),
         cost_total=round(cost_total, 2),
         gross_profit=round(gross_profit, 2),
+        purchase_cost_total=round(purchase_total, 2),
     )

@@ -219,6 +219,7 @@ class PerformanceResponse(BaseModel):
     actual_sales: float
     cost_total: float = 0
     gross_profit: float = 0
+    purchase_cost_total: float = 0
 
 
 class ProductListItem(BaseModel):

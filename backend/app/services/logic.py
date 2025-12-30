@@ -958,6 +958,7 @@ async def dashboard_performance(session: AsyncSession) -> schemas.PerformanceRes
     expected = sum(item.snapshot_standard_price * item.quantity for item in items)
     actual = sum(item.actual_sale_price * item.quantity for item in items)
     cost_total = sum(item.snapshot_cost * item.quantity for item in items)
+    purchase_total = await total_purchase_cost(session)
     diff = actual - expected
     rate = (diff / expected * 100) if expected else 0
     gross_profit = actual - cost_total
@@ -968,12 +969,35 @@ async def dashboard_performance(session: AsyncSession) -> schemas.PerformanceRes
         actual_sales=round(actual, 2),
         cost_total=round(cost_total, 2),
         gross_profit=round(gross_profit, 2),
+        purchase_cost_total=round(purchase_total, 2),
     )
 
 
 async def total_receipts(session: AsyncSession) -> float:
     total = (await session.execute(sa.select(sa.func.coalesce(sa.func.sum(DailyReceipt.amount), 0)))).scalar_one()
     return float(total or 0)
+
+
+async def total_purchase_cost(session: AsyncSession) -> float:
+    rows = (await session.execute(
+        sa.select(PurchaseItem, Product).join(Product, Product.id == PurchaseItem.product_id)
+    )).all()
+    total = 0.0
+    for item, product in rows:
+        cost_per_box = item.actual_cost if item.actual_cost is not None else item.expected_cost
+        cost_per_box = float(cost_per_box or 0)
+        if cost_per_box <= 0:
+            continue
+        pieces_per_box = get_pieces_per_box(product) if product else 1
+        received_units = item.received_units
+        if received_units is not None and received_units > 0:
+            boxes_equiv = received_units / float(pieces_per_box or 1)
+        else:
+            boxes_equiv = float(item.received_qty or 0)
+        if boxes_equiv <= 0:
+            continue
+        total += boxes_equiv * cost_per_box
+    return float(total)
 
 
 def round2(value: float) -> float:

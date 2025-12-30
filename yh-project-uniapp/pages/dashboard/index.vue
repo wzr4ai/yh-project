@@ -185,7 +185,7 @@ export default {
           const amt = Number(cur.amount) || 0
           return acc + qty * amt
         }, 0)
-        const totalCost = (perf?.cost_total || 0) + miscTotal
+        const totalCost = (perf?.purchase_cost_total || 0) + miscTotal
         const netProfit = (this.receiptTotal || 0) - totalCost
         this.costMetrics = {
           totalCost,
