@@ -11,6 +11,15 @@
     </view>
 
     <view class="card">
+      <view class="card-title">LLM 分析建议</view>
+      <view v-if="analysisError" class="error">分析失败：{{ analysisError }}</view>
+      <scroll-view scroll-y class="report-box analysis-box">
+        <text selectable class="report-text">{{ analysisText || '暂无分析内容' }}</text>
+      </scroll-view>
+      <view v-if="analysisMetaLabel" class="meta">模型：{{ analysisMetaLabel }}</view>
+    </view>
+
+    <view class="card">
       <view class="card-title">报告输出</view>
       <scroll-view scroll-y class="report-box">
         <text selectable class="report-text">{{ reportJson || '暂无数据' }}</text>
@@ -31,13 +40,28 @@ export default {
       role: getRole(),
       loading: false,
       report: null,
-      reportJson: ''
+      reportJson: '',
+      generatedAt: '',
+      analysisText: '',
+      analysisError: '',
+      analysisMeta: {
+        model: '',
+        protocol: '',
+        finishReason: ''
+      }
     }
   },
   computed: {
     generatedLabel() {
-      if (!this.report || !this.report.generated_at) return '—'
-      return String(this.report.generated_at)
+      if (!this.generatedAt) return '—'
+      return String(this.generatedAt)
+    },
+    analysisMetaLabel() {
+      const parts = []
+      if (this.analysisMeta.model) parts.push(this.analysisMeta.model)
+      if (this.analysisMeta.protocol) parts.push(this.analysisMeta.protocol)
+      if (this.analysisMeta.finishReason) parts.push(this.analysisMeta.finishReason)
+      return parts.join(' / ')
     }
   },
   onShow() {
@@ -54,12 +78,24 @@ export default {
       if (this.loading) return
       this.loading = true
       try {
-        const data = await api.getDashboardReport()
-        this.report = data
-        this.reportJson = JSON.stringify(data, null, 2)
+        const data = await api.getDashboardReportAnalysis()
+        this.report = data?.report || null
+        this.reportJson = this.report ? JSON.stringify(this.report, null, 2) : ''
+        this.generatedAt = data?.generated_at || ''
+        this.analysisText = data?.analysis || ''
+        this.analysisError = data?.analysis_error || ''
+        this.analysisMeta = {
+          model: data?.model || '',
+          protocol: data?.protocol || '',
+          finishReason: data?.finish_reason || ''
+        }
       } catch (err) {
         this.report = null
         this.reportJson = ''
+        this.generatedAt = ''
+        this.analysisText = ''
+        this.analysisError = ''
+        this.analysisMeta = { model: '', protocol: '', finishReason: '' }
         uni.showToast({ title: '生成失败', icon: 'none' })
       } finally {
         this.loading = false
@@ -131,11 +167,21 @@ export default {
   background: #f9fafb;
 }
 
+.analysis-box {
+  max-height: 40vh;
+}
+
 .report-text {
   font-size: 22rpx;
   color: #374151;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.error {
+  color: #c03428;
+  font-size: 22rpx;
+  margin: 8rpx 0;
 }
 
 .loading {

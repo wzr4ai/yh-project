@@ -245,6 +245,18 @@ class DashboardReportResponse(BaseModel):
     report: Dict[str, Any]
 
 
+class DashboardReportLLMResponse(BaseModel):
+    generated_at: datetime
+    version: str = "v1"
+    report: Dict[str, Any]
+    analysis: str = ""
+    analysis_error: Optional[str] = None
+    model: Optional[str] = None
+    protocol: Optional[str] = None
+    finish_reason: Optional[str] = None
+    raw_usage: Optional[Dict] = None
+
+
 class PricingMultiplierConfig(BaseModel):
     min_multiplier: float
     max_multiplier: float

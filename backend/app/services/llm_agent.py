@@ -153,3 +153,36 @@ async def parse_and_validate(
         )
 
     return schemas.OrderAnalyzeResponse(items=cleaned)
+
+
+async def analyze_dashboard_report(report: Dict[str, Any], protocol: str | None = None) -> schemas.LLMChatResponse:
+    system_prompt = textwrap.dedent(
+        """
+        你是烟花爆竹门店的经营分析顾问。根据给定的报告 JSON 输出可执行的分析建议。
+        目标：帮助店主制定销售方式、促销、补货与清仓计划，关注春节季节性。
+        输出要求：
+        - 使用中文，输出结构化段落（标题 + 要点）。
+        - 每段 3-6 条要点，避免空泛，尽量引用报告中的数字或排行。
+        - 当数据不足时，直说“数据不足”并给出补充建议。
+        建议结构：
+        1) 总览结论
+        2) 今日经营诊断
+        3) 库存风险与补货
+        4) 促销/定价与清仓
+        5) 春节节奏建议（结合季节性）
+        """
+    ).strip()
+    report_json = json.dumps(report, ensure_ascii=False)
+    user_prompt = f"分析报告 JSON：\n{report_json}\n\n请给出分析建议："
+
+    service = LLMService()
+    return await service.chat(
+        messages=[
+            schemas.LLMMessage(role="system", content=system_prompt),
+            schemas.LLMMessage(role="user", content=user_prompt),
+        ],
+        protocol=protocol,
+        model_tier="mid",
+        temperature=0.4,
+        max_output_tokens=2048,
+    )

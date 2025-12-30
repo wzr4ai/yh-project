@@ -634,6 +634,42 @@ async def dashboard_report(
     return await logic.dashboard_report(session)
 
 
+@router.get("/dashboard/report/analysis", response_model=schemas.DashboardReportLLMResponse)
+async def dashboard_report_analysis(
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    report = await logic.dashboard_report(session)
+    analysis_text = ""
+    analysis_error = None
+    model = None
+    protocol = None
+    finish_reason = None
+    raw_usage = None
+    try:
+        llm_resp = await llm_agent.analyze_dashboard_report(report.report)
+        analysis_text = llm_resp.content
+        model = llm_resp.model
+        protocol = llm_resp.protocol
+        finish_reason = llm_resp.finish_reason
+        raw_usage = llm_resp.raw_usage
+    except (ValueError, LLMServiceError) as exc:
+        analysis_error = str(exc)
+    return schemas.DashboardReportLLMResponse(
+        generated_at=report.generated_at,
+        version=report.version,
+        report=report.report,
+        analysis=analysis_text,
+        analysis_error=analysis_error,
+        model=model,
+        protocol=protocol,
+        finish_reason=finish_reason,
+        raw_usage=raw_usage,
+    )
+
+
 @router.get("/system/pricing-multiplier", response_model=schemas.PricingMultiplierConfig)
 async def get_pricing_multiplier(
     session: AsyncSession = Depends(get_session), current_user=Depends(deps.get_current_user)
