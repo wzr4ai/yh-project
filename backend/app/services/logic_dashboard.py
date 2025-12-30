@@ -395,8 +395,8 @@ async def dashboard_report(session: AsyncSession) -> schemas.DashboardReportResp
         },
         "seasonality_context": {
             "business_type": "烟花爆竹销售",
-            "season_window": "腊月20至正月15",
-            "peak_days": ["除夕", "大年初一"],
+            "season_window": "2026年2月7日（腊月20）至2026年3月3日（正月15）",
+            "peak_days": ["除夕（2026年2月16日）", "大年初一"],
             "peak_share_estimate": "除夕+初一约占全年销售额50%",
             "tail_day_estimate": "正月15约占除夕的20%~25%",
             "low_period": "正月2-正月14销量偏低",
