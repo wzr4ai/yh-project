@@ -35,7 +35,12 @@
           </view>
         </view>
         <view class="right">
-          <view class="price">¥{{ Number(item.displayPrice || 0).toFixed(2) }}</view>
+          <view class="price">个价 ¥{{ Number(item.displayPrice || 0).toFixed(2) }}</view>
+          <view class="level-prices">
+            <view class="level-chip box">箱 ¥{{ Number(item.price_box || 0).toFixed(2) }}</view>
+            <view class="level-chip unit">包 ¥{{ Number(item.price_unit || 0).toFixed(2) }}</view>
+            <view class="level-chip piece">个 ¥{{ Number(item.price_piece || 0).toFixed(2) }}</view>
+          </view>
           <view v-if="item.video_url || item.effect_url" class="preview">
             <button size="mini" @tap="openVideo(item.id)">效果</button>
           </view>
@@ -111,7 +116,20 @@ export default {
           const priceMin = it.price_min ?? it.standard_price ?? 0
           const priceMax = it.price_max ?? it.standard_price ?? priceMin
           const display = it.standard_price ?? priceMin ?? priceMax ?? 0
-          return { ...it, price_min: priceMin, price_max: priceMax, displayPrice: display }
+          const piecePrice = Number(display) || 0
+          const piecesPerUnit = Number(it.pieces_per_unit) || 1
+          const unitsPerBox = Number(it.units_per_box) || 1
+          const unitPrice = piecePrice * piecesPerUnit
+          const boxPrice = unitPrice * unitsPerBox
+          return {
+            ...it,
+            price_min: priceMin,
+            price_max: priceMax,
+            displayPrice: display,
+            price_piece: piecePrice,
+            price_unit: unitPrice,
+            price_box: boxPrice
+          }
         })
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
@@ -245,6 +263,40 @@ export default {
   font-size: 30rpx;
   font-weight: 800;
   color: #0f6a7b;
+}
+
+.level-prices {
+  margin-top: 6rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6rpx;
+  justify-content: flex-end;
+}
+
+.level-chip {
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+  border: 1rpx solid transparent;
+}
+
+.level-chip.box {
+  background: #ecfdf3;
+  color: #067647;
+  border-color: #bbf7d0;
+}
+
+.level-chip.unit {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #fed7aa;
+}
+
+.level-chip.piece {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
 }
 
 .basis {
