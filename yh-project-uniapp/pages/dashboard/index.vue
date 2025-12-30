@@ -53,20 +53,29 @@
       </view>
       <view class="card wide">
         <view class="card-title">快报</view>
-        <view class="pill-row">
-          <view class="pill">日</view>
-          <view class="pill muted">周</view>
-          <view class="pill muted">月</view>
-          <view class="pill muted">自定义</view>
+        <view class="toggle-row">
+          <view :class="['pill', rankingScope === 'day' ? '' : 'muted']" @tap="setRankingScope('day')">当天</view>
+          <view :class="['pill', rankingScope === 'all' ? '' : 'muted']" @tap="setRankingScope('all')">全部</view>
         </view>
-        <view class="bullet">
-          <view class="dot"></view>
-          <view class="bullet-text">分类表现：鞭炮 {{ categoryPerf.cracker }}，组合 {{ categoryPerf.sparkler }}</view>
+        <view class="rank-section">
+          <view class="rank-title">销售额前五</view>
+          <view class="rank-row" v-for="item in rankings.top_sales" :key="`sales-${item.product_id}`">
+            <view class="rank-name">{{ item.name }}</view>
+            <view class="rank-metric">¥{{ Number(item.sales_amount || 0).toFixed(2) }}</view>
+            <view class="rank-stock">库存 {{ item.stock }}</view>
+          </view>
+          <view v-if="!rankingLoading && !rankings.top_sales.length" class="empty">暂无数据</view>
         </view>
-        <view class="bullet">
-          <view class="dot"></view>
-          <view class="bullet-text">店员贡献：{{ metrics.orders }} 笔订单，客单价 ¥{{ metrics.avgTicket.toFixed(2) }}</view>
+        <view class="rank-section">
+          <view class="rank-title">利润率前五</view>
+          <view class="rank-row" v-for="item in rankings.top_margin" :key="`margin-${item.product_id}`">
+            <view class="rank-name">{{ item.name }}</view>
+            <view class="rank-metric">{{ Number(item.profit_margin || 0).toFixed(2) }}%</view>
+            <view class="rank-stock">库存 {{ item.stock }}</view>
+          </view>
+          <view v-if="!rankingLoading && !rankings.top_margin.length" class="empty">暂无数据</view>
         </view>
+        <view v-if="rankingLoading" class="empty">加载中...</view>
       </view>
     </view>
 
@@ -133,9 +142,11 @@ export default {
       inventoryBoxes: 0,
       receiptTotal: 0,
       inventoryRetail: 0,
-      categoryPerf: {
-        cracker: '—',
-        sparkler: '—'
+      rankingScope: 'day',
+      rankingLoading: false,
+      rankings: {
+        top_sales: [],
+        top_margin: []
       },
       loading: false
     }
@@ -165,8 +176,28 @@ export default {
   onShow() {
     this.role = getRole()
     this.fetchMetrics()
+    this.fetchRankings()
   },
   methods: {
+    async fetchRankings() {
+      this.rankingLoading = true
+      try {
+        const data = await api.getSalesRankings(this.rankingScope)
+        this.rankings = {
+          top_sales: data?.top_sales || [],
+          top_margin: data?.top_margin || []
+        }
+      } catch (err) {
+        this.rankings = { top_sales: [], top_margin: [] }
+      } finally {
+        this.rankingLoading = false
+      }
+    },
+    setRankingScope(scope) {
+      if (!scope || scope === this.rankingScope) return
+      this.rankingScope = scope
+      this.fetchRankings()
+    },
     async fetchMetrics() {
       this.loading = true
       try {
@@ -320,7 +351,7 @@ export default {
   color: #0b1f3a;
 }
 
-.pill-row {
+.toggle-row {
   display: flex;
   gap: 12rpx;
   margin: 10rpx 0 6rpx;
@@ -339,23 +370,43 @@ export default {
   color: #0b1f3a;
 }
 
-.bullet {
+.rank-section {
+  margin-top: 10rpx;
+}
+
+.rank-title {
+  font-size: 24rpx;
+  color: #6b7280;
+  margin-bottom: 6rpx;
+}
+
+.rank-row {
   display: flex;
   align-items: center;
-  margin-top: 8rpx;
+  gap: 8rpx;
+  padding: 6rpx 0;
+  border-bottom: 1rpx dashed #e5e7eb;
 }
 
-.dot {
-  width: 10rpx;
-  height: 10rpx;
-  border-radius: 50%;
-  background: #0f6a7b;
-  margin-right: 10rpx;
+.rank-row:last-child {
+  border-bottom: none;
 }
 
-.bullet-text {
-  color: #4b5563;
+.rank-name {
+  flex: 1;
   font-size: 24rpx;
+  color: #0b1f3a;
+}
+
+.rank-metric {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #0f6a7b;
+}
+
+.rank-stock {
+  font-size: 22rpx;
+  color: #6b7280;
 }
 
 .section {

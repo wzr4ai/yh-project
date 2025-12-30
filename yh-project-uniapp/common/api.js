@@ -125,6 +125,10 @@ export const api = {
   getPerformance() {
     return request('/api/dashboard/performance')
   },
+  getSalesRankings(scope = 'day') {
+    const qs = encodeURIComponent(scope || 'day')
+    return request(`/api/dashboard/sales-rankings?scope=${qs}`)
+  },
   analyzeOrders(payload) {
     return request('/api/orders/analyze', {
       method: 'POST',

@@ -616,6 +616,14 @@ async def dashboard_performance(session: AsyncSession = Depends(get_session)):
     return await logic.dashboard_performance(session)
 
 
+@router.get("/dashboard/sales-rankings", response_model=schemas.SalesRankingResponse)
+async def dashboard_sales_rankings(scope: str = "day", session: AsyncSession = Depends(get_session)):
+    try:
+        return await logic.sales_rankings(session, scope=scope, limit=5)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/exports/replenishment.csv")
 async def export_replenishment_csv(
     target_boxes: float,

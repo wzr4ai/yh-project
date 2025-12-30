@@ -222,6 +222,23 @@ class PerformanceResponse(BaseModel):
     purchase_cost_total: float = 0
 
 
+SalesRankingScope = Literal["day", "all"]
+
+
+class SalesRankingItem(BaseModel):
+    product_id: str
+    name: str
+    stock: int = 0
+    sales_amount: float = 0
+    profit_margin: float = 0
+
+
+class SalesRankingResponse(BaseModel):
+    scope: SalesRankingScope
+    top_sales: List[SalesRankingItem]
+    top_margin: List[SalesRankingItem]
+
+
 class ProductListItem(BaseModel):
     id: str
     name: str

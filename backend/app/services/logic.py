@@ -973,6 +973,64 @@ async def dashboard_performance(session: AsyncSession) -> schemas.PerformanceRes
     )
 
 
+async def sales_rankings(
+    session: AsyncSession,
+    *,
+    scope: str = "day",
+    limit: int = 5,
+) -> schemas.SalesRankingResponse:
+    scope = (scope or "day").lower()
+    if scope not in ("day", "all"):
+        raise ValueError("invalid scope")
+    limit = max(1, min(limit, 20))
+
+    stmt = sa.select(
+        SalesItem.product_id,
+        sa.func.sum(SalesItem.actual_sale_price * SalesItem.quantity).label("sales_amount"),
+        sa.func.sum(SalesItem.snapshot_cost * SalesItem.quantity).label("cost_amount"),
+    ).group_by(SalesItem.product_id)
+
+    if scope == "day":
+        today = datetime.utcnow().date()
+        stmt = stmt.where(sa.func.date(SalesItem.created_at) == today)
+
+    rows = (await session.execute(stmt)).all()
+    if not rows:
+        return schemas.SalesRankingResponse(scope=scope, top_sales=[], top_margin=[])
+
+    product_ids = [row[0] for row in rows if row[0]]
+    products = (await session.execute(sa.select(Product).where(Product.id.in_(product_ids)))).scalars().all()
+    product_map = {p.id: p for p in products}
+
+    inv_stmt = (
+        sa.select(Inventory.product_id, sa.func.sum(Inventory.current_stock))
+        .where(Inventory.product_id.in_(product_ids))
+        .group_by(Inventory.product_id)
+    )
+    inv_rows = (await session.execute(inv_stmt)).all()
+    inventory_map = {pid: int(total or 0) for pid, total in inv_rows}
+
+    items: list[schemas.SalesRankingItem] = []
+    for pid, sales_amount, cost_amount in rows:
+        sales_val = float(sales_amount or 0)
+        cost_val = float(cost_amount or 0)
+        margin = (sales_val - cost_val) / sales_val if sales_val > 0 else 0.0
+        product = product_map.get(pid)
+        items.append(
+            schemas.SalesRankingItem(
+                product_id=pid,
+                name=product.name if product else pid,
+                stock=inventory_map.get(pid, 0),
+                sales_amount=round(sales_val, 2),
+                profit_margin=round(margin * 100, 2),
+            )
+        )
+
+    top_sales = sorted(items, key=lambda x: x.sales_amount, reverse=True)[:limit]
+    top_margin = sorted(items, key=lambda x: x.profit_margin, reverse=True)[:limit]
+    return schemas.SalesRankingResponse(scope=scope, top_sales=top_sales, top_margin=top_margin)
+
+
 async def total_receipts(session: AsyncSession) -> float:
     total = (await session.execute(sa.select(sa.func.coalesce(sa.func.sum(DailyReceipt.amount), 0)))).scalar_one()
     return float(total or 0)
