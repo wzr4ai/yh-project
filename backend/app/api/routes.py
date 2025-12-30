@@ -360,9 +360,9 @@ async def replace_products_in_category(category_id: str, data: dict, session: As
 @router.put("/products/{product_id}", response_model=schemas.Product)
 async def update_product(product_id: str, payload: schemas.Product, session: AsyncSession = Depends(get_session)):
     try:
-        updated = await logic.update_product(session, product_id, payload)
+        await logic.update_product(session, product_id, payload)
         await session.commit()
-        return updated
+        return await logic.product_with_category(session, product_id)
     except ValueError as exc:
         await session.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
