@@ -88,6 +88,10 @@
           <view class="action-title">店员视图（定价总览）</view>
           <view class="action-desc">查看店员可见价格页</view>
         </view>
+        <view class="action" @tap="go('/pages/pricing/multiplier')" v-if="isOwner">
+          <view class="action-title">售价系数调整</view>
+          <view class="action-desc">更新成本系数区间</view>
+        </view>
         <view class="action" @tap="go('/pages/categories/manage')" v-if="isOwner">
           <view class="action-title">分类管理</view>
           <view class="action-desc">增删改查分类</view>

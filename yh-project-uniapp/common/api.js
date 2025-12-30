@@ -129,6 +129,15 @@ export const api = {
     const qs = encodeURIComponent(scope || 'day')
     return request(`/api/dashboard/sales-rankings?scope=${qs}`)
   },
+  getPricingMultiplier() {
+    return request('/api/system/pricing-multiplier')
+  },
+  updatePricingMultiplier(payload) {
+    return request('/api/system/pricing-multiplier', {
+      method: 'PUT',
+      data: payload || {}
+    })
+  },
   analyzeOrders(payload) {
     return request('/api/orders/analyze', {
       method: 'POST',

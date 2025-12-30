@@ -26,6 +26,12 @@
       }
     },
     {
+      "path": "pages/pricing/multiplier",
+      "style": {
+        "navigationBarTitleText": "售价系数调整"
+      }
+    },
+    {
       "path": "pages/videos/play",
       "style": {
         "navigationBarTitleText": "视频预览"

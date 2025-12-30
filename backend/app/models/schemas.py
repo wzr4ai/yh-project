@@ -239,6 +239,11 @@ class SalesRankingResponse(BaseModel):
     top_margin: List[SalesRankingItem]
 
 
+class PricingMultiplierConfig(BaseModel):
+    min_multiplier: float
+    max_multiplier: float
+
+
 class ProductListItem(BaseModel):
     id: str
     name: str
