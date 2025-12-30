@@ -330,6 +330,9 @@ export default {
         }
         return null
       }
+      if (order.discount_total === null || order.discount_total === undefined || order.discount_total === '') {
+        return null
+      }
       const raw = Number(order.discount_total)
       if (!Number.isFinite(raw)) return null
       const clamped = Math.min(Math.max(raw, 0), Math.max(0, baseTotal))
