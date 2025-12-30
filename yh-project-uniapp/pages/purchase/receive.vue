@@ -433,10 +433,27 @@ export default {
         return
       }
       const perBox = this.itemPiecesPerBox(target, product)
+      const level = (result.level || '').toUpperCase()
       const deltaUnits = Math.max(1, Math.floor(Number(result.multiplier) || 1))
-      this.applyReceivedUnits(target, perBox, deltaUnits)
+      if (level && level !== 'BOX') {
+        const levelLabel = this.barcodeLevelLabel(level)
+        uni.showActionSheet({
+          itemList: ['+1箱', `+1${levelLabel}`],
+          success: (res) => {
+            if (res.tapIndex === 0) {
+              this.applyReceivedUnits(target, perBox, perBox)
+              uni.showToast({ title: '已入库 +1箱', icon: 'success' })
+            } else if (res.tapIndex === 1) {
+              this.applyReceivedUnits(target, perBox, deltaUnits)
+              uni.showToast({ title: `已入库 +1${levelLabel}`, icon: 'success' })
+            }
+          }
+        })
+      } else {
+        this.applyReceivedUnits(target, perBox, deltaUnits)
+        uni.showToast({ title: '已入库 +1箱', icon: 'success' })
+      }
       this.barcodeInput = ''
-      uni.showToast({ title: `已入库 +1${this.barcodeLevelLabel(result.level)}`, icon: 'success' })
     },
     openMatchDialog(matches) {
       this.matchedProducts = matches || []
