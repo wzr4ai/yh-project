@@ -9,6 +9,7 @@
       <view class="form-row">
         <view class="label">条码</view>
         <input class="input" v-model="form.barcode" :disabled="!isOwner" placeholder="商品条码 (可选)" />
+        <button v-if="isOwner" size="mini" class="scan-btn" @tap="scanMainBarcode">扫码</button>
       </view>
       <view class="form-row" v-if="isOwner">
         <view class="label">条码列表</view>
@@ -18,9 +19,13 @@
             <picker :range="barcodeLevels" :value="barcodeLevelIndex(item.level)" @change="onBarcodeLevelChange(idx, $event)">
               <view class="picker-value">{{ item.level || 'PIECE' }}</view>
             </picker>
+            <button size="mini" class="scan-btn" @tap="scanBarcode(idx)">扫码</button>
             <button size="mini" type="warn" @tap="removeBarcode(idx)">删除</button>
           </view>
-          <button size="mini" @tap="addBarcode">添加条码</button>
+          <view class="barcode-actions">
+            <button size="mini" @tap="addBarcode">添加条码</button>
+            <button size="mini" @tap="scanNewBarcode">扫码新增</button>
+          </view>
         </view>
       </view>
     <view class="form-row">
@@ -66,6 +71,18 @@
         <view class="info-label">箱价</view>
         <view class="info-value">¥{{ boxPriceCalc.toFixed(2) }}</view>
       </view>
+      <view class="info-row">
+        <view class="info-label">箱成本</view>
+        <view class="info-value">¥{{ boxCostLevel.toFixed(2) }}</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">包成本</view>
+        <view class="info-value">¥{{ unitCostLevel.toFixed(2) }}</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">件成本</view>
+        <view class="info-value">¥{{ pieceCostLevel.toFixed(2) }}</view>
+      </view>
       <view class="form-row" v-if="showPackPriceRef">
         <view class="label">箱价(参考)</view>
         <input class="input" type="digit" v-model.number="form.pack_price_ref" :disabled="!isOwner" placeholder="参考箱价" />
@@ -89,36 +106,6 @@
       <view class="info-row">
         <view class="info-label">当前库存</view>
         <view class="info-value">{{ stockDisplay }}</view>
-      </view>
-      <view v-if="isOwner">
-        <view class="quick-actions">
-          <view class="quick-row" v-if="piecesPerBox > 1">
-            <button size="mini" class="quick-btn danger" @tap="quickAdjustBox(-1)">-1箱</button>
-            <button size="mini" class="quick-btn" @tap="quickAdjustBox(1)">+1箱</button>
-          </view>
-          <view class="quick-row">
-            <button size="mini" class="quick-btn danger" @tap="quickAdjustUnit(-1)">-1个</button>
-            <button size="mini" class="quick-btn" @tap="quickAdjustUnit(1)">+1个</button>
-          </view>
-          <view class="quick-hint" v-if="piecesPerBox > 1">说明：箱按 {{ piecesPerBox }} 个/箱 折算</view>
-        </view>
-
-        <view class="form-row">
-          <view class="label">调整箱数</view>
-          <input class="input" type="number" v-model.number="adjustBoxDelta" placeholder="+/- 箱" />
-        </view>
-        <view class="form-row" v-if="piecesPerBox > 1">
-          <view class="label">调整散件</view>
-          <input class="input" type="number" v-model.number="adjustLooseDelta" placeholder="+/- 个" />
-        </view>
-        <view class="form-row">
-          <view class="label">原因</view>
-          <input class="input" v-model="adjustReason" placeholder="原因(可选)" />
-        </view>
-        <view class="adjust-actions">
-          <button type="primary" size="mini" @tap="adjustInventory">调整库存</button>
-          <button size="mini" @tap="resetAdjust">清空</button>
-        </view>
       </view>
     </view>
 
@@ -164,9 +151,6 @@ export default {
       selectedCustomIds: [],
       selectedMerchantId: '',
       stockPieces: 0,
-      adjustBoxDelta: 0,
-      adjustLooseDelta: 0,
-      adjustReason: '',
       saving: false,
       barcodeLevels: ['BOX', 'UNIT', 'PIECE']
     }
@@ -197,6 +181,15 @@ export default {
       if (boxCost > 0) return boxCost
       const pieceCost = Number(this.form.base_cost_price) || 0
       return pieceCost * this.piecesPerBox
+    },
+    boxCostLevel() {
+      return this.boxPriceCalc
+    },
+    unitCostLevel() {
+      return this.unitsPerBox ? this.boxPriceCalc / this.unitsPerBox : 0
+    },
+    pieceCostLevel() {
+      return this.piecesPerBox ? this.boxPriceCalc / this.piecesPerBox : 0
     },
     stockDisplay() {
       return formatStock(this.stockPieces, {
@@ -295,9 +288,6 @@ export default {
           category_id: this.selectedMerchantId || null,
           // 上面已填充 pack_price_ref
         })
-        if (this.hasAdjustDelta()) {
-          await this.adjustInventory(true)
-        }
         uni.showToast({ title: '已保存', icon: 'success' })
         this.fetchPrice()
       } catch (err) {
@@ -345,57 +335,49 @@ export default {
         this.form.barcodes[idx].level = level
       }
     },
-    resetAdjust() {
-      this.adjustBoxDelta = 0
-      this.adjustLooseDelta = 0
-      this.adjustReason = ''
-    },
-    hasAdjustDelta() {
-      const box = Number(this.adjustBoxDelta) || 0
-      const loose = Number(this.adjustLooseDelta) || 0
-      return !!(box || loose)
-    },
-    async adjustInventoryWithUnits(deltaUnits, reason, skipToast = false) {
-      const units = Number(deltaUnits) || 0
-      const delta = units > 0 ? Math.floor(units) : Math.ceil(units)
-      if (!delta) {
-        uni.showToast({ title: '请输入调整数量', icon: 'none' })
-        return
-      }
-      try {
-        await api.adjustInventory(
-          {
-            product_id: this.id,
-            delta,
-            reason: reason || '手动调整'
-          },
-          uni.getStorageSync('yh-username') || ''
-        )
-        if (!skipToast) {
-          uni.showToast({ title: '库存已调整', icon: 'success' })
+    scanBarcode(idx) {
+      uni.scanCode({
+        onlyFromCamera: true,
+        scanType: ['barCode', 'qrCode'],
+        success: (res) => {
+          const code = (res.result || '').trim()
+          if (!code) return
+          if (this.form.barcodes[idx]) {
+            this.form.barcodes[idx].barcode = code
+          }
+        },
+        fail: () => {
+          uni.showToast({ title: '扫码失败', icon: 'none' })
         }
-        this.resetAdjust()
-        this.fetchInventory()
-      } catch (err) {
-        uni.showToast({ title: '调整失败', icon: 'none' })
-      }
+      })
     },
-    async adjustInventory(skipToast = false) {
-      const box = Number(this.adjustBoxDelta) || 0
-      const loose = Number(this.adjustLooseDelta) || 0
-      const totalUnits = box * this.piecesPerBox + loose
-      return this.adjustInventoryWithUnits(totalUnits, this.adjustReason || '手动调整', skipToast)
+    scanMainBarcode() {
+      uni.scanCode({
+        onlyFromCamera: true,
+        scanType: ['barCode', 'qrCode'],
+        success: (res) => {
+          const code = (res.result || '').trim()
+          if (!code) return
+          this.form.barcode = code
+        },
+        fail: () => {
+          uni.showToast({ title: '扫码失败', icon: 'none' })
+        }
+      })
     },
-    async quickAdjustBox(deltaBoxes) {
-      const boxes = Number(deltaBoxes) || 0
-      if (!boxes) return
-      const deltaUnits = boxes * this.piecesPerBox
-      return this.adjustInventoryWithUnits(deltaUnits, `快速调整 ${boxes > 0 ? '+' : ''}${boxes} 箱`)
-    },
-    async quickAdjustUnit(deltaUnits) {
-      const delta = Number(deltaUnits) || 0
-      if (!delta) return
-      return this.adjustInventoryWithUnits(delta, `快速调整 ${delta > 0 ? '+' : ''}${delta} 个`)
+    scanNewBarcode() {
+      uni.scanCode({
+        onlyFromCamera: true,
+        scanType: ['barCode', 'qrCode'],
+        success: (res) => {
+          const code = (res.result || '').trim()
+          if (!code) return
+          this.form.barcodes.push({ barcode: code, level: 'PIECE' })
+        },
+        fail: () => {
+          uni.showToast({ title: '扫码失败', icon: 'none' })
+        }
+      })
     },
     confirmDelete() {
       uni.showModal({
@@ -500,6 +482,7 @@ export default {
   display: flex;
   gap: 10rpx;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .barcode-input {
@@ -513,6 +496,15 @@ export default {
   background: #f9fafb;
   color: #0b1f3a;
   font-size: 24rpx;
+}
+
+.barcode-actions {
+  display: flex;
+  gap: 10rpx;
+}
+
+.scan-btn {
+  margin-left: 8rpx;
 }
 
 .info-row {
@@ -550,45 +542,4 @@ export default {
   border: 1rpx solid #f3b6b6;
 }
 
-.quick-actions {
-  margin: 10rpx 0 14rpx;
-  padding: 14rpx;
-  border-radius: 14rpx;
-  background: #f9fafb;
-  border: 1rpx solid #e5e7eb;
-}
-
-.quick-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10rpx;
-}
-
-.quick-row + .quick-row {
-  margin-top: 10rpx;
-}
-
-.quick-btn {
-  border: 1rpx solid #e5e7eb;
-  background: #ffffff;
-  color: #0f6a7b;
-  font-weight: 600;
-}
-
-.quick-btn.danger {
-  color: #b91c1c;
-  border-color: #f3b6b6;
-}
-
-.quick-hint {
-  margin-top: 10rpx;
-  font-size: 22rpx;
-  color: #6b7280;
-}
-
-.adjust-actions {
-  display: flex;
-  gap: 12rpx;
-  margin-top: 6rpx;
-}
 </style>
