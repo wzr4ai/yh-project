@@ -51,29 +51,19 @@
         </view>
         <view class="card-sub">按当前价格体系计算，单仓</view>
       </view>
-      <view class="card wide">
+      <view class="card wide" @tap="openAnalysis">
         <view class="card-title">快报</view>
         <view class="toggle-row">
-          <view :class="['pill', rankingScope === 'day' ? '' : 'muted']" @tap="setRankingScope('day')">当天</view>
-          <view :class="['pill', rankingScope === 'all' ? '' : 'muted']" @tap="setRankingScope('all')">全部</view>
+          <view :class="['pill', rankingScope === 'day' ? '' : 'muted']" @tap.stop="setRankingScope('day')">当天</view>
+          <view :class="['pill', rankingScope === 'all' ? '' : 'muted']" @tap.stop="setRankingScope('all')">全部</view>
         </view>
         <view class="rank-section">
           <view class="rank-title">销售额前五</view>
-          <view class="rank-row" v-for="item in rankings.top_sales" :key="`sales-${item.product_id}`">
-            <view class="rank-name">{{ item.name }}</view>
-            <view class="rank-metric">¥{{ Number(item.sales_amount || 0).toFixed(2) }}</view>
-            <view class="rank-stock">库存 {{ item.stock }}</view>
-          </view>
-          <view v-if="!rankingLoading && !rankings.top_sales.length" class="empty">暂无数据</view>
+          <view class="rank-names">{{ salesNameLabel }}</view>
         </view>
         <view class="rank-section">
           <view class="rank-title">利润率前五</view>
-          <view class="rank-row" v-for="item in rankings.top_margin" :key="`margin-${item.product_id}`">
-            <view class="rank-name">{{ item.name }}</view>
-            <view class="rank-metric">{{ Number(item.profit_margin || 0).toFixed(2) }}%</view>
-            <view class="rank-stock">库存 {{ item.stock }}</view>
-          </view>
-          <view v-if="!rankingLoading && !rankings.top_margin.length" class="empty">暂无数据</view>
+          <view class="rank-names">{{ marginNameLabel }}</view>
         </view>
         <view v-if="rankingLoading" class="empty">加载中...</view>
       </view>
@@ -171,6 +161,16 @@ export default {
       const net = Number(this.costMetrics.netProfit) || 0
       const margin = (net / total) * 100
       return `${margin.toFixed(1)}%`
+    },
+    salesNameLabel() {
+      if (this.rankingLoading) return '加载中...'
+      if (!this.rankings.top_sales.length) return '暂无数据'
+      return this.rankings.top_sales.map(item => item.name).join('、')
+    },
+    marginNameLabel() {
+      if (this.rankingLoading) return '加载中...'
+      if (!this.rankings.top_margin.length) return '暂无数据'
+      return this.rankings.top_margin.map(item => item.name).join('、')
     }
   },
   onShow() {
@@ -197,6 +197,9 @@ export default {
       if (!scope || scope === this.rankingScope) return
       this.rankingScope = scope
       this.fetchRankings()
+    },
+    openAnalysis() {
+      uni.navigateTo({ url: `/pages/dashboard/analysis?scope=${encodeURIComponent(this.rankingScope)}` })
     },
     async fetchMetrics() {
       this.loading = true
@@ -380,33 +383,10 @@ export default {
   margin-bottom: 6rpx;
 }
 
-.rank-row {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  padding: 6rpx 0;
-  border-bottom: 1rpx dashed #e5e7eb;
-}
-
-.rank-row:last-child {
-  border-bottom: none;
-}
-
-.rank-name {
-  flex: 1;
+.rank-names {
   font-size: 24rpx;
   color: #0b1f3a;
-}
-
-.rank-metric {
-  font-size: 24rpx;
-  font-weight: 600;
-  color: #0f6a7b;
-}
-
-.rank-stock {
-  font-size: 22rpx;
-  color: #6b7280;
+  line-height: 1.6;
 }
 
 .section {
