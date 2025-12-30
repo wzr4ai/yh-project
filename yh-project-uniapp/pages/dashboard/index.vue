@@ -13,8 +13,8 @@
       </view>
       <view class="card" v-if="isOwner">
         <view class="card-title">利润率</view>
-        <view class="card-value">{{ grossMarginLabel }}</view>
-        <view class="card-sub">已售成本 ¥{{ salesCost.toFixed(2) }}</view>
+        <view class="card-value">{{ netMarginLabel }}</view>
+        <view class="card-sub">毛利润率 {{ grossMarginLabel }}</view>
       </view>
       <view class="card">
         <view class="card-title">总成本 / 净利润</view>
@@ -127,6 +127,7 @@ export default {
         totalCost: 0,
         netProfit: 0
       },
+      salesCostTotal: 0,
       inventoryCost: 0,
       inventorySku: 0,
       inventoryBoxes: 0,
@@ -146,16 +147,18 @@ export default {
     roleLabel() {
       return this.role === 'owner' ? '老板' : '店员'
     },
-    salesCost() {
-      const actual = Number(this.metrics.actualSales) || 0
-      const gross = Number(this.metrics.grossProfit) || 0
-      const cost = actual - gross
-      return cost >= 0 ? cost : 0
-    },
     grossMarginLabel() {
-      const actual = Number(this.metrics.actualSales) || 0
-      if (actual <= 0) return '—'
-      const margin = ((actual - this.salesCost) / actual) * 100
+      const total = Number(this.receiptTotal) || 0
+      if (total <= 0) return '—'
+      const cost = Number(this.salesCostTotal) || 0
+      const margin = ((total - cost) / total) * 100
+      return `${margin.toFixed(1)}%`
+    },
+    netMarginLabel() {
+      const total = Number(this.receiptTotal) || 0
+      if (total <= 0) return '—'
+      const net = Number(this.costMetrics.netProfit) || 0
+      const margin = (net / total) * 100
       return `${margin.toFixed(1)}%`
     }
   },
@@ -186,6 +189,7 @@ export default {
         this.inventorySku = inv.sku_count || 0
         this.inventoryBoxes = inv.total_boxes || 0
         this.receiptTotal = perf?.actual_sales || 0
+        this.salesCostTotal = perf?.cost_total || 0
         const miscCosts = miscList || []
         const miscTotal = miscCosts.reduce((acc, cur) => {
           const qty = Number(cur.quantity) || 1
