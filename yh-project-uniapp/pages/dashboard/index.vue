@@ -12,9 +12,9 @@
         <view class="card-sub">订单数 {{ metrics.orders }} ｜ 客单价 ¥{{ metrics.avgTicket.toFixed(2) }}</view>
       </view>
       <view class="card" v-if="isOwner">
-        <view class="card-title">入账 / 已销售货物成本</view>
-        <view class="card-value">¥{{ metrics.actualSales.toFixed(2) }}</view>
-        <view class="card-sub">成本 ¥{{ salesCost.toFixed(2) }} ｜ 利润率 {{ grossMarginLabel }}</view>
+        <view class="card-title">利润率</view>
+        <view class="card-value">{{ grossMarginLabel }}</view>
+        <view class="card-sub">已售成本 ¥{{ salesCost.toFixed(2) }}</view>
       </view>
       <view class="card">
         <view class="card-title">总成本 / 净利润</view>
