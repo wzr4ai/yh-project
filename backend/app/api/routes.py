@@ -624,6 +624,16 @@ async def dashboard_sales_rankings(scope: str = "day", session: AsyncSession = D
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/dashboard/report", response_model=schemas.DashboardReportResponse)
+async def dashboard_report(
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    return await logic.dashboard_report(session)
+
+
 @router.get("/system/pricing-multiplier", response_model=schemas.PricingMultiplierConfig)
 async def get_pricing_multiplier(
     session: AsyncSession = Depends(get_session), current_user=Depends(deps.get_current_user)

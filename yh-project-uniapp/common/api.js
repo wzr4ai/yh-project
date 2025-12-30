@@ -129,6 +129,9 @@ export const api = {
     const qs = encodeURIComponent(scope || 'day')
     return request(`/api/dashboard/sales-rankings?scope=${qs}`)
   },
+  getDashboardReport() {
+    return request('/api/dashboard/report')
+  },
   getPricingMultiplier() {
     return request('/api/system/pricing-multiplier')
   },

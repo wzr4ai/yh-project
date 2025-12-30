@@ -1,6 +1,6 @@
 from datetime import date, datetime
 import os
-from typing import Literal, Optional, List, Dict
+from typing import Any, Literal, Optional, List, Dict
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -237,6 +237,12 @@ class SalesRankingResponse(BaseModel):
     scope: SalesRankingScope
     top_sales: List[SalesRankingItem]
     top_margin: List[SalesRankingItem]
+
+
+class DashboardReportResponse(BaseModel):
+    generated_at: datetime
+    version: str = "v1"
+    report: Dict[str, Any]
 
 
 class PricingMultiplierConfig(BaseModel):
