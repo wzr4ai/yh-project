@@ -1,76 +1,129 @@
 <template>
   <view class="page">
     <view class="hint-bar" v-if="!isOwner">
-      店员仅可查看到货进度，不显示成本
+      <text class="icon">i</text> 店员模式：成本/利润相关数据已隐藏
     </view>
 
-    <view class="card header-card">
-      <view class="header-top">
-        <view class="title">采购单列表</view>
-        <button v-if="isOwner" size="mini" type="primary" @tap="openCreate">新建采购单</button>
+    <!-- Header Stats -->
+    <view class="dashboard-grid">
+      <view class="dash-card">
+        <view class="dash-label">待到货</view>
+        <view class="dash-value highlight">{{ summary.pendingCount }}</view>
       </view>
-      <view class="sub">维护订货计划，支持编辑与调整。</view>
-    </view>
-
-    <view class="card summary" v-if="orders.length">
-      <view class="summary-row">
-        <view>
-          <view class="mini-title">采购单数</view>
-          <view class="mini-value">{{ summary.orderCount }}</view>
-        </view>
-        <view>
-          <view class="mini-title">待到货</view>
-          <view class="mini-value">{{ summary.pendingCount }}</view>
-        </view>
-        <view>
-          <view class="mini-title">到货进度</view>
-          <view class="mini-value">{{ summary.progress }}%</view>
-        </view>
-        <view v-if="isOwner">
-          <view class="mini-title">预计总成本</view>
-          <view class="mini-value">¥{{ summary.totalCost.toFixed(2) }}</view>
-        </view>
+      <view class="dash-card">
+        <view class="dash-label">总体进度</view>
+        <view class="dash-value">{{ summary.progress }}%</view>
       </view>
-      <view class="progress-bar">
-        <view class="progress" :style="{ width: summary.progress + '%' }"></view>
+      <view class="dash-card" v-if="isOwner">
+        <view class="dash-label">预计成本</view>
+        <view class="dash-value">¥{{ formatK(summary.totalCost) }}</view>
+      </view>
+      <view class="dash-action" v-if="isOwner" @tap="openCreate">
+        <view class="add-icon">+</view>
+        <view class="add-label">新建</view>
       </view>
     </view>
 
+    <!-- Order List -->
     <view class="list">
-      <view v-for="order in orders" :key="order.id" class="card">
-        <view class="header">
-          <view>
-            <view class="order-id">{{ order.id }}</view>
-            <view class="meta">{{ order.supplier || '—' }} ｜ 期望到货 {{ order.expected_date || '—' }}</view>
-            <view class="meta" v-if="order.remark">备注：{{ order.remark }}</view>
+      <view v-for="order in orders" :key="order.id" class="order-card" :class="statusClass(order.status)" @tap="toggleExpand(order.id)">
+        <view class="card-main">
+          <view class="card-header">
+            <view class="supplier-row">
+              <text class="supplier-name">{{ order.supplier || '未命名供应商' }}</text>
+              <view class="meta-row">
+                <text class="date-tag">{{ formatDateShort(order.expected_date) }}</text>
+                <text class="id-tag">#{{ order.id.slice(-6) }}</text>
+              </view>
+            </view>
+            <view class="status-badge">
+              {{ order.status }}
+            </view>
           </view>
-          <view class="header-actions">
-            <view class="status" :class="statusClass(order.status)">{{ order.status }}</view>
-            <button v-if="isOwner" size="mini" class="receive-btn" @tap="openReceive(order.id)">入库</button>
-            <button v-if="isOwner" size="mini" class="edit-btn" @tap="openEdit(order.id)">编辑</button>
+          
+          <view class="card-body">
+            <view class="stats-row">
+              <view class="stat-item">
+                <text class="stat-val">{{ order.items.length }}</text>
+                <text class="stat-lbl">品类</text>
+              </view>
+              <view class="stat-sep"></view>
+              <view class="stat-item">
+                <text class="stat-val">{{ order.stats.total }}</text>
+                <text class="stat-lbl">计划箱数</text>
+              </view>
+              <view class="stat-sep" v-if="isOwner"></view>
+              <view class="stat-item" v-if="isOwner">
+                <text class="stat-val">¥{{ formatPrice(order.stats.cost) }}</text>
+                <text class="stat-lbl">预计金额</text>
+              </view>
+            </view>
+            
+            <view class="progress-section">
+              <view class="progress-info">
+                <text class="prog-label">入库进度</text>
+                <text class="prog-val">{{ order.stats.received }}/{{ order.stats.total }} ({{ order.stats.progress }}%)</text>
+              </view>
+              <view class="progress-bg">
+                <view class="progress-fill" :style="{ width: order.stats.progress + '%' }"></view>
+              </view>
+            </view>
+          </view>
+          
+          <view class="card-footer">
+             <view class="expand-hint">
+               <text class="arrow">{{ expandedId === order.id ? '^' : 'v' }}</text>
+               {{ expandedId === order.id ? '收起详情' : '查看详情' }}
+             </view>
+             
+             <view class="action-group">
+               <view class="action-btn secondary" v-if="isOwner" @tap.stop="openEdit(order.id)">
+                 编辑
+               </view>
+               <view class="action-btn primary" v-if="isOwner" @tap.stop="openReceive(order.id)">
+                 入库
+               </view>
+             </view>
           </view>
         </view>
-        <view class="order-stats">
-          <view class="stat">计划 {{ order.stats.total }} 箱</view>
-          <view class="stat">已到 {{ order.stats.received }} 箱</view>
-          <view class="stat">进度 {{ order.stats.progress }}%</view>
-          <view class="stat" v-if="isOwner">预计成本 ¥{{ order.stats.cost.toFixed(2) }}</view>
-        </view>
-        <view class="progress-bar">
-          <view class="progress" :style="{ width: order.stats.progress + '%' }"></view>
-        </view>
-        <view class="items">
-          <view v-for="item in order.items" :key="item.product_id" class="item-row">
-            <view class="item-name">{{ productName(item) }}</view>
-            <view class="item-meta">{{ productSpec(item) }} ｜ 计划 {{ item.quantity }} 箱 ｜ 已到 {{ item.received_qty }} 箱</view>
-            <view class="item-meta" v-if="isOwner">
-              单价 ¥{{ formatMoney(item.expected_cost) }} ｜ 小计 ¥{{ lineCost(item).toFixed(2) }}
+
+        <!-- Expanded Items -->
+        <view v-if="expandedId === order.id" class="expanded-area" @tap.stop>
+          <view class="remark-box" v-if="order.remark">
+            <text class="remark-label">备注：</text>{{ order.remark }}
+          </view>
+          
+          <view class="item-list">
+            <view class="list-header">
+              <text class="col-name">商品</text>
+              <text class="col-qty">进度(箱)</text>
+              <text class="col-cost" v-if="isOwner">预计小计</text>
+            </view>
+            <view v-for="item in order.items" :key="item.product_id" class="list-item">
+              <view class="col-name">
+                <text class="name-text">{{ productName(item) }}</text>
+                <text class="spec-text">{{ productSpec(item) }}</text>
+              </view>
+              <view class="col-qty">
+                <text class="qty-current">{{ item.received_qty }}</text>
+                <text class="qty-total">/ {{ item.quantity }}</text>
+              </view>
+              <view class="col-cost" v-if="isOwner">
+                ¥{{ (item.expected_cost * item.quantity).toFixed(0) }}
+              </view>
             </view>
           </view>
         </view>
       </view>
-      <view v-if="!orders.length && !loading" class="empty">暂无采购单</view>
-      <view v-if="loading" class="empty">加载中...</view>
+
+      <view v-if="!orders.length && !loading" class="empty-state">
+        <view class="empty-icon">...</view>
+        <view class="empty-text">暂无采购单</view>
+      </view>
+      
+      <view v-if="loading" class="loading-state">
+        加载中...
+      </view>
     </view>
   </view>
 </template>
@@ -85,7 +138,8 @@ export default {
       role: getRole(),
       orders: [],
       loading: false,
-      productMap: {}
+      productMap: {},
+      expandedId: null
     }
   },
   computed: {
@@ -121,17 +175,40 @@ export default {
     this.fetchOrders()
   },
   methods: {
+    toggleExpand(id) {
+      this.expandedId = this.expandedId === id ? null : id
+    },
     statusClass(status) {
       if (status === '完成') return 'done'
       if (status === '部分到货') return 'partial'
       return 'pending'
     },
+    formatDateShort(dateStr) {
+      if (!dateStr) return '—'
+      const date = new Date(dateStr)
+      if (isNaN(date.getTime())) return dateStr
+      return `${date.getMonth() + 1}/${date.getDate()}`
+    },
+    formatK(num) {
+      const n = Number(num)
+      if (!Number.isFinite(n)) return '0'
+      if (n >= 10000) {
+        return (n / 10000).toFixed(1) + 'w'
+      }
+      return n.toFixed(0)
+    },
+    formatPrice(num) {
+      const n = Number(num)
+      if (!Number.isFinite(n)) return '0'
+      if (n >= 10000) {
+        return (n / 10000).toFixed(1) + 'w'
+      }
+      return n.toFixed(0)
+    },
     openEdit(orderId) {
-      if (!orderId) return
       uni.navigateTo({ url: `/pages/purchase/edit?id=${encodeURIComponent(orderId)}` })
     },
     openReceive(orderId) {
-      if (!orderId) return
       uni.navigateTo({ url: `/pages/purchase/receive?id=${encodeURIComponent(orderId)}` })
     },
     openCreate() {
@@ -160,17 +237,7 @@ export default {
     },
     productSpec(item) {
       const product = this.productMap[item.product_id]
-      return product && product.spec ? `规格 ${product.spec}` : '规格 —'
-    },
-    formatMoney(value) {
-      const num = Number(value)
-      if (!Number.isFinite(num)) return '—'
-      return num.toFixed(2)
-    },
-    lineCost(item) {
-      const qty = Number(item.quantity) || 0
-      const unit = Number(item.expected_cost) || 0
-      return qty * unit
+      return product && product.spec ? product.spec : '—'
     },
     async loadProductMap() {
       const ids = new Set()
@@ -182,20 +249,32 @@ export default {
         })
       })
       if (!ids.size) return
-      for (const id of ids) {
-        try {
-          const product = await api.getProduct(id)
-          this.$set(this.productMap, id, product)
-        } catch (err) {
-          this.$set(this.productMap, id, { id, name: id })
+
+      const idList = Array.from(ids)
+      let cursor = 0
+      const concurrency = Math.min(6, idList.length)
+      const workers = Array.from({ length: concurrency }).map(async () => {
+        while (cursor < idList.length) {
+          const id = idList[cursor]
+          cursor += 1
+          try {
+            const product = await api.getProduct(id)
+            this.$set(this.productMap, id, product)
+          } catch (err) {
+            this.$set(this.productMap, id, { id, name: id })
+          }
         }
-      }
+      })
+      await Promise.all(workers)
     },
     async fetchOrders() {
       this.loading = true
       try {
         const data = await api.getPurchaseOrders()
-        this.orders = (data || []).map(order => {
+        const sorted = (data || []).sort((a, b) => {
+          return new Date(b.expected_date) - new Date(a.expected_date)
+        })
+        this.orders = sorted.map(order => {
           const items = (order.items || []).map(item => ({
             ...item,
             quantity: Number(item.quantity) || 0,
@@ -210,7 +289,7 @@ export default {
         })
         await this.loadProductMap()
       } catch (err) {
-        uni.showToast({ title: '加载采购单失败', icon: 'none' })
+        uni.showToast({ title: '加载失败', icon: 'none' })
         this.orders = []
       } finally {
         this.loading = false
@@ -223,193 +302,359 @@ export default {
 <style lang="scss" scoped>
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
-  padding: 20rpx;
+  background: #f1f5f9;
+  padding: 24rpx;
+  padding-bottom: 40rpx;
   box-sizing: border-box;
 }
 
 .hint-bar {
-  background: #fef3c7;
-  color: #92400e;
-  padding: 12rpx 16rpx;
-  border-radius: 12rpx;
+  background: #eef2ff;
+  color: #4f46e5;
+  padding: 16rpx 24rpx;
+  border-radius: 16rpx;
   font-size: 24rpx;
-  margin-bottom: 12rpx;
-}
-
-.summary {
-  margin-bottom: 14rpx;
-}
-
-.summary-row {
+  font-weight: 500;
   display: flex;
-  justify-content: space-between;
-  gap: 16rpx;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 6rpx rgba(79, 70, 229, 0.05);
 }
 
-.mini-title {
-  color: #6b7280;
+/* Dashboard */
+.dashboard-grid {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 32rpx;
+}
+
+.dash-card {
+  flex: 1;
+  background: #ffffff;
+  padding: 24rpx 16rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.dash-label {
   font-size: 22rpx;
+  color: #64748b;
+  margin-bottom: 8rpx;
 }
 
-.mini-value {
-  font-size: 30rpx;
+.dash-value {
+  font-size: 36rpx;
   font-weight: 700;
-  color: #0b1f3a;
-  margin-top: 4rpx;
+  color: #0f172a;
+  
+  &.highlight {
+    color: #0f6a7b;
+  }
 }
 
+.dash-action {
+  width: 100rpx;
+  background: #0f6a7b;
+  border-radius: 20rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  box-shadow: 0 4rpx 12rpx rgba(15, 106, 123, 0.2);
+  
+  &:active {
+    opacity: 0.9;
+    transform: scale(0.98);
+  }
+}
+
+.add-icon {
+  font-size: 40rpx;
+  font-weight: 300;
+  line-height: 1;
+  margin-bottom: 4rpx;
+}
+
+.add-label {
+  font-size: 20rpx;
+  font-weight: 500;
+}
+
+/* List */
 .list {
   display: flex;
   flex-direction: column;
-  gap: 14rpx;
+  gap: 24rpx;
 }
 
-.card {
+.order-card {
   background: #ffffff;
-  border-radius: 16rpx;
-  padding: 18rpx;
-  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.04);
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03);
+  overflow: hidden;
+  transition: all 0.2s ease;
+  border-left: 8rpx solid transparent;
+  
+  &.pending { border-left-color: #cbd5e1; }
+  &.partial { border-left-color: #f59e0b; }
+  &.done { border-left-color: #10b981; }
+
+  &:active {
+    transform: scale(0.99);
+  }
 }
 
-.header-card {
-  margin-bottom: 14rpx;
+.card-main {
+  padding: 24rpx;
 }
 
-.header-top {
+.card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 12rpx;
+  align-items: flex-start;
+  margin-bottom: 20rpx;
 }
 
-.title {
-  font-size: 30rpx;
+.supplier-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.supplier-name {
+  font-size: 34rpx;
   font-weight: 700;
-  color: #0b1f3a;
+  color: #1e293b;
+  line-height: 1.2;
 }
 
-.sub {
-  margin-top: 6rpx;
-  color: #6b7280;
+.meta-row {
+  display: flex;
+  gap: 12rpx;
+  align-items: center;
+}
+
+.date-tag, .id-tag {
   font-size: 22rpx;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 4rpx 10rpx;
+  border-radius: 8rpx;
+  font-family: monospace;
 }
 
-.header {
+.status-badge {
+  font-size: 24rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
+  background: #f8fafc;
+  color: #64748b;
+  
+  .partial & { background: #fffbeb; color: #b45309; }
+  .done & { background: #ecfdf5; color: #047857; }
+}
+
+.card-body {
+  margin-bottom: 24rpx;
+}
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.stat-val {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #334155;
+}
+
+.stat-lbl {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.stat-sep {
+  width: 1rpx;
+  height: 24rpx;
+  background: #e2e8f0;
+}
+
+.progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.progress-info {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-}
-
-.order-id {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #0b1f3a;
-}
-
-.meta {
-  color: #6b7280;
-  margin-top: 6rpx;
-  font-size: 24rpx;
-}
-
-.order-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-  margin-top: 10rpx;
   font-size: 22rpx;
-  color: #6b7280;
 }
 
-.stat {
-  background: #f3f4f6;
-  padding: 6rpx 12rpx;
-  border-radius: 999rpx;
-}
+.prog-label { color: #94a3b8; }
+.prog-val { color: #0f6a7b; font-weight: 600; }
 
-.progress-bar {
+.progress-bg {
   height: 10rpx;
+  background: #f1f5f9;
   border-radius: 999rpx;
-  background: #e5e7eb;
-  margin-top: 10rpx;
   overflow: hidden;
 }
 
-.progress {
+.progress-fill {
   height: 100%;
   background: linear-gradient(90deg, #0f6a7b, #22c1c3);
-}
-
-.status {
-  padding: 8rpx 16rpx;
   border-radius: 999rpx;
-  font-size: 22rpx;
-  color: #ffffff;
 }
 
-.status.done {
-  background: #0ea76a;
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1rpx solid #f1f5f9;
+  padding-top: 20rpx;
 }
 
-.status.partial {
-  background: #f59e0b;
-}
-
-.status.pending {
-  background: #6b7280;
-}
-
-.receive-btn {
-  padding: 0 16rpx;
-  font-size: 22rpx;
-  line-height: 1.8;
-  background: #0f6a7b;
-  color: #ffffff;
-  border: 1rpx solid #0f6a7b;
-}
-
-.edit-btn {
-  padding: 0 16rpx;
-  font-size: 22rpx;
-  line-height: 1.8;
-  background: #f1f5f9;
-  color: #0f6a7b;
-  border: 1rpx solid #cbd5f5;
-}
-
-.items {
-  margin-top: 14rpx;
-  border-top: 1rpx solid #e5e7eb;
-  padding-top: 12rpx;
-}
-
-.item-row + .item-row {
-  margin-top: 10rpx;
-}
-
-.item-name {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #0b1f3a;
-}
-
-.item-meta {
-  color: #6b7280;
+.expand-hint {
   font-size: 24rpx;
-  margin-top: 2rpx;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
 }
 
-.empty {
+.arrow {
+  font-size: 20rpx;
+}
+
+.action-group {
+  display: flex;
+  gap: 16rpx;
+}
+
+.action-btn {
+  padding: 12rpx 28rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  
+  &.secondary { background: #f8fafc; color: #475569; }
+  &.primary { 
+    background: #0f6a7b; 
+    color: #ffffff;
+    box-shadow: 0 4rpx 12rpx rgba(15, 106, 123, 0.2);
+  }
+}
+
+/* Expanded Area */
+.expanded-area {
+  background: #f8fafc;
+  border-top: 1rpx solid #e2e8f0;
+  padding: 24rpx;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.remark-box {
+  background: #fff;
+  padding: 16rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  color: #475569;
+  margin-bottom: 24rpx;
+  border: 1rpx dashed #cbd5e1;
+}
+
+.remark-label { color: #94a3b8; font-weight: 600; }
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.list-header {
+  display: flex;
+  padding-bottom: 12rpx;
+  border-bottom: 1rpx solid #e2e8f0;
+  margin-bottom: 12rpx;
+}
+
+.col-name { flex: 2; font-size: 22rpx; color: #94a3b8; }
+.col-qty { flex: 1; text-align: center; font-size: 22rpx; color: #94a3b8; }
+.col-cost { flex: 1; text-align: right; font-size: 22rpx; color: #94a3b8; }
+
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid #f1f5f9;
+  
+  &:last-child { border-bottom: none; }
+}
+
+.list-item .col-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.name-text { font-size: 26rpx; font-weight: 600; color: #334155; }
+.spec-text { font-size: 20rpx; color: #94a3b8; }
+
+.list-item .col-qty {
+  font-size: 26rpx;
+  color: #334155;
+}
+
+.qty-current { color: #0f6a7b; font-weight: 600; }
+.qty-total { color: #94a3b8; font-size: 20rpx; }
+
+.list-item .col-cost {
+  font-size: 26rpx;
+  color: #334155;
+  font-family: monospace;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 0;
+  opacity: 0.6;
+}
+
+.empty-icon { font-size: 64rpx; margin-bottom: 16rpx; }
+.empty-text { font-size: 28rpx; color: #94a3b8; }
+
+.loading-state {
   text-align: center;
-  color: #9ca3af;
-  padding: 40rpx 0;
+  padding: 40rpx;
+  color: #94a3b8;
+  font-size: 24rpx;
 }
 </style>

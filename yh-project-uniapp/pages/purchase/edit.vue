@@ -59,27 +59,28 @@
         <button size="mini" type="primary" @tap="openDialog">添加商品</button>
       </view>
 
-      <view v-for="(item, idx) in formItems" :key="item.product_id" class="item-row">
-        <view class="item-header">
-          <view>
+      <view v-for="(item, idx) in formItems" :key="item.product_id" class="item-row" @tap="openEditItem(idx)">
+        <view class="item-compact">
+          <view class="item-main">
             <view class="item-name">{{ productName(item) }}</view>
             <view class="item-meta">{{ productSpec(item) }}</view>
           </view>
-          <button size="mini" type="warn" @tap="removeItem(idx)">删除</button>
+          <view class="item-stats">
+            <view class="stat-pill">
+              <text class="label">箱数</text>
+              <text class="val">{{ item.quantity }}</text>
+            </view>
+            <view class="stat-pill">
+              <text class="label">单价</text>
+              <text class="val">¥{{ formatMoney(item.expected_cost) }}</text>
+            </view>
+          </view>
+          <view class="item-total">
+            ¥{{ lineCost(item).toFixed(2) }}
+          </view>
         </view>
-        <view class="item-grid">
-          <view class="field">
-            <view class="label">订货箱数</view>
-            <input class="input" type="number" v-model.number="item.quantity" @blur="normalizeQuantity(item)" />
-          </view>
-          <view class="field">
-            <view class="label">预计单价</view>
-            <input class="input" type="digit" inputmode="decimal" v-model="item.expected_cost" />
-          </view>
-          <view class="field">
-            <view class="label">预计小计</view>
-            <view class="value">¥{{ lineCost(item).toFixed(2) }}</view>
-          </view>
+        <view class="item-action" @tap.stop="removeItem(idx)">
+          <view class="delete-icon">×</view>
         </view>
       </view>
 
@@ -114,6 +115,41 @@
       <button v-if="!isCreate" size="mini" type="warn" @tap="confirmDelete">删除</button>
       <button size="mini" type="primary" :loading="saving" @tap="saveOrder">保存采购单</button>
     </view>
+
+    <!-- Edit Sheet -->
+    <view class="edit-mask" v-if="showEditSheet" @tap="closeEditSheet">
+      <view class="edit-sheet" @tap.stop>
+        <view class="sheet-header">
+          <text class="sheet-title">编辑商品</text>
+          <view class="sheet-close" @tap="closeEditSheet">×</view>
+        </view>
+        
+        <view class="sheet-body">
+          <view class="sheet-info" v-if="editingIndex >= 0">
+            <text class="sheet-name">{{ productName(formItems[editingIndex]) }}</text>
+            <text class="sheet-spec">{{ productSpec(formItems[editingIndex]) }}</text>
+          </view>
+          
+          <view class="sheet-form">
+            <view class="sheet-field">
+              <text class="sheet-label">订货箱数</text>
+              <input class="sheet-input" type="number" v-model.number="editForm.quantity" :focus="true" />
+            </view>
+            <view class="sheet-field">
+              <text class="sheet-label">预计单价 (¥)</text>
+              <input class="sheet-input" type="digit" inputmode="decimal" v-model="editForm.expected_cost" />
+            </view>
+          </view>
+          
+          <view class="sheet-summary">
+            <text>小计:</text>
+            <text class="sheet-total">¥{{ editSheetSubtotal() }}</text>
+          </view>
+          
+          <button class="sheet-confirm" type="primary" @tap="saveEditItem">确认修改</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -142,7 +178,14 @@ export default {
       searchResults: [],
       loading: false,
       saving: false,
-      statusOptions: ['待到货', '部分到货', '完成']
+      statusOptions: ['待到货', '部分到货', '完成'],
+      // Item Editor State
+      showEditSheet: false,
+      editingIndex: -1,
+      editForm: {
+        quantity: 0,
+        expected_cost: 0
+      }
     }
   },
   computed: {
@@ -187,6 +230,11 @@ export default {
     }
   },
   methods: {
+    formatMoney(value) {
+      const num = Number(value)
+      if (!Number.isFinite(num)) return '0.00'
+      return num.toFixed(2)
+    },
     initNewOrder() {
       const today = new Date()
       const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
@@ -402,6 +450,38 @@ export default {
         uni.showToast({ title: '删除失败', icon: 'none' })
       }
     },
+    // --- Item Editor Methods ---
+    openEditItem(idx) {
+      if (idx < 0 || idx >= this.formItems.length) return
+      const item = this.formItems[idx]
+      this.editingIndex = idx
+      this.editForm = {
+        quantity: item.quantity,
+        expected_cost: item.expected_cost
+      }
+      this.showEditSheet = true
+    },
+    closeEditSheet() {
+      this.showEditSheet = false
+      this.editingIndex = -1
+    },
+    saveEditItem() {
+      if (this.editingIndex < 0) return
+      const qty = Math.floor(Number(this.editForm.quantity) || 0)
+      const cost = Number(this.editForm.expected_cost) || 0
+      
+      // Update the item in the list
+      const item = this.formItems[this.editingIndex]
+      item.quantity = qty < 0 ? 0 : qty
+      item.expected_cost = cost < 0 ? 0 : cost
+      
+      this.closeEditSheet()
+    },
+    editSheetSubtotal() {
+      const q = Number(this.editForm.quantity) || 0
+      const c = Number(this.editForm.expected_cost) || 0
+      return (q * c).toFixed(2)
+    },
     goBack() {
       uni.navigateBack()
     }
@@ -539,44 +619,190 @@ export default {
   margin-top: 12rpx;
 }
 
-.item-row:first-of-type {
-  border-top: none;
-  padding-top: 0;
-  margin-top: 0;
+.item-compact {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 20rpx;
 }
 
-.item-header {
+.item-main {
+  flex: 2;
+  min-width: 0;
+}
+
+.item-stats {
+  flex: 2;
+  display: flex;
+  gap: 16rpx;
+  justify-content: flex-end;
+  margin-right: 16rpx;
+}
+
+.stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.stat-pill .label {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.stat-pill .val {
+  font-size: 26rpx;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.item-total {
+  font-size: 28rpx;
+  color: #0f6a7b;
+  font-weight: 700;
+  width: 140rpx;
+  text-align: right;
+}
+
+.item-action {
+  width: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1rpx solid #f1f5f9;
+}
+
+.delete-icon {
+  color: #ef4444;
+  font-size: 40rpx;
+  font-weight: 300;
+}
+
+/* Edit Sheet */
+.edit-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.edit-sheet {
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 32rpx;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.sheet-header {
   display: flex;
   justify-content: space-between;
-  gap: 12rpx;
   align-items: center;
+  margin-bottom: 32rpx;
 }
 
-.item-name {
-  font-size: 28rpx;
+.sheet-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.sheet-close {
+  font-size: 44rpx;
+  color: #94a3b8;
+  padding: 0 16rpx;
+}
+
+.sheet-info {
+  margin-bottom: 32rpx;
+  background: #f8fafc;
+  padding: 20rpx;
+  border-radius: 12rpx;
+}
+
+.sheet-name {
+  display: block;
+  font-size: 30rpx;
   font-weight: 600;
-  color: #0b1f3a;
+  color: #334155;
 }
 
-.item-meta {
-  font-size: 22rpx;
-  color: #6b7280;
-  margin-top: 4rpx;
-}
-
-.item-grid {
-  margin-top: 12rpx;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200rpx, 1fr));
-  gap: 12rpx;
-}
-
-.field .value {
-  margin-top: 6rpx;
+.sheet-spec {
   font-size: 24rpx;
-  color: #0b1f3a;
-  font-weight: 600;
+  color: #64748b;
+  margin-top: 4rpx;
+  display: block;
 }
+
+.sheet-form {
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 32rpx;
+}
+
+.sheet-field {
+  flex: 1;
+}
+
+.sheet-label {
+  display: block;
+  font-size: 24rpx;
+  color: #64748b;
+  margin-bottom: 12rpx;
+}
+
+.sheet-input {
+  width: 100%;
+  height: 80rpx;
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.sheet-input:focus {
+  border-color: #0f6a7b;
+  background: #fff;
+}
+
+.sheet-summary {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+  font-size: 28rpx;
+  color: #64748b;
+}
+
+.sheet-total {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #0f6a7b;
+}
+
+.sheet-confirm {
+  background: #0f6a7b;
+  width: 100%;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  padding: 10rpx 0;
+}
+
 
 .dialog {
   position: fixed;
