@@ -160,6 +160,42 @@ class PurchaseItem(ORMBase):
     actual_cost: Optional[float] = None
 
 
+class PurchaseItemUpdate(BaseModel):
+    quantity: Optional[int] = None
+    expected_cost: Optional[float] = None
+    actual_cost: Optional[float] = None
+
+
+class PurchaseOrderSummary(BaseModel):
+    id: str
+    status: str
+    supplier: Optional[str] = None
+    expected_date: Optional[date] = None
+    remark: Optional[str] = None
+    created_by: Optional[str] = None
+    item_count: int = 0
+    total_qty: int = 0
+    received_qty: int = 0
+    expected_cost_total: float = 0
+
+
+class PurchaseOrderItemRow(BaseModel):
+    id: str
+    product_id: str
+    product_name: Optional[str] = None
+    product_spec: Optional[str] = None
+    quantity: int
+    expected_cost: float
+    received_qty: int = 0
+    received_units: Optional[int] = None
+    actual_cost: Optional[float] = None
+
+
+class PurchaseOrderItemsResponse(BaseModel):
+    items: List[PurchaseOrderItemRow]
+    total: int
+
+
 class PurchaseOrder(ORMBase):
     id: Optional[str] = None
     status: str
@@ -354,7 +390,9 @@ class LLMChatRequest(BaseModel):
     model: Optional[str] = None
     temperature: float = 0.7
     max_output_tokens: int = Field(
-        default=max(1, min(8192, int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "2048") or 2048))),
+        default=max(
+            1, min(8192, int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "2048") or 2048))
+        ),
         ge=1,
         le=8192,
     )

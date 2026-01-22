@@ -206,9 +206,33 @@ export const api = {
   getPurchaseOrders() {
     return request('/api/purchase-orders')
   },
+  getPurchaseOrdersSummary() {
+    return request('/api/purchase-orders/summary')
+  },
   getPurchaseOrder(orderId) {
     if (!orderId) return Promise.reject({ message: 'missing order id' })
     return request(`/api/purchase-orders/${encodeURIComponent(orderId)}`)
+  },
+  getPurchaseOrderItems(orderId, { offset = 0, limit = 50 } = {}) {
+    if (!orderId) return Promise.reject({ message: 'missing order id' })
+    return request(
+      `/api/purchase-orders/${encodeURIComponent(orderId)}/items?offset=${offset}&limit=${limit}`
+    )
+  },
+  getPurchaseOrderItem(orderId, itemId) {
+    if (!orderId) return Promise.reject({ message: 'missing order id' })
+    if (!itemId) return Promise.reject({ message: 'missing item id' })
+    return request(
+      `/api/purchase-orders/${encodeURIComponent(orderId)}/items/${encodeURIComponent(itemId)}`
+    )
+  },
+  updatePurchaseOrderItem(orderId, itemId, payload) {
+    if (!orderId) return Promise.reject({ message: 'missing order id' })
+    if (!itemId) return Promise.reject({ message: 'missing item id' })
+    return request(
+      `/api/purchase-orders/${encodeURIComponent(orderId)}/items/${encodeURIComponent(itemId)}`,
+      { method: 'PATCH', data: payload || {} }
+    )
   },
   createPurchaseOrder(payload) {
     return request('/api/purchase-orders', { method: 'POST', data: payload })

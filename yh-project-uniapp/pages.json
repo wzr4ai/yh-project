@@ -80,6 +80,18 @@
       }
     },
     {
+      "path": "pages/purchase/items",
+      "style": {
+        "navigationBarTitleText": "采购单明细"
+      }
+    },
+    {
+      "path": "pages/purchase/item_edit",
+      "style": {
+        "navigationBarTitleText": "采购商品编辑"
+      }
+    },
+    {
       "path": "pages/products/list",
       "style": {
         "navigationBarTitleText": "商品目录"

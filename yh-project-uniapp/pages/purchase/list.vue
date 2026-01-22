@@ -26,7 +26,7 @@
 
     <!-- Order List -->
     <view class="list">
-      <view v-for="order in orders" :key="order.id" class="order-card" :class="statusClass(order.status)" @tap="toggleExpand(order.id)">
+      <view v-for="order in orders" :key="order.id" class="order-card" :class="statusClass(order.status)" @tap="openItems(order.id)">
         <view class="card-main">
           <view class="card-header">
             <view class="supplier-row">
@@ -44,17 +44,17 @@
           <view class="card-body">
             <view class="stats-row">
               <view class="stat-item">
-                <text class="stat-val">{{ order.items.length }}</text>
+                <text class="stat-val">{{ order.item_count }}</text>
                 <text class="stat-lbl">品类</text>
               </view>
               <view class="stat-sep"></view>
               <view class="stat-item">
-                <text class="stat-val">{{ order.stats.total }}</text>
+                <text class="stat-val">{{ order.total_qty }}</text>
                 <text class="stat-lbl">计划箱数</text>
               </view>
               <view class="stat-sep" v-if="isOwner"></view>
               <view class="stat-item" v-if="isOwner">
-                <text class="stat-val">¥{{ formatPrice(order.stats.cost) }}</text>
+                <text class="stat-val">¥{{ formatPrice(order.expected_cost_total) }}</text>
                 <text class="stat-lbl">预计金额</text>
               </view>
             </view>
@@ -62,18 +62,18 @@
             <view class="progress-section">
               <view class="progress-info">
                 <text class="prog-label">入库进度</text>
-                <text class="prog-val">{{ order.stats.received }}/{{ order.stats.total }} ({{ order.stats.progress }}%)</text>
+                <text class="prog-val">{{ order.received_qty }}/{{ order.total_qty }} ({{ calcProgress(order) }}%)</text>
               </view>
               <view class="progress-bg">
-                <view class="progress-fill" :style="{ width: order.stats.progress + '%' }"></view>
+                <view class="progress-fill" :style="{ width: calcProgress(order) + '%' }"></view>
               </view>
             </view>
           </view>
           
           <view class="card-footer">
              <view class="expand-hint">
-               <text class="arrow">{{ expandedId === order.id ? '^' : 'v' }}</text>
-               {{ expandedId === order.id ? '收起详情' : '查看详情' }}
+               <text class="arrow">></text>
+               查看明细
              </view>
              
              <view class="action-group">
@@ -84,34 +84,6 @@
                  入库
                </view>
              </view>
-          </view>
-        </view>
-
-        <!-- Expanded Items -->
-        <view v-if="expandedId === order.id" class="expanded-area" @tap.stop>
-          <view class="remark-box" v-if="order.remark">
-            <text class="remark-label">备注：</text>{{ order.remark }}
-          </view>
-          
-          <view class="item-list">
-            <view class="list-header">
-              <text class="col-name">商品</text>
-              <text class="col-qty">进度(箱)</text>
-              <text class="col-cost" v-if="isOwner">预计小计</text>
-            </view>
-            <view v-for="item in order.items" :key="item.product_id" class="list-item">
-              <view class="col-name">
-                <text class="name-text">{{ productName(item) }}</text>
-                <text class="spec-text">{{ productSpec(item) }}</text>
-              </view>
-              <view class="col-qty">
-                <text class="qty-current">{{ item.received_qty }}</text>
-                <text class="qty-total">/ {{ item.quantity }}</text>
-              </view>
-              <view class="col-cost" v-if="isOwner">
-                ¥{{ (item.expected_cost * item.quantity).toFixed(0) }}
-              </view>
-            </view>
           </view>
         </view>
       </view>
@@ -137,9 +109,7 @@ export default {
     return {
       role: getRole(),
       orders: [],
-      loading: false,
-      productMap: {},
-      expandedId: null
+      loading: false
     }
   },
   computed: {
@@ -154,10 +124,9 @@ export default {
       let totalCost = 0
       orders.forEach(order => {
         if (order.status !== '完成') pendingCount += 1
-        const stats = order.stats || { total: 0, received: 0, cost: 0 }
-        totalQty += stats.total || 0
-        received += stats.received || 0
-        if (this.isOwner) totalCost += stats.cost || 0
+        totalQty += Number(order.total_qty) || 0
+        received += Number(order.received_qty) || 0
+        if (this.isOwner) totalCost += Number(order.expected_cost_total) || 0
       })
       const progress = totalQty ? Math.min(100, Math.round((received / totalQty) * 100)) : 0
       return {
@@ -174,10 +143,12 @@ export default {
     this.role = getRole()
     this.fetchOrders()
   },
+  onPullDownRefresh() {
+    this.fetchOrders().then(() => {
+      uni.stopPullDownRefresh()
+    })
+  },
   methods: {
-    toggleExpand(id) {
-      this.expandedId = this.expandedId === id ? null : id
-    },
     statusClass(status) {
       if (status === '完成') return 'done'
       if (status === '部分到货') return 'partial'
@@ -205,6 +176,15 @@ export default {
       }
       return n.toFixed(0)
     },
+    calcProgress(order) {
+       const total = Number(order.total_qty) || 0
+       const recv = Number(order.received_qty) || 0
+       if (!total) return 0
+       return Math.min(100, Math.round((recv / total) * 100))
+    },
+    openItems(orderId) {
+      uni.navigateTo({ url: `/pages/purchase/items?id=${encodeURIComponent(orderId)}` })
+    },
     openEdit(orderId) {
       uni.navigateTo({ url: `/pages/purchase/edit?id=${encodeURIComponent(orderId)}` })
     },
@@ -214,83 +194,17 @@ export default {
     openCreate() {
       uni.navigateTo({ url: '/pages/purchase/edit' })
     },
-    calcOrderStats(items) {
-      const list = items || []
-      let total = 0
-      let received = 0
-      let cost = 0
-      list.forEach(item => {
-        const qty = Number(item.quantity) || 0
-        const recv = Number(item.received_qty) || 0
-        total += qty
-        received += recv
-        if (this.isOwner) {
-          cost += (Number(item.expected_cost) || 0) * qty
-        }
-      })
-      const progress = total ? Math.min(100, Math.round((received / total) * 100)) : 0
-      return { total, received, progress, cost }
-    },
-    productName(item) {
-      const product = this.productMap[item.product_id]
-      return (product && product.name) || item.product_id
-    },
-    productSpec(item) {
-      const product = this.productMap[item.product_id]
-      return product && product.spec ? product.spec : '—'
-    },
-    async loadProductMap() {
-      const ids = new Set()
-      this.orders.forEach(order => {
-        ;(order.items || []).forEach(item => {
-          if (item.product_id && !this.productMap[item.product_id]) {
-            ids.add(item.product_id)
-          }
-        })
-      })
-      if (!ids.size) return
-
-      const idList = Array.from(ids)
-      let cursor = 0
-      const concurrency = Math.min(6, idList.length)
-      const workers = Array.from({ length: concurrency }).map(async () => {
-        while (cursor < idList.length) {
-          const id = idList[cursor]
-          cursor += 1
-          try {
-            const product = await api.getProduct(id)
-            this.$set(this.productMap, id, product)
-          } catch (err) {
-            this.$set(this.productMap, id, { id, name: id })
-          }
-        }
-      })
-      await Promise.all(workers)
-    },
     async fetchOrders() {
       this.loading = true
       try {
-        const data = await api.getPurchaseOrders()
-        const sorted = (data || []).sort((a, b) => {
+        const data = await api.getPurchaseOrdersSummary()
+        // Sort by date descending
+        this.orders = (data || []).sort((a, b) => {
           return new Date(b.expected_date) - new Date(a.expected_date)
         })
-        this.orders = sorted.map(order => {
-          const items = (order.items || []).map(item => ({
-            ...item,
-            quantity: Number(item.quantity) || 0,
-            received_qty: Number(item.received_qty) || 0,
-            expected_cost: item.expected_cost
-          }))
-          return {
-            ...order,
-            items,
-            stats: this.calcOrderStats(items)
-          }
-        })
-        await this.loadProductMap()
       } catch (err) {
         uni.showToast({ title: '加载失败', icon: 'none' })
-        this.orders = []
+        console.error(err)
       } finally {
         this.loading = false
       }
@@ -564,79 +478,6 @@ export default {
     color: #ffffff;
     box-shadow: 0 4rpx 12rpx rgba(15, 106, 123, 0.2);
   }
-}
-
-/* Expanded Area */
-.expanded-area {
-  background: #f8fafc;
-  border-top: 1rpx solid #e2e8f0;
-  padding: 24rpx;
-  animation: slideDown 0.2s ease-out;
-}
-
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10rpx); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.remark-box {
-  background: #fff;
-  padding: 16rpx;
-  border-radius: 12rpx;
-  font-size: 24rpx;
-  color: #475569;
-  margin-bottom: 24rpx;
-  border: 1rpx dashed #cbd5e1;
-}
-
-.remark-label { color: #94a3b8; font-weight: 600; }
-
-.item-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.list-header {
-  display: flex;
-  padding-bottom: 12rpx;
-  border-bottom: 1rpx solid #e2e8f0;
-  margin-bottom: 12rpx;
-}
-
-.col-name { flex: 2; font-size: 22rpx; color: #94a3b8; }
-.col-qty { flex: 1; text-align: center; font-size: 22rpx; color: #94a3b8; }
-.col-cost { flex: 1; text-align: right; font-size: 22rpx; color: #94a3b8; }
-
-.list-item {
-  display: flex;
-  align-items: center;
-  padding: 12rpx 0;
-  border-bottom: 1rpx solid #f1f5f9;
-  
-  &:last-child { border-bottom: none; }
-}
-
-.list-item .col-name {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
-.name-text { font-size: 26rpx; font-weight: 600; color: #334155; }
-.spec-text { font-size: 20rpx; color: #94a3b8; }
-
-.list-item .col-qty {
-  font-size: 26rpx;
-  color: #334155;
-}
-
-.qty-current { color: #0f6a7b; font-weight: 600; }
-.qty-total { color: #94a3b8; font-size: 20rpx; }
-
-.list-item .col-cost {
-  font-size: 26rpx;
-  color: #334155;
-  font-family: monospace;
 }
 
 .empty-state {

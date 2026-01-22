@@ -50,10 +50,19 @@ from app.services.logic_pricing import (
 from app.services.logic_purchases import (
     create_purchase_order,
     delete_purchase_order,
+    get_purchase_order_item,
+    list_purchase_order_items,
+    list_purchase_order_summaries,
     receive_purchase,
     update_purchase_order,
+    update_purchase_order_item,
 )
-from app.services.logic_sales import create_sales_order, get_product_with_lock, record_alias_if_new, sales_rankings
+from app.services.logic_sales import (
+    create_sales_order,
+    get_product_with_lock,
+    record_alias_if_new,
+    sales_rankings,
+)
 from app.services.logic_system import (
     DEFAULT_GLOBAL_MAX,
     DEFAULT_GLOBAL_MIN,
@@ -113,6 +122,7 @@ __all__ = [
     "delete_category",
     "delete_product",
     "delete_purchase_order",
+    "get_purchase_order_item",
     "ensure_default_config",
     "ensure_default_warehouse",
     "ensure_defaults",
@@ -132,6 +142,8 @@ __all__ = [
     "get_user_by_id",
     "inventory_by_category",
     "inventory_overview",
+    "list_purchase_order_items",
+    "list_purchase_order_summaries",
     "list_misc_costs",
     "list_pricing_overview",
     "list_products_by_barcode_suffix",
@@ -155,5 +167,6 @@ __all__ = [
     "update_misc_cost",
     "update_product",
     "update_purchase_order",
+    "update_purchase_order_item",
     "upsert_category",
 ]
