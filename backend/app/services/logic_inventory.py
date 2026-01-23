@@ -3,7 +3,13 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import schemas
-from app.models.entities import Category, Inventory, InventoryLog, Product, ProductCategory
+from app.models.entities import (
+    Category,
+    Inventory,
+    InventoryLog,
+    Product,
+    ProductCategory,
+)
 from app.services.logic_pricing import _price_range_for_product
 from app.services.logic_system import get_global_multiplier_range
 from app.services.logic_utils import (
@@ -18,11 +24,16 @@ from app.services.logic_utils import (
 
 
 async def get_inventory_record(
-    session: AsyncSession, product_id: str, warehouse_id: str = "default", create_if_missing: bool = True
+    session: AsyncSession,
+    product_id: str,
+    warehouse_id: str = "default",
+    create_if_missing: bool = True,
 ) -> Inventory | None:
     stmt = (
         sa.select(Inventory)
-        .where(Inventory.product_id == product_id, Inventory.warehouse_id == warehouse_id)
+        .where(
+            Inventory.product_id == product_id, Inventory.warehouse_id == warehouse_id
+        )
         .with_for_update()
     )
     inv = (await session.execute(stmt)).scalars().first()
@@ -30,7 +41,9 @@ async def get_inventory_record(
         return inv
     if not create_if_missing:
         return None
-    inv = Inventory(product_id=product_id, warehouse_id=warehouse_id, current_stock=0, loose_units=0)
+    inv = Inventory(
+        product_id=product_id, warehouse_id=warehouse_id, current_stock=0, loose_units=0
+    )
     session.add(inv)
     await session.flush()
     return inv
@@ -65,17 +78,24 @@ async def log_inventory(
     await session.flush()
 
 
-async def adjust_inventory(session: AsyncSession, req: schemas.InventoryAdjustRequest, username: str) -> Inventory:
+async def adjust_inventory(
+    session: AsyncSession, req: schemas.InventoryAdjustRequest, username: str
+) -> Inventory:
     product = await session.get(Product, req.product_id)
     if not product:
         raise ValueError("product not found")
     inv = await get_inventory_record(session, req.product_id, create_if_missing=True)
+    if not inv:
+        raise ValueError("inventory record not found")
+    assert inv is not None
     apply_unit_delta(inv, product, req.delta)
     await log_inventory(session, req.product_id, req.delta, "adjust", ref_id=username)
     return inv
 
 
-async def dashboard_inventory_value(session: AsyncSession) -> tuple[float, float, float, float, int, float]:
+async def dashboard_inventory_value(
+    session: AsyncSession,
+) -> tuple[float, float, float, int, float]:
     cost_total = 0.0
     retail_min_total = 0.0
     retail_max_total = 0.0
@@ -87,14 +107,24 @@ async def dashboard_inventory_value(session: AsyncSession) -> tuple[float, float
         product = await session.get(Product, inv.product_id)
         if not product:
             continue
-        stmt_pc = sa.select(ProductCategory.category_id).where(ProductCategory.product_id == product.id)
+        stmt_pc = sa.select(ProductCategory.category_id).where(
+            ProductCategory.product_id == product.id
+        )
         pc_ids = [row[0] for row in (await session.execute(stmt_pc)).all()]
         category_ids_needed = set(pc_ids)
         if product.category_id:
             category_ids_needed.add(product.category_id)
         category_map: dict[str, Category] = {}
         if category_ids_needed:
-            cats = (await session.execute(sa.select(Category).where(Category.id.in_(category_ids_needed)))).scalars().all()
+            cats = (
+                (
+                    await session.execute(
+                        sa.select(Category).where(Category.id.in_(category_ids_needed))
+                    )
+                )
+                .scalars()
+                .all()
+            )
             category_map = {c.id: c for c in cats}
         price_min, price_max = _price_range_for_product(
             product,
@@ -109,11 +139,21 @@ async def dashboard_inventory_value(session: AsyncSession) -> tuple[float, float
         cost_total += get_piece_cost_price(product) * total_units
         retail_min_total += price_min * total_units
         retail_max_total += price_max * total_units
-    return cost_total, retail_min_total, retail_max_total, len(sku_with_stock), round2(total_boxes)
+    return (
+        cost_total,
+        retail_min_total,
+        retail_max_total,
+        len(sku_with_stock),
+        round2(total_boxes),
+    )
 
 
 async def inventory_by_category(session: AsyncSession) -> list[dict]:
-    categories = (await session.execute(sa.select(Category).where(Category.is_custom.is_(True)))).scalars().all()
+    categories = (
+        (await session.execute(sa.select(Category).where(Category.is_custom.is_(True))))
+        .scalars()
+        .all()
+    )
     all_categories = (await session.execute(sa.select(Category))).scalars().all()
     category_map_all = {c.id: c for c in all_categories}
 
@@ -146,9 +186,9 @@ async def inventory_by_category(session: AsyncSession) -> list[dict]:
     if cat_map:
         pc_rows = (
             await session.execute(
-                sa.select(ProductCategory.product_id, ProductCategory.category_id).where(
-                    ProductCategory.category_id.in_(list(cat_map.keys()))
-                )
+                sa.select(
+                    ProductCategory.product_id, ProductCategory.category_id
+                ).where(ProductCategory.category_id.in_(list(cat_map.keys())))
             )
         ).all()
         product_to_custom: dict[str, set[str]] = {}
@@ -181,11 +221,12 @@ async def inventory_by_category(session: AsyncSession) -> list[dict]:
         if total_units <= 0:
             continue
         for cid in custom_ids:
+            category = cat_map.get(cid)
             data = cat_data.setdefault(
                 cid,
                 {
                     "id": cid,
-                    "name": cat_map.get(cid).name if cid in cat_map else "未分组",
+                    "name": category.name if category else "未分组",
                     "sku": 0,
                     "boxes": 0.0,
                     "cost": 0.0,
@@ -212,7 +253,10 @@ async def inventory_by_category(session: AsyncSession) -> list[dict]:
 
 async def inventory_overview(
     session: AsyncSession, with_version: bool = False
-) -> tuple[list[schemas.InventoryOverviewItem], str] | list[schemas.InventoryOverviewItem]:
+) -> (
+    tuple[list[schemas.InventoryOverviewItem], str]
+    | list[schemas.InventoryOverviewItem]
+):
     inv_rows = (await session.execute(sa.select(Inventory))).scalars().all()
     items: list[schemas.InventoryOverviewItem] = []
     max_ts = None

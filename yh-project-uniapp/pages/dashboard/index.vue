@@ -69,6 +69,54 @@
       </view>
     </view>
 
+    <view class="grid" v-if="isOwner">
+      <view class="card">
+        <view class="card-title">春节节奏</view>
+        <view class="season-row">
+          <view class="season-main">
+            <view class="season-value">{{ seasonDaysToPeak }}</view>
+            <view class="season-label">天后除夕</view>
+          </view>
+          <view class="season-meta">
+            <view class="mini-title">当前阶段</view>
+            <view class="mini-value">{{ seasonPhaseLabel }}</view>
+          </view>
+        </view>
+        <view class="progress-bar">
+          <view class="progress-fill" :style="{ width: seasonTimeProgress + '%' }"></view>
+        </view>
+        <view class="card-sub">季节进度 {{ seasonTimeProgress }}%</view>
+      </view>
+      <view class="card">
+        <view class="card-title">库存健康度</view>
+        <view class="health-grid">
+          <view>
+            <view class="mini-title">畅销品</view>
+            <view class="mini-value">{{ inventoryHealthSummary.fast }}</view>
+          </view>
+          <view>
+            <view class="mini-title">正常品</view>
+            <view class="mini-value">{{ inventoryHealthSummary.normal }}</view>
+          </view>
+          <view>
+            <view class="mini-title">慢销品</view>
+            <view class="mini-value">{{ inventoryHealthSummary.slow }}</view>
+          </view>
+          <view>
+            <view class="mini-title">滞销品</view>
+            <view class="mini-value">{{ inventoryHealthSummary.dead }}</view>
+          </view>
+        </view>
+        <view class="card-sub">平均周转天数 {{ inventoryHealthSummary.avgDays || '—' }}</view>
+      </view>
+      <view class="card" @tap="openAnalysis">
+        <view class="card-title">AI 洞察</view>
+        <view class="ai-text" v-if="aiLoading">加载中...</view>
+        <view class="ai-text" v-else>{{ aiSummary || '暂无分析' }}</view>
+        <view class="card-sub">点击查看完整分析</view>
+      </view>
+    </view>
+
     <view class="section">
       <view class="section-title">快捷入口</view>
       <view class="quick-actions">
@@ -145,6 +193,21 @@ export default {
         top_sales: [],
         top_margin: []
       },
+      report: null,
+      seasonality: {
+        days_to_peak: null,
+        phase_label: null,
+        time_progress_pct: null
+      },
+      inventoryHealth: {
+        fast_moving: { count: 0 },
+        normal: { count: 0 },
+        slow_moving: { count: 0 },
+        dead_stock: { count: 0 },
+        avg_turnover_days: null
+      },
+      aiSummary: '',
+      aiLoading: false,
       loading: false
     }
   },
@@ -178,12 +241,37 @@ export default {
       if (this.rankingLoading) return '加载中...'
       if (!this.rankings.top_margin.length) return '暂无数据'
       return this.rankings.top_margin.map(item => item.name).join('、')
+    },
+    seasonPhaseLabel() {
+      return this.seasonality.phase_label || '—'
+    },
+    seasonDaysToPeak() {
+      if (this.seasonality.days_to_peak === null || this.seasonality.days_to_peak === undefined) return '—'
+      return this.seasonality.days_to_peak
+    },
+    seasonTimeProgress() {
+      const val = Number(this.seasonality.time_progress_pct)
+      if (!Number.isFinite(val)) return 0
+      return Math.max(0, Math.min(100, val))
+    },
+    inventoryHealthSummary() {
+      return {
+        fast: this.inventoryHealth.fast_moving?.count || 0,
+        normal: this.inventoryHealth.normal?.count || 0,
+        slow: this.inventoryHealth.slow_moving?.count || 0,
+        dead: this.inventoryHealth.dead_stock?.count || 0,
+        avgDays: this.inventoryHealth.avg_turnover_days
+      }
     }
   },
   onShow() {
     this.role = getRole()
     this.fetchMetrics()
     this.fetchRankings()
+    if (this.isOwner) {
+      this.fetchReport()
+      this.fetchAiSummary()
+    }
   },
   methods: {
     async fetchRankings() {
@@ -247,6 +335,42 @@ export default {
         uni.showToast({ title: '加载数据失败', icon: 'none' })
       } finally {
         this.loading = false
+      }
+    },
+    async fetchReport() {
+      try {
+        const report = await api.getDashboardReport()
+        const content = report?.report || {}
+        this.report = content
+        this.seasonality = {
+          days_to_peak: content?.seasonality?.days_to_peak ?? null,
+          phase_label: content?.seasonality?.phase_label ?? null,
+          time_progress_pct: content?.seasonality?.time_progress_pct ?? null
+        }
+        this.inventoryHealth = content?.inventory_health || this.inventoryHealth
+      } catch (err) {
+        this.report = null
+        this.seasonality = { days_to_peak: null, phase_label: null, time_progress_pct: null }
+        this.inventoryHealth = {
+          fast_moving: { count: 0 },
+          normal: { count: 0 },
+          slow_moving: { count: 0 },
+          dead_stock: { count: 0 },
+          avg_turnover_days: null
+        }
+      }
+    },
+    async fetchAiSummary() {
+      if (this.aiLoading) return
+      this.aiLoading = true
+      try {
+        const res = await api.getDashboardDailySummary({ model_tier: 'low' })
+        const analysis = res?.analysis || ''
+        this.aiSummary = analysis
+      } catch (err) {
+        this.aiSummary = ''
+      } finally {
+        this.aiLoading = false
       }
     },
     go(url) {
@@ -365,6 +489,63 @@ export default {
   display: flex;
   gap: 12rpx;
   margin: 10rpx 0 6rpx;
+}
+
+.season-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.season-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+}
+
+.season-value {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #0f6a7b;
+}
+
+.season-label {
+  font-size: 22rpx;
+  color: #6b7280;
+}
+
+.season-meta {
+  text-align: right;
+}
+
+.progress-bar {
+  height: 10rpx;
+  background: #e5e7eb;
+  border-radius: 999rpx;
+  overflow: hidden;
+  margin-top: 12rpx;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0f6a7b, #12b5a8);
+  border-radius: 999rpx;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.ai-text {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #374151;
+  line-height: 1.6;
+  min-height: 72rpx;
 }
 
 .pill {

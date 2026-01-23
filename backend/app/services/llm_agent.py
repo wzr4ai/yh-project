@@ -1,7 +1,7 @@
 import json
 import os
 import textwrap
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Literal, cast
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,13 +9,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import schemas
 from app.models.entities import Product, ProductAlias
 from app.services import logic
-from app.services.llm import LLMService, LLMServiceError
+from app.services.llm import LLMService, LLMServiceError, ModelTier, Protocol
 
 
 async def build_product_context(session: AsyncSession) -> Tuple[str, Dict[str, Any]]:
     """Build a compact JSON context of products and aliases for prompting."""
     products = (await session.execute(sa.select(Product))).scalars().all()
-    alias_rows = (await session.execute(sa.select(ProductAlias.product_id, ProductAlias.alias_name))).all()
+    alias_rows = (
+        await session.execute(
+            sa.select(ProductAlias.product_id, ProductAlias.alias_name)
+        )
+    ).all()
     alias_map: Dict[str, List[str]] = {}
     for pid, alias_name in alias_rows:
         alias_map.setdefault(pid, []).append(alias_name)
@@ -42,7 +46,9 @@ async def build_product_context(session: AsyncSession) -> Tuple[str, Dict[str, A
     return context_str, product_lookup
 
 
-async def analyze_order_text(text: str, context: str, protocol: str | None = None) -> schemas.LLMChatResponse:
+async def analyze_order_text(
+    text: str, context: str, protocol: str | None = None
+) -> schemas.LLMChatResponse:
     """Call LLM to map raw order text to structured items."""
     system_prompt = textwrap.dedent(
         """
@@ -59,12 +65,15 @@ async def analyze_order_text(text: str, context: str, protocol: str | None = Non
     user_prompt = f"商品上下文：{context}\n\n原始订单文本：{text}\n\n请输出 JSON："
 
     service = LLMService()
+    protocol_val: Protocol | None = None
+    if protocol in {"gemini", "openai", "open"}:
+        protocol_val = cast(Protocol, protocol)
     return await service.chat(
         messages=[
             schemas.LLMMessage(role="system", content=system_prompt),
             schemas.LLMMessage(role="user", content=user_prompt),
         ],
-        protocol=protocol,
+        protocol=protocol_val,
         model_tier="low",
         temperature=0.2,
         max_output_tokens=16384,
@@ -116,7 +125,9 @@ async def parse_and_validate(
 
         detected_price = raw_item.get("detected_price") or raw_item.get("unit_price")
         try:
-            detected_price_val = float(detected_price) if detected_price is not None else None
+            detected_price_val = (
+                float(detected_price) if detected_price is not None else None
+            )
         except Exception:
             detected_price_val = None
 
@@ -138,22 +149,86 @@ async def parse_and_validate(
                 if pid and not pname:
                     pname = product_lookup.get(pid)
                 candidates.append(
-                    schemas.OrderAnalyzeCandidate(product_id=pid, product_name=pname, score=score)
+                    schemas.OrderAnalyzeCandidate(
+                        product_id=pid, product_name=pname, score=score
+                    )
                 )
 
+        confidence_val: Literal["high", "low", "new"] = cast(
+            Literal["high", "low", "new"], confidence
+        )
         cleaned.append(
             schemas.OrderAnalyzeItem(
                 raw_name=raw_name,
                 suggested_product_id=suggested_id,
                 suggested_product_name=suggested_name,
                 quantity=quantity_val,
-                confidence=confidence,  # type: ignore[arg-type]
+                confidence=confidence_val,
                 candidates=candidates,
                 detected_price=detected_price_val,
             )
         )
 
     return schemas.OrderAnalyzeResponse(items=cleaned)
+
+
+async def _chat_dashboard_report(
+    report: Dict[str, Any],
+    *,
+    system_prompt: str,
+    provider: str | None = None,
+    model_tier: str | None = None,
+    model: str | None = None,
+    protocol: str | None = None,
+    temperature: float = 0.4,
+    max_output_tokens: int = 2048,
+) -> schemas.LLMChatResponse:
+    report_json = json.dumps(report, ensure_ascii=False)
+    user_prompt = f"分析报告 JSON：\n{report_json}\n\n请给出分析建议："
+
+    provider_val = (provider or "gemini").lower()
+    tier: ModelTier = "high"
+    if model_tier in {"low", "mid", "high"}:
+        tier = cast(ModelTier, model_tier)
+    protocol_val: Protocol | None = None
+    if protocol in {"gemini", "openai", "open"}:
+        protocol_val = cast(Protocol, protocol)
+
+    if provider_val == "deepseek":
+        deepseek_key = os.getenv("LLM_DEEPSEEK_KEY")
+        deepseek_url = (os.getenv("LLM_DEEPSEEK_URL") or "").rstrip("/")
+        deepseek_model = model or os.getenv("LLM_DEEPSEEK_MODEL")
+        if deepseek_url.endswith("/v1"):
+            deepseek_url = deepseek_url[:-3]
+        if not deepseek_url or not deepseek_model:
+            raise ValueError("LLM_DEEPSEEK_URL or LLM_DEEPSEEK_MODEL is not configured")
+        service = LLMService(
+            base_url=deepseek_url, api_key=deepseek_key, default_protocol="openai"
+        )
+        return await service.chat(
+            messages=[
+                schemas.LLMMessage(role="system", content=system_prompt),
+                schemas.LLMMessage(role="user", content=user_prompt),
+            ],
+            protocol="openai",
+            model=deepseek_model,
+            model_tier="high",
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+        )
+
+    service = LLMService()
+    return await service.chat(
+        messages=[
+            schemas.LLMMessage(role="system", content=system_prompt),
+            schemas.LLMMessage(role="user", content=user_prompt),
+        ],
+        protocol=protocol_val or "gemini",
+        model_tier=tier,
+        model=model,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+    )
 
 
 async def analyze_dashboard_report(
@@ -167,11 +242,20 @@ async def analyze_dashboard_report(
     system_prompt = textwrap.dedent(
         """
         你是烟花爆竹门店的经营分析顾问。根据给定的报告 JSON 输出可执行的分析建议。
-        目标：帮助店主制定销售方式、促销、补货与清仓计划，关注春节季节性。
+        行业特征：春节前后20天集中爆发，除夕+初一占比高，正月十五后几乎无销量。
+        目标：帮助店主制定销售方式、促销、补货与清仓计划，优先关注库存周转与售罄率。
         输出要求：
         - 使用中文，输出结构化段落（标题 + 要点）。
         - 每段 3-6 条要点，避免空泛，尽量引用报告中的数字或排行。
+        - 给出可执行动作（商品名 + 行动 + 预期效果）。
+        - 按优先级标记：紧急 / 重要 / 建议。
         - 当数据不足时，直说“数据不足”并给出补充建议。
+        重点字段：
+        - seasonality: days_to_peak / phase_label / time_progress_pct
+        - sales: today / trend_7d / concentration
+        - inventory_health: fast_moving / slow_moving / dead_stock / avg_turnover_days
+        - sell_through: overall_rate / by_product
+        - pricing_analysis: avg_discount_rate / high_discount_products
         建议结构：
         1) 总览结论
         2) 今日经营诊断
@@ -180,42 +264,103 @@ async def analyze_dashboard_report(
         5) 春节节奏建议（结合季节性）
         """
     ).strip()
-    report_json = json.dumps(report, ensure_ascii=False)
-    user_prompt = f"分析报告 JSON：\n{report_json}\n\n请给出分析建议："
-
-    provider_val = (provider or "gemini").lower()
-    tier = model_tier or "high"
-
-    if provider_val == "deepseek":
-        deepseek_key = os.getenv("LLM_DEEPSEEK_KEY")
-        deepseek_url = (os.getenv("LLM_DEEPSEEK_URL") or "").rstrip("/")
-        deepseek_model = model or os.getenv("LLM_DEEPSEEK_MODEL")
-        if deepseek_url.endswith("/v1"):
-            deepseek_url = deepseek_url[:-3]
-        if not deepseek_url or not deepseek_model:
-            raise ValueError("LLM_DEEPSEEK_URL or LLM_DEEPSEEK_MODEL is not configured")
-        service = LLMService(base_url=deepseek_url, api_key=deepseek_key, default_protocol="openai")
-        return await service.chat(
-            messages=[
-                schemas.LLMMessage(role="system", content=system_prompt),
-                schemas.LLMMessage(role="user", content=user_prompt),
-            ],
-            protocol="openai",
-            model=deepseek_model,
-            model_tier="high",
-            temperature=0.4,
-            max_output_tokens=2048,
-        )
-
-    service = LLMService()
-    return await service.chat(
-        messages=[
-            schemas.LLMMessage(role="system", content=system_prompt),
-            schemas.LLMMessage(role="user", content=user_prompt),
-        ],
-        protocol=protocol or "gemini",
-        model_tier=tier,  # type: ignore[arg-type]
+    return await _chat_dashboard_report(
+        report,
+        system_prompt=system_prompt,
+        provider=provider,
+        model_tier=model_tier,
         model=model,
+        protocol=protocol,
         temperature=0.4,
         max_output_tokens=2048,
+    )
+
+
+async def analyze_dashboard_restock_advice(
+    report: Dict[str, Any],
+    *,
+    provider: str | None = None,
+    model_tier: str | None = None,
+    model: str | None = None,
+    protocol: str | None = None,
+) -> schemas.LLMChatResponse:
+    system_prompt = textwrap.dedent(
+        """
+        你是烟花爆竹门店的补货顾问。请根据报告 JSON 输出补货清单与理由。
+        要求：
+        - 输出按优先级排序（紧急 / 重要 / 建议）。
+        - 每条建议必须包含商品名、当前库存、建议补货数量、理由。
+        - 优先考虑 fast_movers / restock_candidates / days_cover_7d。
+        - 当数据不足时直说“数据不足”。
+        """
+    ).strip()
+    return await _chat_dashboard_report(
+        report,
+        system_prompt=system_prompt,
+        provider=provider,
+        model_tier=model_tier,
+        model=model,
+        protocol=protocol,
+        temperature=0.2,
+        max_output_tokens=1024,
+    )
+
+
+async def analyze_dashboard_daily_summary(
+    report: Dict[str, Any],
+    *,
+    provider: str | None = None,
+    model_tier: str | None = None,
+    model: str | None = None,
+    protocol: str | None = None,
+) -> schemas.LLMChatResponse:
+    system_prompt = textwrap.dedent(
+        """
+        你是烟花爆竹门店的每日经营助手。请输出简洁的日报。
+        输出结构：
+        1) 今日概览（1-2句）
+        2) 亮点（3条内）
+        3) 风险/预警（3条内）
+        4) 明日关注点（3条内）
+        要求：短句、具体、引用数字。
+        """
+    ).strip()
+    return await _chat_dashboard_report(
+        report,
+        system_prompt=system_prompt,
+        provider=provider,
+        model_tier=model_tier,
+        model=model,
+        protocol=protocol,
+        temperature=0.2,
+        max_output_tokens=800,
+    )
+
+
+async def analyze_dashboard_clearance_plan(
+    report: Dict[str, Any],
+    *,
+    provider: str | None = None,
+    model_tier: str | None = None,
+    model: str | None = None,
+    protocol: str | None = None,
+) -> schemas.LLMChatResponse:
+    system_prompt = textwrap.dedent(
+        """
+        你是烟花爆竹门店的清仓顾问。请根据报告 JSON 输出清仓建议。
+        要求：
+        - 重点针对 dead_stock / slow_movers / clearance_candidates。
+        - 输出商品名、当前库存、建议折扣范围、推荐促销方式。
+        - 当数据不足时直说“数据不足”。
+        """
+    ).strip()
+    return await _chat_dashboard_report(
+        report,
+        system_prompt=system_prompt,
+        provider=provider,
+        model_tier=model_tier,
+        model=model,
+        protocol=protocol,
+        temperature=0.3,
+        max_output_tokens=1024,
     )

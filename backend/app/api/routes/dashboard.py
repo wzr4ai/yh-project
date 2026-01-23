@@ -12,7 +12,16 @@ router = APIRouter()
 
 @router.get("/dashboard/realtime", response_model=schemas.DashboardRealtime)
 async def dashboard_realtime(session: AsyncSession = Depends(get_session)):
-    actual, expected, diff, diff_rate, gp, orders, avg, manual = await logic.dashboard_realtime(session)
+    (
+        actual,
+        expected,
+        diff,
+        diff_rate,
+        gp,
+        orders,
+        avg,
+        manual,
+    ) = await logic.dashboard_realtime(session)
     gross_margin = (gp / actual * 100) if actual else 0
     return schemas.DashboardRealtime(
         actual_sales=round(actual, 2),
@@ -29,7 +38,9 @@ async def dashboard_realtime(session: AsyncSession = Depends(get_session)):
 
 @router.post("/dashboard/manual_receipt")
 async def set_manual_receipt(
-    payload: dict, session: AsyncSession = Depends(get_session), current_user=Depends(deps.get_current_user)
+    payload: dict,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
 ):
     if not current_user or getattr(current_user, "role", None) != "owner":
         raise HTTPException(status_code=403, detail="forbidden")
@@ -45,7 +56,13 @@ async def set_manual_receipt(
 
 @router.get("/dashboard/inventory_value", response_model=schemas.InventoryValueResponse)
 async def dashboard_inventory_value(session: AsyncSession = Depends(get_session)):
-    cost, retail_min, retail_max, sku_count, total_boxes = await logic.dashboard_inventory_value(session)
+    (
+        cost,
+        retail_min,
+        retail_max,
+        sku_count,
+        total_boxes,
+    ) = await logic.dashboard_inventory_value(session)
     return schemas.InventoryValueResponse(
         cost_total=round(cost, 2),
         retail_total=round(retail_max, 2),
@@ -56,9 +73,17 @@ async def dashboard_inventory_value(session: AsyncSession = Depends(get_session)
     )
 
 
-@router.get("/dashboard/inventory_breakdown", response_model=schemas.InventoryBreakdownResponse)
+@router.get(
+    "/dashboard/inventory_breakdown", response_model=schemas.InventoryBreakdownResponse
+)
 async def dashboard_inventory_breakdown(session: AsyncSession = Depends(get_session)):
-    cost, retail_min, retail_max, sku_count, total_boxes = await logic.dashboard_inventory_value(session)
+    (
+        cost,
+        retail_min,
+        retail_max,
+        sku_count,
+        total_boxes,
+    ) = await logic.dashboard_inventory_value(session)
     categories = await logic.inventory_by_category(session)
     return schemas.InventoryBreakdownResponse(
         cost_total=round(cost, 2),
@@ -95,7 +120,9 @@ async def dashboard_performance(session: AsyncSession = Depends(get_session)):
 
 
 @router.get("/dashboard/sales-rankings", response_model=schemas.SalesRankingResponse)
-async def dashboard_sales_rankings(scope: str = "day", session: AsyncSession = Depends(get_session)):
+async def dashboard_sales_rankings(
+    scope: str = "day", session: AsyncSession = Depends(get_session)
+):
     try:
         return await logic.sales_rankings(session, scope=scope, limit=5)
     except ValueError as exc:
@@ -150,7 +177,48 @@ async def _run_dashboard_report_analysis(
     )
 
 
-@router.post("/dashboard/report/analysis", response_model=schemas.DashboardReportLLMResponse)
+async def _run_dashboard_ai_analysis(
+    session: AsyncSession,
+    payload: schemas.DashboardAIBasicRequest,
+    analyzer,
+) -> schemas.DashboardReportLLMResponse:
+    report = await logic.dashboard_report(session)
+    analysis_text = ""
+    analysis_error = None
+    model = None
+    protocol = None
+    finish_reason = None
+    raw_usage = None
+    try:
+        llm_resp = await analyzer(
+            report.report,
+            provider=payload.provider,
+            model_tier=payload.model_tier,
+            model=payload.model,
+        )
+        analysis_text = llm_resp.content
+        model = llm_resp.model
+        protocol = llm_resp.protocol
+        finish_reason = llm_resp.finish_reason
+        raw_usage = llm_resp.raw_usage
+    except (ValueError, LLMServiceError) as exc:
+        analysis_error = str(exc)
+    return schemas.DashboardReportLLMResponse(
+        generated_at=report.generated_at,
+        version=report.version,
+        report=report.report,
+        analysis=analysis_text,
+        analysis_error=analysis_error,
+        model=model,
+        protocol=protocol,
+        finish_reason=finish_reason,
+        raw_usage=raw_usage,
+    )
+
+
+@router.post(
+    "/dashboard/report/analysis", response_model=schemas.DashboardReportLLMResponse
+)
 async def dashboard_report_analysis(
     payload: schemas.DashboardReportAnalyzeRequest,
     session: AsyncSession = Depends(get_session),
@@ -161,11 +229,60 @@ async def dashboard_report_analysis(
     return await _run_dashboard_report_analysis(session, payload)
 
 
-@router.get("/dashboard/report/analysis", response_model=schemas.DashboardReportLLMResponse)
+@router.get(
+    "/dashboard/report/analysis", response_model=schemas.DashboardReportLLMResponse
+)
 async def dashboard_report_analysis_default(
     session: AsyncSession = Depends(get_session),
     current_user=Depends(deps.get_current_user),
 ):
     if not current_user or getattr(current_user, "role", None) != "owner":
         raise HTTPException(status_code=403, detail="forbidden")
-    return await _run_dashboard_report_analysis(session, schemas.DashboardReportAnalyzeRequest())
+    return await _run_dashboard_report_analysis(
+        session, schemas.DashboardReportAnalyzeRequest()
+    )
+
+
+@router.post(
+    "/dashboard/ai/restock-advice", response_model=schemas.DashboardReportLLMResponse
+)
+async def dashboard_ai_restock_advice(
+    payload: schemas.DashboardAIBasicRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    return await _run_dashboard_ai_analysis(
+        session, payload, llm_agent.analyze_dashboard_restock_advice
+    )
+
+
+@router.post(
+    "/dashboard/ai/daily-summary", response_model=schemas.DashboardReportLLMResponse
+)
+async def dashboard_ai_daily_summary(
+    payload: schemas.DashboardAIBasicRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    return await _run_dashboard_ai_analysis(
+        session, payload, llm_agent.analyze_dashboard_daily_summary
+    )
+
+
+@router.post(
+    "/dashboard/ai/clearance-plan", response_model=schemas.DashboardReportLLMResponse
+)
+async def dashboard_ai_clearance_plan(
+    payload: schemas.DashboardAIBasicRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    return await _run_dashboard_ai_analysis(
+        session, payload, llm_agent.analyze_dashboard_clearance_plan
+    )

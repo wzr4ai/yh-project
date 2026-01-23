@@ -138,6 +138,24 @@ export const api = {
       data: payload || {}
     })
   },
+  getDashboardRestockAdvice(payload) {
+    return request('/api/dashboard/ai/restock-advice', {
+      method: 'POST',
+      data: payload || {}
+    })
+  },
+  getDashboardDailySummary(payload) {
+    return request('/api/dashboard/ai/daily-summary', {
+      method: 'POST',
+      data: payload || {}
+    })
+  },
+  getDashboardClearancePlan(payload) {
+    return request('/api/dashboard/ai/clearance-plan', {
+      method: 'POST',
+      data: payload || {}
+    })
+  },
   getPricingMultiplier() {
     return request('/api/system/pricing-multiplier')
   },

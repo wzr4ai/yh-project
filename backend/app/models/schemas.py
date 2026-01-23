@@ -299,6 +299,12 @@ class DashboardReportAnalyzeRequest(BaseModel):
     model: Optional[str] = None
 
 
+class DashboardAIBasicRequest(BaseModel):
+    provider: Literal["gemini", "deepseek"] = "gemini"
+    model_tier: Literal["low", "mid", "high"] = "low"
+    model: Optional[str] = None
+
+
 class PricingMultiplierConfig(BaseModel):
     min_multiplier: float
     max_multiplier: float
