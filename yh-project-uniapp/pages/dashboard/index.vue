@@ -51,22 +51,6 @@
         </view>
         <view class="card-sub">按当前价格体系计算，单仓</view>
       </view>
-      <view class="card wide" @tap="openAnalysis">
-        <view class="card-title">快报</view>
-        <view class="toggle-row">
-          <view :class="['pill', rankingScope === 'day' ? '' : 'muted']" @tap.stop="setRankingScope('day')">当天</view>
-          <view :class="['pill', rankingScope === 'all' ? '' : 'muted']" @tap.stop="setRankingScope('all')">全部</view>
-        </view>
-        <view class="rank-section">
-          <view class="rank-title">销售额前五</view>
-          <view class="rank-names">{{ salesNameLabel }}</view>
-        </view>
-        <view class="rank-section">
-          <view class="rank-title">利润率前五</view>
-          <view class="rank-names">{{ marginNameLabel }}</view>
-        </view>
-        <view v-if="rankingLoading" class="empty">加载中...</view>
-      </view>
     </view>
 
     <view class="grid" v-if="isOwner">
