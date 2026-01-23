@@ -128,12 +128,6 @@
       }
     },
     {
-      "path": "pages/shareholders/manage",
-      "style": {
-        "navigationBarTitleText": "股东管理"
-      }
-    },
-    {
       "path": "pages/categories/quick-assign",
       "style": {
         "navigationBarTitleText": "快速分类"
