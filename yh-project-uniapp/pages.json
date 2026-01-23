@@ -20,12 +20,6 @@
       }
     },
     {
-      "path": "pages/dashboard/report",
-      "style": {
-        "navigationBarTitleText": "分析报告（临时）"
-      }
-    },
-    {
       "path": "pages/pricing/overview",
       "style": {
         "navigationBarTitleText": "货物定价总览"
@@ -59,12 +53,6 @@
       "path": "pages/purchase/list",
       "style": {
         "navigationBarTitleText": "采购与到货"
-      }
-    },
-    {
-      "path": "pages/purchase/replenishment",
-      "style": {
-        "navigationBarTitleText": "生成进货/补货单"
       }
     },
     {

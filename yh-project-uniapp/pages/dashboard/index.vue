@@ -80,10 +80,7 @@
           <view class="action-title">采购到货</view>
           <view class="action-desc">采购单状态、到货确认</view>
         </view>
-        <view class="action" @tap="go('/pages/purchase/replenishment')" v-if="isOwner">
-          <view class="action-title">生成进货/补货单</view>
-          <view class="action-desc">按库存阈值导出 CSV</view>
-        </view>
+
         <view class="action" @tap="go('/pages/pricing/overview')" v-if="isOwner">
           <view class="action-title">店员视图（定价总览）</view>
           <view class="action-desc">查看店员可见价格页</view>
@@ -92,10 +89,7 @@
           <view class="action-title">售价系数调整</view>
           <view class="action-desc">更新成本系数区间</view>
         </view>
-        <view class="action" @tap="go('/pages/dashboard/report')" v-if="isOwner">
-          <view class="action-title">分析报告（临时）</view>
-          <view class="action-desc">生成销售与库存 JSON</view>
-        </view>
+
         <view class="action" @tap="go('/pages/categories/manage')" v-if="isOwner">
           <view class="action-title">分类管理</view>
           <view class="action-desc">增删改查分类</view>
@@ -108,10 +102,7 @@
           <view class="action-title">杂项成本</view>
           <view class="action-desc">记录运输、耗材等费用</view>
         </view>
-        <view class="action" v-if="isOwner" @tap="go('/pages/shareholders/manage')">
-          <view class="action-title">股东管理</view>
-          <view class="action-desc">入资、分红与记录</view>
-        </view>
+
         <view class="action" @tap="go('/pages/products/list')">
           <view class="action-title">商品目录</view>
           <view class="action-desc">价格体系与库存分布</view>
