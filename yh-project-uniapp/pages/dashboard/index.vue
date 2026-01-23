@@ -70,6 +70,20 @@
     </view>
 
     <view class="grid" v-if="isOwner">
+      <view class="card" @tap="openAnalysis">
+        <view class="card-title">快报</view>
+        <view class="summary-grid">
+          <view class="summary-item">
+            <view class="mini-title">销售额前五</view>
+            <view class="summary-text">{{ salesNameLabel }}</view>
+          </view>
+          <view class="summary-item">
+            <view class="mini-title">利润率前五</view>
+            <view class="summary-text">{{ marginNameLabel }}</view>
+          </view>
+        </view>
+        <view class="card-sub">点击查看完整分析</view>
+      </view>
       <view class="card">
         <view class="card-title">春节节奏</view>
         <view class="season-row">
@@ -113,6 +127,9 @@
         <view class="card-title">AI 洞察</view>
         <view class="ai-text" v-if="aiLoading">加载中...</view>
         <view class="ai-text" v-else>{{ aiSummary || '暂无分析' }}</view>
+        <view class="ai-actions">
+          <view class="pill" @tap.stop="generateAiInsight">手动生成</view>
+        </view>
         <view class="card-sub">点击查看完整分析</view>
       </view>
     </view>
@@ -372,6 +389,22 @@ export default {
         this.aiLoading = false
       }
     },
+    async generateAiInsight() {
+      if (!this.isOwner || this.aiLoading) return
+      this.aiLoading = true
+      try {
+        await api.generateDashboardInsight({
+          insight_type: 'morning',
+          model_tier: 'low',
+          force: true
+        })
+        await this.fetchAiSummary()
+      } catch (err) {
+        uni.showToast({ title: '生成失败', icon: 'none' })
+      } finally {
+        this.aiLoading = false
+      }
+    },
     go(url) {
       uni.navigateTo({ url })
     }
@@ -490,6 +523,24 @@ export default {
   margin: 10rpx 0 6rpx;
 }
 
+.summary-grid {
+  display: grid;
+  gap: 10rpx;
+  margin-top: 8rpx;
+}
+
+.summary-item {
+  padding: 8rpx 10rpx;
+  border-radius: 12rpx;
+  background: #f5f7fa;
+}
+
+.summary-text {
+  font-size: 24rpx;
+  color: #0b1f3a;
+  line-height: 1.4;
+}
+
 .season-row {
   display: flex;
   justify-content: space-between;
@@ -537,6 +588,10 @@ export default {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12rpx;
   margin-top: 12rpx;
+}
+
+.ai-actions {
+  margin-top: 10rpx;
 }
 
 .ai-text {
