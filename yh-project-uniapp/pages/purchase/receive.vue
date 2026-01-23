@@ -125,6 +125,24 @@
               <view class="picker">{{ bindProductList[bindProductIndex] }}</view>
             </picker>
           </view>
+
+          <view class="bind-info-card" v-if="bindSelectedItem">
+            <view class="bind-info-grid">
+              <view class="bind-info-item">
+                <view class="label">单价</view>
+                <view class="value">¥{{ formatMoney(bindSelectedItem.expected_cost) }}</view>
+              </view>
+              <view class="bind-info-item">
+                <view class="label">规格</view>
+                <view class="value">{{ (productMap[bindSelectedItem.product_id] && productMap[bindSelectedItem.product_id].spec) || '—' }}</view>
+              </view>
+              <view class="bind-info-item">
+                <view class="label">件数</view>
+                <view class="value">{{ bindSelectedItem.quantity }}</view>
+              </view>
+            </view>
+          </view>
+
           <view class="bind-row">
             <view class="label">层级</view>
             <picker :range="barcodeLevels" :value="bindLevelIndex" @change="onBindLevelChange">
@@ -132,8 +150,8 @@
             </picker>
           </view>
           <view class="actions">
-            <button size="mini" type="primary" :loading="binding" @tap="confirmBind">绑定并入库</button>
-            <button size="mini" @tap="confirmBind(false)">仅绑定</button>
+            <button size="mini" type="primary" :loading="binding" @tap="confirmBind">确认绑定</button>
+            <button size="mini" @tap="openBindEdit">修改</button>
           </view>
           <view class="hint">若条码不在库中，可先绑定对应商品与包装层级。</view>
         </view>
@@ -167,6 +185,7 @@ export default {
       bindKeyword: '',
       bindProductId: '',
       bindLevel: 'BOX',
+      pendingBindAfterEdit: false,
       binding: false,
       barcodeLevels: ['BOX', 'UNIT', 'PIECE']
     }
@@ -174,6 +193,9 @@ export default {
   computed: {
     isOwner() {
       return isOwner(this.role)
+    },
+    bindSelectedItem() {
+      return this.formItems.find(item => item.product_id === this.bindProductId) || null
     },
     stats() {
       let total = 0
@@ -220,11 +242,31 @@ export default {
   onUnload() {
     this.persistDraft()
   },
-  onShow() {
+  async onShow() {
     this.role = getRole()
     if (!this.isOwner) {
       uni.showToast({ title: '仅老板可入库', icon: 'none' })
       uni.navigateBack()
+      return
+    }
+    const dirtyKey = this.orderId ? `purchase:items_dirty:${this.orderId}` : ''
+    let hasDirty = false
+    if (dirtyKey) {
+      try {
+        hasDirty = !!uni.getStorageSync(dirtyKey)
+        if (hasDirty) {
+          uni.removeStorageSync(dirtyKey)
+        }
+      } catch (e) {
+        hasDirty = false
+      }
+    }
+    if (hasDirty) {
+      await this.fetchOrder()
+      if (this.pendingBindAfterEdit && this.showBindDialog) {
+        this.pendingBindAfterEdit = false
+        await this.confirmBind()
+      }
       return
     }
     if (this.skipNextFetch && this.order) {
@@ -488,12 +530,14 @@ export default {
       const first = this.formItems[0]
       this.bindProductId = first ? first.product_id : ''
       this.bindLevel = 'BOX'
+      this.pendingBindAfterEdit = false
       this.showBindDialog = true
     },
     closeBindDialog() {
       this.showBindDialog = false
       this.bindBarcode = ''
       this.binding = false
+      this.pendingBindAfterEdit = false
     },
     onBindProductChange(e) {
       const idx = Number(e.detail.value) || 0
@@ -507,12 +551,26 @@ export default {
       const idx = Number(e.detail.value) || 0
       this.bindLevel = this.barcodeLevels[idx] || 'BOX'
     },
-    async confirmBind(withReceive = true) {
-      if (typeof withReceive !== 'boolean') {
-        withReceive = true
+    openBindEdit() {
+      const item = this.bindSelectedItem
+      if (!item || !item.id) {
+        uni.showToast({ title: '未找到订单明细', icon: 'none' })
+        return
       }
+      this.pendingBindAfterEdit = true
+      const orderId = this.orderId || ''
+      uni.navigateTo({
+        url: `/pages/purchase/item_edit?order_id=${encodeURIComponent(orderId)}&item_id=${encodeURIComponent(item.id)}`
+      })
+    },
+    async confirmBind() {
       if (!this.bindBarcode || !this.bindProductId) {
         uni.showToast({ title: '请选择商品', icon: 'none' })
+        return
+      }
+      if (!this.bindSelectedItem) {
+        uni.showToast({ title: '订单商品已变更', icon: 'none' })
+        this.pendingBindAfterEdit = false
         return
       }
       this.binding = true
@@ -521,15 +579,6 @@ export default {
           barcode: this.bindBarcode,
           level: this.bindLevel
         })
-        if (withReceive) {
-          const target = this.formItems.find(item => item.product_id === this.bindProductId)
-          if (target) {
-            const product = this.productMap[target.product_id]
-            const perBox = this.itemPiecesPerBox(target, product)
-            const deltaUnits = this.barcodeUnitsForLevel(target, product, this.bindLevel)
-            this.applyReceivedUnits(target, perBox, deltaUnits)
-          }
-        }
         uni.showToast({ title: '已绑定', icon: 'success' })
         this.closeBindDialog()
       } catch (err) {
@@ -537,6 +586,7 @@ export default {
         uni.showToast({ title: msg, icon: 'none' })
       } finally {
         this.binding = false
+        this.pendingBindAfterEdit = false
       }
     },
     async fetchOrder() {
@@ -924,5 +974,37 @@ export default {
   display: flex;
   gap: 12rpx;
   margin-top: 6rpx;
+}
+
+.bind-info-card {
+  background: #f8fafc;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin: 16rpx 0;
+  border: 1rpx solid #e2e8f0;
+}
+
+.bind-info-grid {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.bind-info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.bind-info-item .label {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-bottom: 4rpx;
+}
+
+.bind-info-item .value {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #0f172a;
 }
 </style>
