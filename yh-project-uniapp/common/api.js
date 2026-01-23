@@ -200,6 +200,58 @@ export const api = {
       data: payload
     })
   },
+  listShareholders({ activeOnly = true } = {}) {
+    return request(`/api/shareholders?active_only=${activeOnly ? 'true' : 'false'}`)
+  },
+  createShareholder(payload) {
+    return request('/api/shareholders', {
+      method: 'POST',
+      data: payload
+    })
+  },
+  updateShareholder(id, payload) {
+    if (!id) return Promise.reject({ message: 'missing shareholder id' })
+    return request(`/api/shareholders/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      data: payload
+    })
+  },
+  getShareholderSummary({ startDate = '', endDate = '', profitBasis = 'net' } = {}) {
+    const params = []
+    if (startDate) params.push(`start_date=${encodeURIComponent(startDate)}`)
+    if (endDate) params.push(`end_date=${encodeURIComponent(endDate)}`)
+    if (profitBasis) params.push(`profit_basis=${encodeURIComponent(profitBasis)}`)
+    const qs = params.length ? `?${params.join('&')}` : ''
+    return request(`/api/shareholders/summary${qs}`)
+  },
+  createShareholderCapital(payload) {
+    return request('/api/shareholders/capital', {
+      method: 'POST',
+      data: payload
+    })
+  },
+  listShareholderCapital({ shareholderId = '', startDate = '', endDate = '' } = {}) {
+    const params = []
+    if (shareholderId) params.push(`shareholder_id=${encodeURIComponent(shareholderId)}`)
+    if (startDate) params.push(`start_date=${encodeURIComponent(startDate)}`)
+    if (endDate) params.push(`end_date=${encodeURIComponent(endDate)}`)
+    const qs = params.length ? `?${params.join('&')}` : ''
+    return request(`/api/shareholders/capital${qs}`)
+  },
+  createShareholderDistribution(payload) {
+    return request('/api/shareholders/distribution', {
+      method: 'POST',
+      data: payload
+    })
+  },
+  listShareholderDistributions({ shareholderId = '', startDate = '', endDate = '' } = {}) {
+    const params = []
+    if (shareholderId) params.push(`shareholder_id=${encodeURIComponent(shareholderId)}`)
+    if (startDate) params.push(`start_date=${encodeURIComponent(startDate)}`)
+    if (endDate) params.push(`end_date=${encodeURIComponent(endDate)}`)
+    const qs = params.length ? `?${params.join('&')}` : ''
+    return request(`/api/shareholders/distribution${qs}`)
+  },
   getInventoryBreakdown() {
     return request('/api/dashboard/inventory_breakdown')
   },

@@ -35,7 +35,9 @@ class Category(Base):
     retail_multiplier_min: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     retail_multiplier_max: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     is_custom: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     products: Mapped[list["Product"]] = relationship(back_populates="category")
 
@@ -45,7 +47,9 @@ class Product(Base):
 
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
     name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
-    category_id: Mapped[str | None] = mapped_column(sa.String(64), sa.ForeignKey("category.id"), nullable=True)
+    category_id: Mapped[str | None] = mapped_column(
+        sa.String(64), sa.ForeignKey("category.id"), nullable=True
+    )
     spec: Mapped[str] = mapped_column(sa.String(200), nullable=True)
     units_per_box: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
     pieces_per_unit: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
@@ -58,26 +62,42 @@ class Product(Base):
     video_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
     effect_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
     barcode: Mapped[str | None] = mapped_column(sa.String(200), nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     category: Mapped[Category | None] = relationship(back_populates="products")
-    aliases: Mapped[list["ProductAlias"]] = relationship(back_populates="product", cascade="all, delete-orphan")
-    barcodes: Mapped[list["ProductBarcode"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    aliases: Mapped[list["ProductAlias"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan"
+    )
+    barcodes: Mapped[list["ProductBarcode"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan"
+    )
 
 
 class ProductCategory(Base):
     __tablename__ = "product_category"
-    __table_args__ = (sa.PrimaryKeyConstraint("product_id", "category_id", name="product_category_pk"),)
+    __table_args__ = (
+        sa.PrimaryKeyConstraint(
+            "product_id", "category_id", name="product_category_pk"
+        ),
+    )
 
-    product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
-    category_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("category.id"), nullable=False)
+    product_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("product.id"), nullable=False
+    )
+    category_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("category.id"), nullable=False
+    )
 
 
 class ProductAlias(Base):
     __tablename__ = "product_alias"
 
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
-    product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
+    product_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("product.id"), nullable=False
+    )
     alias_name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
 
     product: Mapped[Product] = relationship(back_populates="aliases")
@@ -87,7 +107,9 @@ class ProductBarcode(Base):
     __tablename__ = "product_barcode"
 
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
-    product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
+    product_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("product.id"), nullable=False
+    )
     barcode: Mapped[str] = mapped_column(sa.String(200), nullable=False, unique=True)
     level: Mapped[str] = mapped_column(sa.String(10), nullable=False, default="PIECE")
 
@@ -112,21 +134,33 @@ class Warehouse(Base):
 
 class Inventory(Base):
     __tablename__ = "inventory"
-    __table_args__ = (sa.PrimaryKeyConstraint("product_id", "warehouse_id", name="inventory_pk"),)
+    __table_args__ = (
+        sa.PrimaryKeyConstraint("product_id", "warehouse_id", name="inventory_pk"),
+    )
 
-    product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
-    warehouse_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("warehouse.id"), nullable=False, default="default")
+    product_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("product.id"), nullable=False
+    )
+    warehouse_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("warehouse.id"), nullable=False, default="default"
+    )
     current_stock: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     loose_units: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
 
 class InventoryLog(Base):
     __tablename__ = "inventory_log"
 
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
-    product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
-    warehouse_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("warehouse.id"), nullable=False, default="default")
+    product_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("product.id"), nullable=False
+    )
+    warehouse_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("warehouse.id"), nullable=False, default="default"
+    )
     change_date: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
     change_qty: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     type: Mapped[str] = mapped_column(sa.String(50), nullable=False)
@@ -144,15 +178,21 @@ class PurchaseOrder(Base):
     remark: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
     created_by: Mapped[str] = mapped_column(sa.String(64), nullable=False)
 
-    items: Mapped[list["PurchaseItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+    items: Mapped[list["PurchaseItem"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan"
+    )
 
 
 class PurchaseItem(Base):
     __tablename__ = "purchase_item"
 
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
-    purchase_order_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("purchase_order.id"), nullable=False)
-    product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
+    purchase_order_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("purchase_order.id"), nullable=False
+    )
+    product_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("product.id"), nullable=False
+    )
     quantity: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     expected_cost: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
     received_qty: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
@@ -167,7 +207,9 @@ class InventoryImportJob(Base):
 
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
     file_name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
-    status: Mapped[str] = mapped_column(sa.String(20), nullable=False, default="pending")
+    status: Mapped[str] = mapped_column(
+        sa.String(20), nullable=False, default="pending"
+    )
     total_rows: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     success_rows: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     error_rows: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
@@ -180,18 +222,26 @@ class SalesOrder(Base):
 
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
     order_date: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
-    total_actual_amount: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
+    total_actual_amount: Mapped[float] = mapped_column(
+        sa.Float, nullable=False, default=0
+    )
     created_by: Mapped[str] = mapped_column(sa.String(64), nullable=False)
 
-    items: Mapped[list["SalesItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+    items: Mapped[list["SalesItem"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan"
+    )
 
 
 class SalesItem(Base):
     __tablename__ = "sales_item"
 
     id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
-    order_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("sales_order.id"), nullable=False)
-    product_id: Mapped[str] = mapped_column(sa.String(64), sa.ForeignKey("product.id"), nullable=False)
+    order_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("sales_order.id"), nullable=False
+    )
+    product_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("product.id"), nullable=False
+    )
     quantity: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     snapshot_cost: Mapped[float] = mapped_column(sa.Float, nullable=False)
     snapshot_standard_price: Mapped[float] = mapped_column(sa.Float, nullable=False)
@@ -210,3 +260,44 @@ class MiscCost(Base):
     amount: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
     created_by: Mapped[str | None] = mapped_column(sa.String(64), nullable=True)
+
+
+class Shareholder(Base):
+    __tablename__ = "shareholder"
+
+    id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
+    name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    share_ratio: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
+    role: Mapped[str | None] = mapped_column(sa.String(50), nullable=True)
+    note: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
+    is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class ShareholderCapital(Base):
+    __tablename__ = "shareholder_capital"
+
+    id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
+    shareholder_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("shareholder.id"), nullable=False
+    )
+    amount: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
+    memo: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
+    biz_date: Mapped[date] = mapped_column(sa.Date, nullable=False, default=date.today)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
+
+
+class ShareholderDistribution(Base):
+    __tablename__ = "shareholder_distribution"
+
+    id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
+    shareholder_id: Mapped[str] = mapped_column(
+        sa.String(64), sa.ForeignKey("shareholder.id"), nullable=False
+    )
+    amount: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
+    memo: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
+    biz_date: Mapped[date] = mapped_column(sa.Date, nullable=False, default=date.today)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)

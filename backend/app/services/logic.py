@@ -63,6 +63,16 @@ from app.services.logic_sales import (
     record_alias_if_new,
     sales_rankings,
 )
+from app.services.logic_shareholder import (
+    create_capital,
+    create_distribution,
+    create_shareholder,
+    list_capital,
+    list_distributions,
+    list_shareholders,
+    shareholder_summary,
+    update_shareholder,
+)
 from app.services.logic_system import (
     DEFAULT_GLOBAL_MAX,
     DEFAULT_GLOBAL_MIN,
@@ -164,6 +174,14 @@ __all__ = [
     "split_stock",
     "total_purchase_cost",
     "total_receipts",
+    "list_shareholders",
+    "create_shareholder",
+    "update_shareholder",
+    "create_capital",
+    "create_distribution",
+    "list_capital",
+    "list_distributions",
+    "shareholder_summary",
     "update_misc_cost",
     "update_product",
     "update_purchase_order",

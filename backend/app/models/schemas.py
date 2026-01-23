@@ -467,3 +467,91 @@ class MiscCostUpdate(BaseModel):
     quantity: Optional[float] = None
     amount: Optional[float] = None
     created_by: Optional[str] = None
+
+
+class ShareholderBase(BaseModel):
+    name: str
+    share_ratio: float = 0
+    role: Optional[str] = None
+    note: Optional[str] = None
+    is_active: bool = True
+
+
+class ShareholderCreate(ShareholderBase):
+    pass
+
+
+class ShareholderUpdate(BaseModel):
+    name: Optional[str] = None
+    share_ratio: Optional[float] = None
+    role: Optional[str] = None
+    note: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class Shareholder(ORMBase, ShareholderBase):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ShareholderCapitalCreate(BaseModel):
+    shareholder_id: str
+    amount: float
+    memo: Optional[str] = None
+    biz_date: Optional[date] = None
+
+
+class ShareholderCapital(ORMBase):
+    id: str
+    shareholder_id: str
+    amount: float
+    memo: Optional[str] = None
+    biz_date: date
+    created_at: datetime
+
+
+class ShareholderDistributionCreate(BaseModel):
+    shareholder_id: str
+    amount: float
+    memo: Optional[str] = None
+    biz_date: Optional[date] = None
+
+
+class ShareholderDistribution(ORMBase):
+    id: str
+    shareholder_id: str
+    amount: float
+    memo: Optional[str] = None
+    biz_date: date
+    created_at: datetime
+
+
+class ShareholderSummaryItem(BaseModel):
+    shareholder_id: str
+    name: str
+    role: Optional[str] = None
+    note: Optional[str] = None
+    is_active: bool = True
+    share_ratio: float
+    effective_ratio: float
+    profit_basis: float
+    distributable: float
+    contributed: float
+    distributed: float
+    balance: float
+    need_topup: float
+    can_distribute: float
+
+
+class ShareholderSummaryResponse(BaseModel):
+    profit_basis: Literal["net", "gross"]
+    actual_sales: float
+    cost_total: float
+    gross_profit: float
+    misc_total: float
+    net_profit: float
+    distributable_total: float
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    items: list[ShareholderSummaryItem]

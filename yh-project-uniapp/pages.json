@@ -128,6 +128,12 @@
       }
     },
     {
+      "path": "pages/shareholders/manage",
+      "style": {
+        "navigationBarTitleText": "股东管理"
+      }
+    },
+    {
       "path": "pages/categories/quick-assign",
       "style": {
         "navigationBarTitleText": "快速分类"
@@ -143,6 +149,12 @@
       "path": "pages/costs/misc",
       "style": {
         "navigationBarTitleText": "杂项成本"
+      }
+    },
+    {
+      "path": "pages/shareholders/manage",
+      "style": {
+        "navigationBarTitleText": "股东管理"
       }
     },
     {

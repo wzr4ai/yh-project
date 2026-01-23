@@ -100,9 +100,17 @@
           <view class="action-title">分类管理</view>
           <view class="action-desc">增删改查分类</view>
         </view>
+        <view class="action" @tap="go('/pages/shareholders/manage')" v-if="isOwner">
+          <view class="action-title">股东管理</view>
+          <view class="action-desc">入资、分红与记录</view>
+        </view>
         <view class="action" v-if="isOwner" @tap="go('/pages/costs/misc')">
           <view class="action-title">杂项成本</view>
           <view class="action-desc">记录运输、耗材等费用</view>
+        </view>
+        <view class="action" v-if="isOwner" @tap="go('/pages/shareholders/manage')">
+          <view class="action-title">股东管理</view>
+          <view class="action-desc">入资、分红与记录</view>
         </view>
         <view class="action" @tap="go('/pages/products/list')">
           <view class="action-title">商品目录</view>

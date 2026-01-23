@@ -1,6 +1,23 @@
 from fastapi import APIRouter
 
-from . import auth, categories, dashboard, exports, imports, inventory, llm, media, misc_costs, orders, pricing, products, purchases, sales, system
+from . import (
+    auth,
+    categories,
+    dashboard,
+    exports,
+    imports,
+    inventory,
+    llm,
+    media,
+    misc_costs,
+    orders,
+    pricing,
+    products,
+    purchases,
+    sales,
+    shareholders,
+    system,
+)
 
 router = APIRouter(prefix="/api")
 
@@ -19,3 +36,4 @@ router.include_router(dashboard.router)
 router.include_router(system.router)
 router.include_router(exports.router)
 router.include_router(media.router)
+router.include_router(shareholders.router)
