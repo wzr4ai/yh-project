@@ -133,6 +133,10 @@
 
     <view v-if="activeTab === 'ai'" class="card">
       <view class="card-title">AI 经营分析</view>
+      <view class="ai-toggle">
+        <view :class="['pill', aiInsightType === 'morning' ? '' : 'muted']" @tap="setAiInsightType('morning')">展望/计划</view>
+        <view :class="['pill', aiInsightType === 'evening' ? '' : 'muted']" @tap="setAiInsightType('evening')">今日总结</view>
+      </view>
       <view class="ai-panel">
         <view v-if="aiLoading" class="empty">加载中...</view>
         <rich-text v-else :nodes="aiAnalysisNodes || '<div>暂无分析结果</div>'" class="ai-text" />
@@ -167,6 +171,7 @@ export default {
       pricingAnalysis: {},
       aiAnalysis: '',
       aiLoading: false,
+      aiInsightType: 'evening',
       rankings: {
         top_sales: [],
         top_margin: []
@@ -212,6 +217,11 @@ export default {
     }
   },
   methods: {
+    setAiInsightType(type) {
+      if (!type || type === this.aiInsightType) return
+      this.aiInsightType = type
+      this.fetchAiAnalysis()
+    },
     setTab(tab) {
       if (!tab || tab === this.activeTab) return
       this.activeTab = tab
@@ -286,7 +296,7 @@ export default {
       if (this.aiLoading) return
       this.aiLoading = true
       try {
-        const res = await api.getDashboardInsightLatest('evening')
+        const res = await api.getDashboardInsightLatest(this.aiInsightType)
         this.aiAnalysis = res?.content || ''
       } catch (err) {
         this.aiAnalysis = ''
@@ -426,6 +436,13 @@ export default {
 
 .ai-panel {
   margin-top: 10rpx;
+}
+
+.ai-toggle {
+  display: flex;
+  gap: 10rpx;
+  margin-top: 10rpx;
+  flex-wrap: wrap;
 }
 
 .ai-text {

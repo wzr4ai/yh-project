@@ -387,6 +387,29 @@ export default {
         this.aiLoading = false
       }
     },
+    getTodayDate() {
+      const now = new Date()
+      const y = now.getFullYear()
+      const m = String(now.getMonth() + 1).padStart(2, '0')
+      const d = String(now.getDate()).padStart(2, '0')
+      return `${y}-${m}-${d}`
+    },
+    async confirmInsightOverwrite(type) {
+      try {
+        const date = this.getTodayDate()
+        await api.getDashboardInsight({ type, date })
+        return new Promise((resolve) => {
+          uni.showModal({
+            title: '确认生成',
+            content: '今天的洞察已存在，是否覆盖？',
+            success: (res) => resolve(!!res.confirm),
+            fail: () => resolve(false)
+          })
+        })
+      } catch (err) {
+        return true
+      }
+    },
     toggleAiInsight() {
       if (!this.aiSummary) return
       this.aiExpanded = !this.aiExpanded
@@ -395,6 +418,8 @@ export default {
       if (!this.isOwner || this.aiLoading) return
       this.aiLoading = true
       try {
+        const ok = await this.confirmInsightOverwrite('morning')
+        if (!ok) return
         await api.generateDashboardInsight({
           insight_type: 'morning',
           model_tier: 'low',
@@ -411,6 +436,8 @@ export default {
       if (!this.isOwner || this.aiLoading) return
       this.aiLoading = true
       try {
+        const ok = await this.confirmInsightOverwrite('evening')
+        if (!ok) return
         await api.generateDashboardInsight({
           insight_type: 'evening',
           model_tier: 'low',
