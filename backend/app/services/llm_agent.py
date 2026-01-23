@@ -1,6 +1,7 @@
 import json
 import os
 import textwrap
+from copy import deepcopy
 from typing import Dict, List, Tuple, Any, Literal, cast
 
 import sqlalchemy as sa
@@ -183,7 +184,10 @@ async def _chat_dashboard_report(
     temperature: float = 0.4,
     max_output_tokens: int = 2048,
 ) -> schemas.LLMChatResponse:
-    report_json = json.dumps(report, ensure_ascii=False)
+    report_payload = report
+    if os.getenv("LLM_MOCK_DASHBOARD") == "1":
+        report_payload = _inject_mock_dashboard(report)
+    report_json = json.dumps(report_payload, ensure_ascii=False)
     user_prompt = f"分析报告 JSON：\n{report_json}\n\n请给出分析建议："
 
     provider_val = (provider or "gemini").lower()
@@ -243,6 +247,8 @@ async def analyze_dashboard_report(
         """
         你是烟花爆竹门店的经营分析顾问。根据给定的报告 JSON 输出可执行的分析建议。
         行业特征：春节前后20天集中爆发，除夕+初一占比高，正月十五后几乎无销量。
+        安全与合规：不得推荐任何危险品或火种（如打火机、火柴、点火器）。
+        商品范围：只能提及报告中出现的商品名称，不得臆造或推荐不存在的商品。
         目标：帮助店主制定销售方式、促销、补货与清仓计划，优先关注库存周转与售罄率。
         输出要求：
         - 使用中文，输出结构化段落（标题 + 要点）。
@@ -274,6 +280,92 @@ async def analyze_dashboard_report(
         temperature=0.4,
         max_output_tokens=2048,
     )
+
+
+def _inject_mock_dashboard(report: Dict[str, Any]) -> Dict[str, Any]:
+    payload = deepcopy(report)
+    sales = payload.get("sales") or {}
+    inventory = payload.get("inventory") or {}
+    sales_items = (sales.get("all_time") or {}).get("items") or []
+    inv_items = inventory.get("current_stock") or []
+    if sales_items or inv_items:
+        return payload
+
+    mock_sales_items = [
+        {
+            "product_id": "mock-1",
+            "name": "迎春礼花(中)",
+            "quantity": 12,
+            "sales_amount": 1800,
+            "cost_amount": 900,
+            "profit_amount": 900,
+            "profit_margin": 50.0,
+            "standard_amount": 1920,
+            "price_diff": -120,
+            "discount_rate": -6.25,
+            "avg_price": 150,
+            "avg_cost": 75,
+        },
+        {
+            "product_id": "mock-2",
+            "name": "好运鞭炮(小)",
+            "quantity": 40,
+            "sales_amount": 1200,
+            "cost_amount": 560,
+            "profit_amount": 640,
+            "profit_margin": 53.3,
+            "standard_amount": 1280,
+            "price_diff": -80,
+            "discount_rate": -6.25,
+            "avg_price": 30,
+            "avg_cost": 14,
+        },
+    ]
+    mock_inventory_items = [
+        {
+            "product_id": "mock-1",
+            "name": "迎春礼花(中)",
+            "spec": "10发",
+            "base_cost_price": 75,
+            "box_cost_price": 750,
+            "units_per_box": 10,
+            "pieces_per_unit": 1,
+            "stock_units": 30,
+            "box_count": 3,
+            "loose_count": 0,
+            "cost_total": 2250,
+        },
+        {
+            "product_id": "mock-2",
+            "name": "好运鞭炮(小)",
+            "spec": "2000响",
+            "base_cost_price": 14,
+            "box_cost_price": 280,
+            "units_per_box": 20,
+            "pieces_per_unit": 1,
+            "stock_units": 100,
+            "box_count": 5,
+            "loose_count": 0,
+            "cost_total": 1400,
+        },
+    ]
+    payload.setdefault("sales", {})
+    payload["sales"].setdefault("all_time", {})
+    payload["sales"]["all_time"]["items"] = mock_sales_items
+    payload["sales"]["all_time"].setdefault(
+        "totals",
+        {
+            "sales_amount": 3000,
+            "cost_amount": 1460,
+            "quantity": 52,
+            "profit_margin": 51.3,
+        },
+    )
+    payload.setdefault("inventory", {})
+    payload["inventory"]["current_stock"] = mock_inventory_items
+    payload["inventory"].setdefault("summary", {})
+    payload["inventory"]["summary"].setdefault("sku_count", 2)
+    return payload
 
 
 async def analyze_dashboard_restock_advice(
@@ -323,6 +415,8 @@ async def analyze_dashboard_daily_summary(
         3) 风险/预警（3条内）
         4) 明日关注点（3条内）
         要求：短句、具体、引用数字。
+        安全与合规：不得推荐任何危险品或火种（如打火机、火柴、点火器）。
+        商品范围：只能提及报告中出现的商品名称，不得臆造或推荐不存在的商品。
         输出格式：HTML，使用 <div><h3><ul><li> 等基础标签，不要 Markdown。
         """
     ).strip()
@@ -356,6 +450,8 @@ async def analyze_dashboard_morning_plan(
         4) 定价/促销策略（3条内）
         5) 风险预警（2条内）
         要求：短句、具体、引用数字。
+        安全与合规：不得推荐任何危险品或火种（如打火机、火柴、点火器）。
+        商品范围：只能提及报告中出现的商品名称，不得臆造或推荐不存在的商品。
         输出格式：HTML，使用 <div><h3><ul><li> 等基础标签，不要 Markdown。
         """
     ).strip()
@@ -386,6 +482,8 @@ async def analyze_dashboard_clearance_plan(
         - 重点针对 dead_stock / slow_movers / clearance_candidates。
         - 输出商品名、当前库存、建议折扣范围、推荐促销方式。
         - 当数据不足时直说“数据不足”。
+        安全与合规：不得推荐任何危险品或火种（如打火机、火柴、点火器）。
+        商品范围：只能提及报告中出现的商品名称，不得臆造或推荐不存在的商品。
         """
     ).strip()
     return await _chat_dashboard_report(
