@@ -135,7 +135,7 @@
       <view class="card-title">AI 经营分析</view>
       <view class="ai-panel">
         <view v-if="aiLoading" class="empty">加载中...</view>
-        <view v-else class="ai-text">{{ aiAnalysis || '暂无分析结果' }}</view>
+        <rich-text v-else :nodes="aiAnalysisNodes || '<div>暂无分析结果</div>'" class="ai-text" />
       </view>
       <view class="ai-actions" v-if="isOwner">
         <view class="pill" @tap="fetchAiAnalysis">重新分析</view>
@@ -191,6 +191,12 @@ export default {
     },
     promoList() {
       return (this.rankings.top_sales || []).filter(item => Number(item.profit_margin || 0) <= LOW_MARGIN_THRESHOLD)
+    },
+    aiAnalysisNodes() {
+      if (!this.aiAnalysis) return ''
+      const content = String(this.aiAnalysis)
+      if (content.includes('<') && content.includes('>')) return content
+      return `<div>${content.replace(/\n/g, '<br/>')}</div>`
     }
   },
   onLoad(options) {
@@ -280,7 +286,7 @@ export default {
       if (this.aiLoading) return
       this.aiLoading = true
       try {
-        const res = await api.getDashboardInsightLatest()
+        const res = await api.getDashboardInsightLatest('evening')
         this.aiAnalysis = res?.content || ''
       } catch (err) {
         this.aiAnalysis = ''

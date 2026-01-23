@@ -110,9 +110,13 @@
       <view class="card" @tap="openAnalysis">
         <view class="card-title">AI 洞察</view>
         <view class="ai-text" v-if="aiLoading">加载中...</view>
-        <view class="ai-text" v-else>{{ aiSummary || '暂无分析' }}</view>
+        <view class="ai-text" v-else>
+          <view class="ai-line" @tap.stop="toggleAiInsight">{{ aiSummaryLine || '暂无分析' }}</view>
+          <view v-if="aiExpanded" class="ai-full">{{ aiSummary }}</view>
+        </view>
         <view class="ai-actions">
-          <view class="pill" @tap.stop="generateAiInsight">手动生成</view>
+          <view class="pill" @tap.stop="generateAiPlan">生成计划</view>
+          <view class="pill" @tap.stop="generateAiSummary">生成总结</view>
         </view>
         <view class="card-sub">点击查看完整分析</view>
       </view>
@@ -209,6 +213,7 @@ export default {
       },
       aiSummary: '',
       aiLoading: false,
+      aiExpanded: false,
       loading: false
     }
   },
@@ -263,6 +268,14 @@ export default {
         dead: this.inventoryHealth.dead_stock?.count || 0,
         avgDays: this.inventoryHealth.avg_turnover_days
       }
+    },
+    aiSummaryLine() {
+      if (!this.aiSummary) return ''
+      const plain = this.aiSummary.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+      if (!plain) return ''
+      const match = plain.split(/。|！|!|\?|？/).filter(Boolean)
+      if (match.length) return `${match[0]}。`
+      return plain
     }
   },
   onShow() {
@@ -367,18 +380,39 @@ export default {
       try {
         const res = await api.getDashboardInsightLatest('morning')
         this.aiSummary = res?.content || ''
+        this.aiExpanded = false
       } catch (err) {
         this.aiSummary = ''
       } finally {
         this.aiLoading = false
       }
     },
-    async generateAiInsight() {
+    toggleAiInsight() {
+      if (!this.aiSummary) return
+      this.aiExpanded = !this.aiExpanded
+    },
+    async generateAiPlan() {
       if (!this.isOwner || this.aiLoading) return
       this.aiLoading = true
       try {
         await api.generateDashboardInsight({
           insight_type: 'morning',
+          model_tier: 'low',
+          force: true
+        })
+        await this.fetchAiSummary()
+      } catch (err) {
+        uni.showToast({ title: '生成失败', icon: 'none' })
+      } finally {
+        this.aiLoading = false
+      }
+    },
+    async generateAiSummary() {
+      if (!this.isOwner || this.aiLoading) return
+      this.aiLoading = true
+      try {
+        await api.generateDashboardInsight({
+          insight_type: 'evening',
           model_tier: 'low',
           force: true
         })
@@ -576,6 +610,9 @@ export default {
 
 .ai-actions {
   margin-top: 10rpx;
+  display: flex;
+  gap: 10rpx;
+  flex-wrap: wrap;
 }
 
 .ai-text {
@@ -584,6 +621,17 @@ export default {
   color: #374151;
   line-height: 1.6;
   min-height: 72rpx;
+}
+
+.ai-line {
+  font-weight: 600;
+  color: #0b1f3a;
+}
+
+.ai-full {
+  margin-top: 8rpx;
+  color: #374151;
+  font-weight: 400;
 }
 
 .pill {

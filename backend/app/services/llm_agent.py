@@ -323,6 +323,7 @@ async def analyze_dashboard_daily_summary(
         3) 风险/预警（3条内）
         4) 明日关注点（3条内）
         要求：短句、具体、引用数字。
+        输出格式：HTML，使用 <div><h3><ul><li> 等基础标签，不要 Markdown。
         """
     ).strip()
     return await _chat_dashboard_report(
@@ -355,6 +356,7 @@ async def analyze_dashboard_morning_plan(
         4) 定价/促销策略（3条内）
         5) 风险预警（2条内）
         要求：短句、具体、引用数字。
+        输出格式：HTML，使用 <div><h3><ul><li> 等基础标签，不要 Markdown。
         """
     ).strip()
     return await _chat_dashboard_report(
