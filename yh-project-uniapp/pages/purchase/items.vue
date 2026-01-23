@@ -1,5 +1,20 @@
 <template>
   <view class="page">
+    <view class="toolbar">
+      <view class="search-bar">
+        <input
+          class="search-input"
+          type="text"
+          v-model="keyword"
+          placeholder="搜索名称/规格/ID"
+          confirm-type="search"
+          @confirm="doSearch"
+        />
+        <button class="btn-search" size="mini" @tap="doSearch">搜索</button>
+        <button class="btn-clear" size="mini" v-if="keyword" @tap="clearSearch">清除</button>
+      </view>
+    </view>
+
     <view class="header-card" v-if="order">
       <view class="h-row">
          <text class="h-supplier">{{ order.supplier || '未命名供应商' }}</text>
@@ -61,6 +76,7 @@ export default {
       total: 0,
       hasMore: true,
       loading: false,
+      keyword: '',
       role: getRole()
     }
   },
@@ -101,6 +117,13 @@ export default {
     formatNum(n) {
       return Number(n).toFixed(2).replace(/\.00$/, '')
     },
+    doSearch() {
+      this.loadItems(true)
+    },
+    clearSearch() {
+      this.keyword = ''
+      this.loadItems(true)
+    },
     async loadOrder() {
       try {
         this.order = await api.getPurchaseOrder(this.orderId)
@@ -119,7 +142,11 @@ export default {
       }
       
       try {
-        const data = await api.getPurchaseOrderItems(this.orderId, { offset: this.offset, limit: this.limit })
+        const data = await api.getPurchaseOrderItems(this.orderId, { 
+          offset: this.offset, 
+          limit: this.limit,
+          keyword: this.keyword
+        })
         const list = (data && data.items) || []
         this.total = Number(data && data.total) || 0
         if (reset) {
@@ -151,6 +178,44 @@ export default {
   background: #f1f5f9;
   padding: 24rpx;
 }
+
+.toolbar {
+  margin-bottom: 24rpx;
+}
+.search-bar {
+  display: flex;
+  gap: 12rpx;
+  align-items: center;
+}
+.search-input {
+  flex: 1;
+  background: #fff;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+  font-size: 28rpx;
+  color: #1e293b;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.02);
+}
+.btn-search {
+  background: #0f6a7b;
+  color: #fff;
+  border: none;
+  font-size: 26rpx;
+  padding: 0 24rpx;
+  line-height: 2.3;
+  border-radius: 12rpx;
+}
+.btn-clear {
+  background: #e2e8f0;
+  color: #64748b;
+  border: none;
+  font-size: 26rpx;
+  padding: 0 20rpx;
+  line-height: 2.3;
+  border-radius: 12rpx;
+}
+
 .header-card {
   background: #fff;
   padding: 24rpx;

@@ -116,9 +116,13 @@
             <view class="value">{{ bindBarcode }}</view>
           </view>
           <view class="bind-row">
+            <view class="label">搜索</view>
+            <input class="input" style="text-align:right" v-model="bindKeyword" placeholder="输入名称筛选" />
+          </view>
+          <view class="bind-row">
             <view class="label">商品</view>
-            <picker :range="orderProductNames" :value="bindProductIndex" @change="onBindProductChange">
-              <view class="picker">{{ orderProductNames[bindProductIndex] }}</view>
+            <picker :range="bindProductList" :value="bindProductIndex" @change="onBindProductChange">
+              <view class="picker">{{ bindProductList[bindProductIndex] }}</view>
             </picker>
           </view>
           <view class="bind-row">
@@ -160,6 +164,7 @@ export default {
       matchedProducts: [],
       showBindDialog: false,
       bindBarcode: '',
+      bindKeyword: '',
       bindProductId: '',
       bindLevel: 'BOX',
       binding: false,
@@ -182,16 +187,23 @@ export default {
       const progress = total ? Math.min(100, Math.round((received / total) * 100)) : 0
       return { total, received, progress }
     },
-    orderProductNames() {
-      const names = []
-      for (const item of this.formItems) {
-        names.push(this.productName(item))
-      }
-      return names.length ? names : ['请选择']
+    bindCandidates() {
+      if (!this.bindKeyword) return this.formItems
+      const key = this.bindKeyword.toLowerCase()
+      return this.formItems.filter(item => {
+        const name = this.productName(item)
+        return name && name.toLowerCase().includes(key)
+      })
+    },
+    bindProductList() {
+      const list = this.bindCandidates
+      if (!list.length) return ['(无匹配)']
+      return list.map(item => this.productName(item))
     },
     bindProductIndex() {
-      if (!this.bindProductId) return 0
-      const idx = this.formItems.findIndex(item => item.product_id === this.bindProductId)
+      const list = this.bindCandidates
+      if (!list.length) return 0
+      const idx = list.findIndex(item => item.product_id === this.bindProductId)
       return idx >= 0 ? idx : 0
     },
     bindLevelIndex() {
@@ -472,6 +484,7 @@ export default {
     },
     openBindDialog(code) {
       this.bindBarcode = code
+      this.bindKeyword = ''
       const first = this.formItems[0]
       this.bindProductId = first ? first.product_id : ''
       this.bindLevel = 'BOX'
@@ -484,8 +497,11 @@ export default {
     },
     onBindProductChange(e) {
       const idx = Number(e.detail.value) || 0
-      const item = this.formItems[idx]
-      this.bindProductId = item ? item.product_id : ''
+      const list = this.bindCandidates
+      const item = list[idx]
+      if (item) {
+        this.bindProductId = item.product_id
+      }
     },
     onBindLevelChange(e) {
       const idx = Number(e.detail.value) || 0

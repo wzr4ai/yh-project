@@ -59,10 +59,12 @@ async def list_purchase_order_items(
     po_id: str,
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
+    keyword: str | None = None,
     session: AsyncSession = Depends(get_session),
 ):
+    kw = keyword.strip() if keyword else None
     items, total = await logic.list_purchase_order_items(
-        session, po_id, offset=offset, limit=limit
+        session, po_id, offset=offset, limit=limit, keyword=kw
     )
     return {"items": items, "total": total}
 

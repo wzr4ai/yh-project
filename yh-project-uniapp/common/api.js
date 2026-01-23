@@ -213,10 +213,14 @@ export const api = {
     if (!orderId) return Promise.reject({ message: 'missing order id' })
     return request(`/api/purchase-orders/${encodeURIComponent(orderId)}`)
   },
-  getPurchaseOrderItems(orderId, { offset = 0, limit = 50 } = {}) {
+  getPurchaseOrderItems(orderId, { offset = 0, limit = 50, keyword = '' } = {}) {
     if (!orderId) return Promise.reject({ message: 'missing order id' })
+    const params = []
+    params.push(`offset=${offset}`)
+    params.push(`limit=${limit}`)
+    if (keyword) params.push(`keyword=${encodeURIComponent(keyword)}`)
     return request(
-      `/api/purchase-orders/${encodeURIComponent(orderId)}/items?offset=${offset}&limit=${limit}`
+      `/api/purchase-orders/${encodeURIComponent(orderId)}/items?${params.join('&')}`
     )
   },
   getPurchaseOrderItem(orderId, itemId) {

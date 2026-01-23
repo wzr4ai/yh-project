@@ -56,13 +56,26 @@ async def list_purchase_order_summaries(
 
 
 async def list_purchase_order_items(
-    session: AsyncSession, po_id: str, offset: int = 0, limit: int = 50
+    session: AsyncSession,
+    po_id: str,
+    offset: int = 0,
+    limit: int = 50,
+    keyword: str | None = None,
 ) -> tuple[list[schemas.PurchaseOrderItemRow], int]:
-    total_stmt = (
-        sa.select(sa.func.count())
-        .select_from(PurchaseItem)
-        .where(PurchaseItem.purchase_order_id == po_id)
-    )
+    where_clause = [PurchaseItem.purchase_order_id == po_id]
+    if keyword:
+        like = f"%{keyword}%"
+        where_clause.append(
+            sa.or_(
+                Product.name.ilike(like),
+                Product.spec.ilike(like),
+                PurchaseItem.product_id.ilike(like),
+            )
+        )
+    total_stmt = sa.select(sa.func.count()).select_from(PurchaseItem)
+    if keyword:
+        total_stmt = total_stmt.join(Product, Product.id == PurchaseItem.product_id)
+    total_stmt = total_stmt.where(*where_clause)
     total = int((await session.execute(total_stmt)).scalar() or 0)
     if total == 0:
         return [], 0
@@ -70,7 +83,7 @@ async def list_purchase_order_items(
     stmt = (
         sa.select(PurchaseItem, Product)
         .join(Product, Product.id == PurchaseItem.product_id)
-        .where(PurchaseItem.purchase_order_id == po_id)
+        .where(*where_clause)
         .order_by(PurchaseItem.id)
         .offset(offset)
         .limit(limit)
