@@ -305,6 +305,27 @@ class DashboardAIBasicRequest(BaseModel):
     model: Optional[str] = None
 
 
+DashboardInsightType = Literal["morning", "evening"]
+
+
+class DashboardInsightGenerateRequest(DashboardAIBasicRequest):
+    insight_type: DashboardInsightType = "morning"
+    insight_date: Optional[date] = None
+    force: bool = False
+
+
+class DashboardInsightResponse(BaseModel):
+    id: str
+    insight_date: date
+    insight_type: DashboardInsightType
+    content: str
+    model: Optional[str] = None
+    protocol: Optional[str] = None
+    finish_reason: Optional[str] = None
+    raw_usage: Optional[Dict] = None
+    created_at: datetime
+
+
 class PricingMultiplierConfig(BaseModel):
     min_multiplier: float
     max_multiplier: float

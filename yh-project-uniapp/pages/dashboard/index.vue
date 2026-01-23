@@ -364,9 +364,8 @@ export default {
       if (this.aiLoading) return
       this.aiLoading = true
       try {
-        const res = await api.getDashboardDailySummary({ model_tier: 'low' })
-        const analysis = res?.analysis || ''
-        this.aiSummary = analysis
+        const res = await api.getDashboardInsightLatest('morning')
+        this.aiSummary = res?.content || ''
       } catch (err) {
         this.aiSummary = ''
       } finally {

@@ -156,6 +156,22 @@ export const api = {
       data: payload || {}
     })
   },
+  getDashboardInsight(params) {
+    const qs = params || {}
+    const type = encodeURIComponent(qs.type || 'morning')
+    const date = qs.date ? `&date=${encodeURIComponent(qs.date)}` : ''
+    return request(`/api/dashboard/ai/insights?type=${type}${date}`)
+  },
+  getDashboardInsightLatest(type) {
+    const qs = type ? `?type=${encodeURIComponent(type)}` : ''
+    return request(`/api/dashboard/ai/insights/latest${qs}`)
+  },
+  generateDashboardInsight(payload) {
+    return request('/api/dashboard/ai/insights/generate', {
+      method: 'POST',
+      data: payload || {}
+    })
+  },
   getPricingMultiplier() {
     return request('/api/system/pricing-multiplier')
   },

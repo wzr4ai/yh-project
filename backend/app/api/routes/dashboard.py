@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -216,6 +218,20 @@ async def _run_dashboard_ai_analysis(
     )
 
 
+def _insight_to_response(insight) -> schemas.DashboardInsightResponse:
+    return schemas.DashboardInsightResponse(
+        id=insight.id,
+        insight_date=insight.insight_date,
+        insight_type=insight.insight_type,
+        content=insight.content,
+        model=insight.model,
+        protocol=insight.protocol,
+        finish_reason=insight.finish_reason,
+        raw_usage=insight.raw_usage,
+        created_at=insight.created_at,
+    )
+
+
 @router.post(
     "/dashboard/report/analysis", response_model=schemas.DashboardReportLLMResponse
 )
@@ -286,3 +302,84 @@ async def dashboard_ai_clearance_plan(
     return await _run_dashboard_ai_analysis(
         session, payload, llm_agent.analyze_dashboard_clearance_plan
     )
+
+
+@router.get("/dashboard/ai/insights", response_model=schemas.DashboardInsightResponse)
+async def dashboard_ai_insight(
+    insight_type: schemas.DashboardInsightType,
+    insight_date: date | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    target_date = insight_date or date.today()
+    insight = await logic.get_insight(
+        session, insight_type=insight_type, insight_date=target_date
+    )
+    if not insight:
+        raise HTTPException(status_code=404, detail="not found")
+    return _insight_to_response(insight)
+
+
+@router.get(
+    "/dashboard/ai/insights/latest", response_model=schemas.DashboardInsightResponse
+)
+async def dashboard_ai_insight_latest(
+    insight_type: schemas.DashboardInsightType | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    insight = await logic.get_latest_insight(session, insight_type=insight_type)
+    if not insight:
+        raise HTTPException(status_code=404, detail="not found")
+    return _insight_to_response(insight)
+
+
+@router.post(
+    "/dashboard/ai/insights/generate",
+    response_model=schemas.DashboardInsightResponse,
+)
+async def dashboard_ai_insight_generate(
+    payload: schemas.DashboardInsightGenerateRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(deps.get_current_user),
+):
+    if not current_user or getattr(current_user, "role", None) != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    target_date = payload.insight_date or date.today()
+    if not payload.force:
+        existing = await logic.get_insight(
+            session, insight_type=payload.insight_type, insight_date=target_date
+        )
+        if existing:
+            return _insight_to_response(existing)
+    report = await logic.dashboard_report(session)
+    if payload.insight_type == "morning":
+        llm_resp = await llm_agent.analyze_dashboard_morning_plan(
+            report.report,
+            provider=payload.provider,
+            model_tier=payload.model_tier,
+            model=payload.model,
+        )
+    else:
+        llm_resp = await llm_agent.analyze_dashboard_daily_summary(
+            report.report,
+            provider=payload.provider,
+            model_tier=payload.model_tier,
+            model=payload.model,
+        )
+    insight = await logic.upsert_insight(
+        session,
+        insight_type=payload.insight_type,
+        insight_date=target_date,
+        content=llm_resp.content,
+        model=llm_resp.model,
+        protocol=llm_resp.protocol,
+        finish_reason=llm_resp.finish_reason,
+        raw_usage=llm_resp.raw_usage,
+    )
+    await session.commit()
+    return _insight_to_response(insight)

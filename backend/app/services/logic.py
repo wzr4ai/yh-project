@@ -17,6 +17,11 @@ from app.services.logic_catalog import (
     update_product,
     upsert_category,
 )
+from app.services.logic_ai_insight import (
+    get_insight,
+    get_latest_insight,
+    upsert_insight,
+)
 from app.services.logic_dashboard import (
     _build_sales_rows,
     _inventory_change_summary,
@@ -106,6 +111,8 @@ __all__ = [
     "DEFAULT_GLOBAL_MULTIPLIER",
     "DEFAULT_GLOBAL_MIN",
     "DEFAULT_GLOBAL_MAX",
+    "get_insight",
+    "get_latest_insight",
     "_build_sales_rows",
     "_inventory_change_summary",
     "_mult_range_from_category",
@@ -187,4 +194,5 @@ __all__ = [
     "update_purchase_order",
     "update_purchase_order_item",
     "upsert_category",
+    "upsert_insight",
 ]

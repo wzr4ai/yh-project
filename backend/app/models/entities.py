@@ -26,6 +26,25 @@ class DailyReceipt(Base):
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
 
 
+class DashboardAIInsight(Base):
+    __tablename__ = "dashboard_ai_insight"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "insight_date", "insight_type", name="dashboard_ai_insight_unique"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(sa.String(64), primary_key=True, default=gen_uuid)
+    insight_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    insight_type: Mapped[str] = mapped_column(sa.String(20), nullable=False)
+    content: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    model: Mapped[str | None] = mapped_column(sa.String(120), nullable=True)
+    protocol: Mapped[str | None] = mapped_column(sa.String(20), nullable=True)
+    finish_reason: Mapped[str | None] = mapped_column(sa.String(40), nullable=True)
+    raw_usage: Mapped[dict | None] = mapped_column(sa.JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
+
+
 class Category(Base):
     __tablename__ = "category"
 

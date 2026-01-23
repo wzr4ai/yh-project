@@ -337,6 +337,38 @@ async def analyze_dashboard_daily_summary(
     )
 
 
+async def analyze_dashboard_morning_plan(
+    report: Dict[str, Any],
+    *,
+    provider: str | None = None,
+    model_tier: str | None = None,
+    model: str | None = None,
+    protocol: str | None = None,
+) -> schemas.LLMChatResponse:
+    system_prompt = textwrap.dedent(
+        """
+        你是烟花爆竹门店的经营计划顾问。请输出“今日展望/计划”。
+        输出结构：
+        1) 今日目标（1-2条）
+        2) 重点商品与陈列建议（3条内）
+        3) 补货/库存关注点（3条内）
+        4) 定价/促销策略（3条内）
+        5) 风险预警（2条内）
+        要求：短句、具体、引用数字。
+        """
+    ).strip()
+    return await _chat_dashboard_report(
+        report,
+        system_prompt=system_prompt,
+        provider=provider,
+        model_tier=model_tier,
+        model=model,
+        protocol=protocol,
+        temperature=0.2,
+        max_output_tokens=900,
+    )
+
+
 async def analyze_dashboard_clearance_plan(
     report: Dict[str, Any],
     *,

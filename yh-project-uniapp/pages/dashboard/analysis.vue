@@ -280,8 +280,8 @@ export default {
       if (this.aiLoading) return
       this.aiLoading = true
       try {
-        const res = await api.getDashboardReportAnalysis({ model_tier: 'low' })
-        this.aiAnalysis = res?.analysis || ''
+        const res = await api.getDashboardInsightLatest()
+        this.aiAnalysis = res?.content || ''
       } catch (err) {
         this.aiAnalysis = ''
       } finally {
