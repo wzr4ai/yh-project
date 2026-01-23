@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 import os
+import re
 from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -348,6 +349,30 @@ async def dashboard_report(session: AsyncSession) -> schemas.DashboardReportResp
             season_end = datetime.strptime(season_end_str, "%Y-%m-%d").date()
         except ValueError:
             season_end = None
+
+    seasonality_context = {
+        "business_type": "烟花爆竹销售",
+        "season_window": "2026年2月7日（腊月20）至2026年3月3日（正月15）",
+        "peak_days": ["除夕（2026年2月16日）", "大年初一"],
+        "peak_share_estimate": "除夕+初一约占全年销售额50%",
+        "tail_day_estimate": "正月15约占除夕的20%~25%",
+        "low_period": "正月2-正月14销量偏低",
+        "target": "尽量在正月15前售完或减少存货",
+    }
+
+    if not cny_eve:
+        peak_label = None
+        peak_days = seasonality_context.get("peak_days") or []
+        if peak_days:
+            peak_label = str(peak_days[0])
+        if peak_label:
+            match = re.search(r"(\d{4})年(\d{1,2})月(\d{1,2})日", peak_label)
+            if match:
+                year, month, day = match.groups()
+                try:
+                    cny_eve = date(int(year), int(month), int(day))
+                except ValueError:
+                    cny_eve = None
     sales_today = await _sales_summary(session, target_date=today)
     sales_all = await _sales_summary(session, target_date=None)
 
@@ -678,15 +703,7 @@ async def dashboard_report(session: AsyncSession) -> schemas.DashboardReportResp
             "phase_label": phase_label,
             "time_progress_pct": time_progress_pct,
         },
-        "seasonality_context": {
-            "business_type": "烟花爆竹销售",
-            "season_window": "2026年2月7日（腊月20）至2026年3月3日（正月15）",
-            "peak_days": ["除夕（2026年2月16日）", "大年初一"],
-            "peak_share_estimate": "除夕+初一约占全年销售额50%",
-            "tail_day_estimate": "正月15约占除夕的20%~25%",
-            "low_period": "正月2-正月14销量偏低",
-            "target": "尽量在正月15前售完或减少存货",
-        },
+        "seasonality_context": seasonality_context,
         "sales": {
             "today": {
                 **sales_today["totals"],
