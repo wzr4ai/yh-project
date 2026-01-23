@@ -1,129 +1,176 @@
 <template>
   <view class="page">
-    <view class="card header">
-      <view class="header-row">
-        <view class="title">扫码结账</view>
-        <view class="nav-btn" @tap="goHome">{{ homeLabel }}</view>
+    <view class="header">
+      <view class="header-top">
+        <view class="page-title">扫码结账</view>
+        <view class="nav-pill" @tap="goHome">
+          <text>{{ homeLabel }}</text>
+        </view>
       </view>
-      <view class="sub">支持同时挂多单，切换订单继续扫码。</view>
+      <view class="header-hint">支持多单挂起，点击下方标签切换订单</view>
     </view>
 
-    <view class="card">
-      <view class="order-row">
-        <view class="order-field">
-          <view class="label">当前订单</view>
-          <input class="input" v-model="activeOrderName" @blur="saveOrderName" placeholder="客户名 / 订单备注" />
+    <view class="section order-section">
+      <view class="order-controls">
+        <view class="input-wrapper">
+          <text class="input-label">当前订单</text>
+          <input
+            class="bare-input"
+            v-model="activeOrderName"
+            @blur="saveOrderName"
+            placeholder="输入订单备注..."
+          />
         </view>
-        <button size="mini" type="primary" @tap="createOrder">新开单</button>
+        <view class="new-order-btn" @tap="createOrder">
+          <text class="plus">+</text> 新单
+        </view>
       </view>
-      <scroll-view class="order-tabs" scroll-x>
-        <view
-          v-for="order in orders"
-          :key="order.id"
-          :class="['order-tab', order.id === activeOrderId ? 'active' : '']"
-          @tap="switchOrder(order.id)"
-        >
-          <view class="order-name">{{ order.name }}</view>
-          <view class="order-meta">{{ order.count }} 件 ｜ ¥{{ order.total.toFixed(2) }}</view>
-          <text class="order-close" @tap.stop="removeOrder(order.id)">×</text>
+      
+      <scroll-view class="order-scroll" scroll-x show-scrollbar="false">
+        <view class="order-list">
+          <view
+            v-for="order in orders"
+            :key="order.id"
+            :class="['order-card', order.id === activeOrderId ? 'active' : '']"
+            @tap="switchOrder(order.id)"
+          >
+            <view class="order-info">
+              <text class="order-name">{{ order.name }}</text>
+              <text class="order-meta">{{ order.count }}件 · ¥{{ order.total.toFixed(2) }}</text>
+            </view>
+            <view class="order-close" @tap.stop="removeOrder(order.id)">×</view>
+          </view>
         </view>
       </scroll-view>
     </view>
 
-    <view class="card">
-      <view class="scan-row">
+    <view class="section scan-section">
+      <view class="scan-container">
         <input
-          class="input"
+          class="scan-input"
           v-model="barcodeInput"
-          placeholder="输入条码"
+          placeholder="点击输入条码或扫码..."
           confirm-type="search"
           @confirm="manualAdd"
         />
-        <button size="mini" type="primary" :loading="loading" @tap="manualAdd">添加</button>
-        <button size="mini" @tap="scanCode" :loading="scanning">扫码</button>
+        <view class="scan-actions">
+          <button class="btn-action btn-add" :loading="loading" @tap="manualAdd">添加</button>
+          <button class="btn-action btn-scan" :loading="scanning" @tap="scanCode">
+            扫码
+          </button>
+        </view>
       </view>
-      <view class="hint">每次扫码默认 +1 个，可在下方调整数量。</view>
     </view>
 
-    <view class="card" v-if="activeItems.length">
-      <view class="card-title">结算清单</view>
-      <view class="cart-item" v-for="(item, idx) in activeItems" :key="item.id">
-        <view class="cart-header">
-          <view class="name">{{ item.name }}</view>
-          <view class="spec">规格 {{ item.spec || '—' }} ｜ 库存 {{ formatStock(item.stock, item) }}</view>
-        </view>
-        <view class="cart-row">
-          <view class="field">
-            <view class="mini-title">箱</view>
-            <input class="input" type="number" v-model.number="item.box" @blur="normalizeQty(item)" />
+    <view class="section list-section" v-if="activeItems.length">
+      <view class="section-header">
+        <text class="section-title">结算清单</text>
+        <view class="badge">{{ activeItems.length }}</view>
+      </view>
+      
+      <view class="cart-list">
+        <view class="cart-item" v-for="(item, idx) in activeItems" :key="item.id">
+          <view class="item-header">
+            <text class="item-name">{{ item.name }}</text>
+            <view class="item-stock">
+              <text class="tag">{{ item.spec || '标规' }}</text>
+              <text>库存 {{ formatStock(item.stock, item) }}</text>
+            </view>
           </view>
-          <view class="field" v-if="item.specQty > 1">
-            <view class="mini-title">个</view>
-            <input class="input" type="number" v-model.number="item.loose" @blur="normalizeQty(item)" />
+          
+          <view class="item-body">
+            <!-- Quantity Inputs -->
+            <view class="qty-group">
+              <view class="qty-field">
+                <text class="field-label">箱</text>
+                <input class="qty-input" type="number" v-model.number="item.box" @blur="normalizeQty(item)" />
+              </view>
+              <view class="qty-field" v-if="item.specQty > 1">
+                <text class="field-label">个</text>
+                <input class="qty-input" type="number" v-model.number="item.loose" @blur="normalizeQty(item)" />
+              </view>
+            </view>
+            
+            <!-- Price Input -->
+            <view class="price-field">
+              <text class="currency">¥</text>
+              <input class="price-input" type="digit" v-model.number="item.actual_price" placeholder="0.00" />
+            </view>
+            
+            <!-- Remove -->
+            <view class="remove-btn" @tap="removeItem(idx)">
+              <text>×</text>
+            </view>
           </view>
-          <view class="field">
-            <view class="mini-title">实际单价</view>
-            <input class="input" type="digit" v-model.number="item.actual_price" placeholder="¥" />
-          </view>
-          <button size="mini" type="warn" @tap="removeItem(idx)">移除</button>
         </view>
       </view>
     </view>
-    <view class="empty" v-else>请扫码或输入条码添加商品</view>
+    
+    <view class="empty-state" v-else>
+      <text>暂无商品，请扫码添加</text>
+    </view>
+
+    <view class="footer-spacer"></view>
 
     <view class="footer">
-      <view class="summary" @tap="openDiscountDialog">
-        <view>共 {{ activeSummary.count }} 件</view>
-        <view>合计 ¥{{ activeSummary.total.toFixed(2) }}</view>
+      <view class="summary-panel" @tap="openDiscountDialog">
+        <view class="summary-count">共 {{ activeSummary.count }} 件</view>
+        <view class="summary-total">
+          <text class="symbol">¥</text>
+          <text class="amount">{{ activeSummary.total.toFixed(2) }}</text>
+        </view>
       </view>
-      <button size="mini" @tap="clearActiveOrder" :disabled="!activeItems.length">清空</button>
-      <button size="mini" type="primary" :loading="submitting" @tap="submitOrder">提交结算单</button>
+      <view class="footer-btns">
+        <button class="btn-footer btn-secondary" @tap="clearActiveOrder" :disabled="!activeItems.length">清空</button>
+        <button class="btn-footer btn-primary" :loading="submitting" @tap="submitOrder">立即结算</button>
+      </view>
     </view>
 
-    <view class="dialog" v-if="showMatchDialog">
-      <view class="dialog-content">
+    <view class="dialog-overlay" v-if="showMatchDialog">
+      <view class="dialog-card">
         <view class="dialog-header">
-          <view class="dialog-title">选择匹配条码</view>
-          <button size="mini" @tap="closeMatchDialog">关闭</button>
+          <text class="dialog-title">选择匹配商品</text>
+          <view class="dialog-close" @tap="closeMatchDialog">×</view>
         </view>
-        <scroll-view class="dialog-body" scroll-y>
-          <view class="match-row" v-for="item in matchedProducts" :key="item.barcode" @tap="selectMatched(item)">
-            <view class="match-name">{{ item.product?.name }}</view>
-            <view class="match-meta">条码 {{ item.barcode || '—' }} ｜ 规格 {{ item.product?.spec || '—' }}</view>
+        <scroll-view class="dialog-scroll" scroll-y>
+          <view class="match-list">
+            <view class="match-item" v-for="item in matchedProducts" :key="item.barcode" @tap="selectMatched(item)">
+              <view class="match-name">{{ item.product?.name }}</view>
+              <view class="match-detail">条码 {{ item.barcode }} · {{ item.product?.spec }}</view>
+            </view>
           </view>
-          <view v-if="!matchedProducts.length" class="empty">无匹配结果</view>
         </scroll-view>
       </view>
     </view>
 
-    <view class="dialog" v-if="showDiscountDialog">
-      <view class="dialog-content">
+    <view class="dialog-overlay" v-if="showDiscountDialog">
+      <view class="dialog-card">
         <view class="dialog-header">
-          <view class="dialog-title">订单优惠</view>
-          <button size="mini" @tap="closeDiscountDialog">关闭</button>
+          <text class="dialog-title">整单优惠</text>
+          <view class="dialog-close" @tap="closeDiscountDialog">×</view>
         </view>
-        <view class="discount-body">
-          <view class="discount-row">
-            <view class="discount-label">原合计</view>
-            <view class="discount-value">¥{{ discountBaseTotal.toFixed(2) }}</view>
+        <view class="discount-form">
+          <view class="form-row">
+            <text class="label">原价</text>
+            <text class="value">¥{{ discountBaseTotal.toFixed(2) }}</text>
           </view>
-          <view class="discount-row">
-            <view class="discount-label">优惠后</view>
+          <view class="form-row input-row">
+            <text class="label">优惠后</text>
             <input
-              class="input discount-input"
+              class="modal-input"
               type="digit"
               inputmode="decimal"
               v-model="discountInput"
-              placeholder="输入优惠后金额"
+              placeholder="0.00"
             />
           </view>
-          <view class="discount-row">
-            <view class="discount-label">优惠金额</view>
-            <view class="discount-value">-¥{{ discountDelta.toFixed(2) }}</view>
+          <view class="form-row highlight">
+            <text class="label">已优惠</text>
+            <text class="value red">-¥{{ discountDelta.toFixed(2) }}</text>
           </view>
-          <view class="discount-actions">
-            <button size="mini" @tap="clearDiscount">不优惠</button>
-            <button size="mini" type="primary" @tap="applyDiscount">确认优惠</button>
+          <view class="dialog-actions">
+            <button class="btn-modal btn-outline" @tap="clearDiscount">不优惠</button>
+            <button class="btn-modal btn-primary" @tap="applyDiscount">确认</button>
           </view>
         </view>
       </view>
@@ -599,305 +646,573 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+$primary: #0f6a7b;
+$primary-light: #e0f2f1;
+$primary-dark: #094a56;
+$text-main: #111827;
+$text-sub: #6b7280;
+$border: #e5e7eb;
+$bg-page: #f3f4f6;
+$bg-card: #ffffff;
+$red: #ef4444;
+
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
-  padding: 20rpx;
+  background: $bg-page;
+  padding: 24rpx;
   box-sizing: border-box;
-  padding-bottom: 140rpx;
 }
 
-.card {
-  background: #ffffff;
-  border-radius: 16rpx;
+.header {
+  margin-bottom: 24rpx;
+  
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .page-title {
+    font-size: 40rpx;
+    font-weight: 800;
+    color: $text-main;
+  }
+  
+  .nav-pill {
+    background: $primary-light;
+    color: $primary;
+    padding: 8rpx 20rpx;
+    border-radius: 999rpx;
+    font-size: 24rpx;
+    font-weight: 600;
+  }
+  
+  .header-hint {
+    margin-top: 8rpx;
+    font-size: 24rpx;
+    color: $text-sub;
+  }
+}
+
+.section {
+  background: $bg-card;
+  border-radius: 20rpx;
   padding: 20rpx;
-  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.04);
-  margin-bottom: 16rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.03);
 }
 
-.header .title {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: #0b1f3a;
+.order-section {
+  padding: 16rpx; // tighter
+  
+  .order-controls {
+    display: flex;
+    gap: 16rpx;
+    align-items: center;
+    margin-bottom: 16rpx;
+    
+    .input-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      background: #f9fafb;
+      padding: 12rpx 16rpx;
+      border-radius: 12rpx;
+      border: 1rpx solid $border;
+      
+      .input-label {
+        font-size: 24rpx;
+        color: $text-sub;
+        margin-right: 12rpx;
+      }
+      
+      .bare-input {
+        flex: 1;
+        font-size: 28rpx;
+        color: $text-main;
+      }
+    }
+    
+    .new-order-btn {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border: 1rpx solid $primary;
+      color: $primary;
+      padding: 12rpx 20rpx;
+      border-radius: 12rpx;
+      font-size: 26rpx;
+      font-weight: 600;
+      
+      .plus {
+        margin-right: 4rpx;
+        font-size: 32rpx;
+        line-height: 1;
+      }
+    }
+  }
+  
+  .order-scroll {
+    white-space: nowrap;
+    width: 100%;
+  }
+  
+  .order-list {
+    display: flex;
+    gap: 16rpx;
+    padding-bottom: 4rpx;
+  }
+  
+  .order-card {
+    display: inline-flex;
+    align-items: center;
+    background: #f9fafb;
+    border: 1rpx solid $border;
+    border-radius: 12rpx;
+    padding: 12rpx 16rpx;
+    min-width: 220rpx;
+    position: relative;
+    transition: all 0.2s;
+    
+    &.active {
+      background: $primary-light;
+      border-color: $primary;
+      .order-name { color: $primary; }
+    }
+    
+    .order-info {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .order-name {
+      font-size: 26rpx;
+      font-weight: 600;
+      color: $text-main;
+    }
+    
+    .order-meta {
+      font-size: 20rpx;
+      color: $text-sub;
+      margin-top: 2rpx;
+    }
+    
+    .order-close {
+      position: absolute;
+      top: 6rpx;
+      right: 10rpx;
+      font-size: 30rpx;
+      color: #9ca3af;
+      line-height: 1;
+      padding: 4rpx;
+    }
+  }
 }
 
-.header-row {
+.scan-section {
+  padding: 24rpx;
+  
+  .scan-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20rpx;
+  }
+  
+  .scan-input {
+    width: 100%;
+    height: 88rpx;
+    background: #f9fafb;
+    border: 2rpx solid $border;
+    border-radius: 16rpx;
+    padding: 0 24rpx;
+    font-size: 32rpx;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+    
+    &:focus {
+      border-color: $primary;
+      background: #fff;
+    }
+  }
+  
+  .scan-actions {
+    display: flex;
+    gap: 16rpx;
+    
+    .btn-action {
+      flex: 1;
+      height: 80rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16rpx;
+      font-size: 30rpx;
+      font-weight: 600;
+      border: none;
+      
+      &.btn-add {
+        background: #f3f4f6;
+        color: $text-main;
+      }
+      
+      &.btn-scan {
+        background: $primary;
+        color: #fff;
+        flex: 1.5;
+      }
+    }
+  }
+}
+
+.list-section {
+  padding: 0 20rpx;
+  background: transparent;
+  box-shadow: none;
+  
+  .section-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16rpx;
+    padding-left: 8rpx;
+    
+    .section-title {
+      font-size: 30rpx;
+      font-weight: 700;
+      color: $text-main;
+      margin-right: 12rpx;
+    }
+    
+    .badge {
+      background: $primary;
+      color: #fff;
+      font-size: 20rpx;
+      padding: 2rpx 10rpx;
+      border-radius: 999rpx;
+    }
+  }
+}
+
+.cart-list {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12rpx;
-}
-
-.nav-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6rpx 18rpx;
-  border-radius: 999rpx;
-  font-size: 24rpx;
-  background: #0f6a7b;
-  color: #ffffff;
-}
-
-.header .sub {
-  margin-top: 6rpx;
-  color: #6b7280;
-  font-size: 24rpx;
-}
-
-.order-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 12rpx;
-}
-
-.order-field {
-  flex: 1;
-}
-
-.label {
-  font-size: 24rpx;
-  color: #6b7280;
-  margin-bottom: 6rpx;
-}
-
-.input {
-  width: 100%;
-  border: 1rpx solid #e5e7eb;
-  border-radius: 12rpx;
-  padding: 14rpx;
-  font-size: 26rpx;
-  background: #fff;
-}
-
-.order-tabs {
-  display: flex;
-  gap: 12rpx;
-  margin-top: 14rpx;
-  white-space: nowrap;
-}
-
-.order-tab {
-  position: relative;
-  min-width: 200rpx;
-  padding: 12rpx 16rpx;
-  border-radius: 12rpx;
-  border: 1rpx solid #e5e7eb;
-  background: #f9fafb;
-  display: inline-flex;
   flex-direction: column;
-  gap: 6rpx;
-}
-
-.order-tab.active {
-  border-color: #0f6a7b;
-  background: #e6f4f6;
-}
-
-.order-name {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #0b1f3a;
-}
-
-.order-meta {
-  font-size: 22rpx;
-  color: #6b7280;
-}
-
-.order-close {
-  position: absolute;
-  top: 6rpx;
-  right: 10rpx;
-  font-size: 26rpx;
-  color: #9ca3af;
-}
-
-.scan-row {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-}
-
-.hint {
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  color: #9ca3af;
-}
-
-.card-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #0b1f3a;
-  margin-bottom: 12rpx;
+  gap: 16rpx;
 }
 
 .cart-item {
-  padding: 16rpx 0;
-  border-top: 1rpx dashed #e5e7eb;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+  
+  .item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16rpx;
+    
+    .item-name {
+      font-size: 30rpx;
+      font-weight: 600;
+      color: $text-main;
+      line-height: 1.4;
+      flex: 1;
+      margin-right: 16rpx;
+    }
+    
+    .item-stock {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      font-size: 20rpx;
+      color: $text-sub;
+      
+      .tag {
+        background: #f3f4f6;
+        color: $text-main;
+        padding: 2rpx 8rpx;
+        border-radius: 6rpx;
+        margin-bottom: 4rpx;
+      }
+    }
+  }
+  
+  .item-body {
+    display: flex;
+    align-items: flex-end;
+    gap: 12rpx;
+    
+    .qty-group {
+      flex: 1.2;
+      display: flex;
+      gap: 12rpx;
+      
+      .qty-field {
+        flex: 1;
+        
+        .field-label {
+          font-size: 20rpx;
+          color: $text-sub;
+          display: block;
+          margin-bottom: 4rpx;
+          text-align: center;
+        }
+        
+        .qty-input {
+          height: 64rpx;
+          background: #f3f4f6;
+          border-radius: 10rpx;
+          text-align: center;
+          font-size: 28rpx;
+          font-weight: 600;
+        }
+      }
+    }
+    
+    .price-field {
+      flex: 1;
+      position: relative;
+      
+      .currency {
+        position: absolute;
+        left: 12rpx;
+        top: 18rpx;
+        font-size: 24rpx;
+        color: $text-sub;
+      }
+      
+      .price-input {
+        height: 64rpx;
+        background: #fff;
+        border: 1rpx solid $border;
+        border-radius: 10rpx;
+        padding-left: 36rpx;
+        font-size: 28rpx;
+        font-weight: 600;
+      }
+    }
+    
+    .remove-btn {
+      width: 64rpx;
+      height: 64rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: $red;
+      font-size: 40rpx;
+      margin-left: 8rpx;
+      opacity: 0.6;
+    }
+  }
 }
 
-.cart-item:first-child {
-  border-top: none;
-}
-
-.cart-header {
-  margin-bottom: 10rpx;
-}
-
-.name {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #0b1f3a;
-}
-
-.spec {
-  font-size: 22rpx;
-  color: #6b7280;
-  margin-top: 4rpx;
-}
-
-.cart-row {
+.empty-state {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-  align-items: flex-end;
-}
-
-.field {
-  min-width: 160rpx;
-  flex: 1;
-}
-
-.mini-title {
-  font-size: 22rpx;
-  color: #6b7280;
-  margin-bottom: 4rpx;
-}
-
-.empty {
-  text-align: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 0;
   color: #9ca3af;
-  padding: 40rpx 0;
+}
+
+.footer-spacer {
+  height: 160rpx;
 }
 
 .footer {
   position: fixed;
+  bottom: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  background: #ffffff;
-  padding: 12rpx 20rpx env(safe-area-inset-bottom);
-  box-shadow: 0 -6rpx 12rpx rgba(0, 0, 0, 0.05);
+  background: #fff;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.06);
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  justify-content: space-between;
+  z-index: 10;
+  
+  .summary-panel {
+    display: flex;
+    flex-direction: column;
+    
+    .summary-count {
+      font-size: 24rpx;
+      color: $text-sub;
+    }
+    
+    .summary-total {
+      display: flex;
+      align-items: baseline;
+      color: $primary;
+      font-weight: 700;
+      
+      .symbol {
+        font-size: 28rpx;
+        margin-right: 4rpx;
+      }
+      
+      .amount {
+        font-size: 44rpx;
+        line-height: 1;
+      }
+    }
+  }
+  
+  .footer-btns {
+    display: flex;
+    gap: 16rpx;
+    
+    .btn-footer {
+      margin: 0;
+      font-size: 28rpx;
+      font-weight: 600;
+      border-radius: 12rpx;
+      padding: 0 32rpx;
+      height: 80rpx;
+      line-height: 80rpx;
+      
+      &.btn-secondary {
+        background: #f3f4f6;
+        color: $text-sub;
+        border: none;
+      }
+      
+      &.btn-primary {
+        background: $primary;
+        color: #fff;
+        padding: 0 48rpx;
+      }
+    }
+  }
 }
 
-.summary {
-  flex: 1;
-  font-size: 24rpx;
-  color: #0b1f3a;
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
-.summary:active {
-  opacity: 0.7;
-}
-
-.dialog {
+.dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 20;
+  z-index: 50;
+  backdrop-filter: blur(2px);
 }
 
-.dialog-content {
-  width: 86%;
-  max-height: 70vh;
-  background: #ffffff;
-  border-radius: 16rpx;
-  padding: 16rpx;
-  box-shadow: 0 12rpx 30rpx rgba(15, 23, 42, 0.2);
+.dialog-card {
+  width: 85%;
+  background: #fff;
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 20rpx 40rpx rgba(0,0,0,0.2);
+  
+  .dialog-header {
+    padding: 24rpx;
+    border-bottom: 1rpx solid $border;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    .dialog-title {
+      font-size: 32rpx;
+      font-weight: 700;
+      color: $text-main;
+    }
+    
+    .dialog-close {
+      font-size: 36rpx;
+      color: $text-sub;
+      padding: 8rpx;
+      line-height: 0.8;
+    }
+  }
+  
+  .dialog-scroll {
+    max-height: 50vh;
+  }
+}
+
+.match-list {
+  padding: 8rpx 0;
+  
+  .match-item {
+    padding: 20rpx 24rpx;
+    border-bottom: 1rpx solid #f3f4f6;
+    
+    &:active {
+      background: #f9fafb;
+    }
+    
+    .match-name {
+      font-size: 28rpx;
+      font-weight: 600;
+      color: $text-main;
+    }
+    
+    .match-detail {
+      font-size: 22rpx;
+      color: $text-sub;
+      margin-top: 4rpx;
+    }
+  }
+}
+
+.discount-form {
+  padding: 32rpx;
   display: flex;
   flex-direction: column;
-}
-
-.dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12rpx;
-}
-
-.dialog-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #0b1f3a;
-}
-
-.dialog-body {
-  max-height: 50vh;
-}
-
-.discount-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-}
-
-.discount-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12rpx;
-}
-
-.discount-label {
-  font-size: 24rpx;
-  color: #6b7280;
-}
-
-.discount-value {
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #0b1f3a;
-}
-
-.discount-input {
-  flex: 1;
-}
-
-.discount-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12rpx;
-  margin-top: 4rpx;
-}
-
-.match-row {
-  padding: 12rpx 0;
-  border-bottom: 1rpx dashed #e5e7eb;
-}
-
-.match-row:last-child {
-  border-bottom: none;
-}
-
-.match-name {
-  font-size: 26rpx;
-  color: #0b1f3a;
-  font-weight: 600;
-}
-
-.match-meta {
-  font-size: 22rpx;
-  color: #6b7280;
-  margin-top: 4rpx;
+  gap: 24rpx;
+  
+  .form-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 28rpx;
+    
+    &.input-row {
+      align-items: center;
+    }
+    
+    .label {
+      color: $text-sub;
+    }
+    
+    .value {
+      font-weight: 600;
+      color: $text-main;
+      
+      &.red { color: $red; }
+    }
+    
+    .modal-input {
+      width: 200rpx;
+      text-align: right;
+      font-size: 32rpx;
+      font-weight: 600;
+      border-bottom: 2rpx solid $primary;
+      padding-bottom: 8rpx;
+    }
+  }
+  
+  .dialog-actions {
+    display: flex;
+    gap: 16rpx;
+    margin-top: 16rpx;
+    
+    .btn-modal {
+      flex: 1;
+      font-size: 28rpx;
+      border-radius: 12rpx;
+      
+      &.btn-outline {
+        background: #fff;
+        border: 1rpx solid $border;
+        color: $text-sub;
+      }
+      
+      &.btn-primary {
+        background: $primary;
+        color: #fff;
+      }
+    }
+  }
 }
 </style>
