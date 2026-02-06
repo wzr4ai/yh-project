@@ -48,7 +48,19 @@
 
     <view class="card" v-if="order">
       <view class="section-title">入库明细</view>
-      <view v-for="(item, idx) in formItems" :key="item.product_id" class="item-row">
+      <view class="search-row">
+        <input
+          class="input"
+          v-model.trim="searchKeyword"
+          placeholder="搜索商品名称/规格/编号"
+          confirm-type="search"
+        />
+        <button size="mini" @tap="clearSearch" v-if="searchKeyword">清空</button>
+      </view>
+      <view class="search-meta" v-if="searchKeyword">
+        匹配 {{ searchResultCount }} 条
+      </view>
+      <view v-for="item in displayItems" :key="item.product_id" class="item-row">
         <view class="item-header">
           <view>
             <view class="item-name">{{ productName(item) }}</view>
@@ -74,10 +86,10 @@
         <view class="row-actions">
           <button size="mini" @tap="addReceived(item, 1)">+1 箱</button>
           <button size="mini" @tap="addReceived(item, -1)">-1 箱</button>
-          <button size="mini" @tap="fillRowReceived(idx)">全部入库</button>
+          <button size="mini" @tap="fillRowReceived(item)">全部入库</button>
         </view>
       </view>
-      <view v-if="!formItems.length" class="empty">暂无明细</view>
+      <view v-if="!displayItems.length" class="empty">暂无明细</view>
     </view>
 
     <view v-if="!order && !loading" class="empty">未找到采购单</view>
@@ -187,7 +199,8 @@ export default {
       bindLevel: 'BOX',
       pendingBindAfterEdit: false,
       binding: false,
-      barcodeLevels: ['BOX', 'UNIT', 'PIECE']
+      barcodeLevels: ['BOX', 'UNIT', 'PIECE'],
+      searchKeyword: ''
     }
   },
   computed: {
@@ -231,6 +244,14 @@ export default {
     bindLevelIndex() {
       const idx = this.barcodeLevels.indexOf(this.bindLevel)
       return idx >= 0 ? idx : 0
+    },
+    displayItems() {
+      const key = this.normalizeKeyword(this.searchKeyword)
+      if (!key) return this.formItems
+      return this.formItems.filter(item => this.itemSearchText(item).includes(key))
+    },
+    searchResultCount() {
+      return this.displayItems.length
     }
   },
   onLoad(options) {
@@ -345,9 +366,22 @@ export default {
       const product = this.productMap[item.product_id]
       return (product && product.name) || item.product_id
     },
+    productSpecValue(item) {
+      const product = this.productMap[item.product_id]
+      return (product && product.spec) || ''
+    },
     productSpec(item) {
       const product = this.productMap[item.product_id]
       return product && product.spec ? `规格 ${product.spec}` : '规格 —'
+    },
+    normalizeKeyword(value) {
+      return (value || '').toString().trim().toLowerCase()
+    },
+    itemSearchText(item) {
+      const name = this.productName(item)
+      const spec = this.productSpecValue(item)
+      const id = item.product_id || ''
+      return `${name} ${spec} ${id}`.toLowerCase()
     },
     itemPiecesPerBox(item, productOverride) {
       const product = productOverride || this.productMap[item.product_id] || item
@@ -417,13 +451,15 @@ export default {
       if (!deltaUnits) return
       this.applyReceivedUnits(item, perBox, deltaUnits)
     },
-    fillRowReceived(idx) {
-      const row = this.formItems[idx]
-      if (!row) return
-      row.received_qty = Number(row.quantity) || 0
-      const perBox = this.itemPiecesPerBox(row)
-      row.received_units = row.received_qty * perBox
+    fillRowReceived(item) {
+      if (!item) return
+      item.received_qty = Number(item.quantity) || 0
+      const perBox = this.itemPiecesPerBox(item)
+      item.received_units = item.received_qty * perBox
       this.persistDraft()
+    },
+    clearSearch() {
+      this.searchKeyword = ''
     },
     scanCode() {
       this.skipNextFetch = true
@@ -792,6 +828,19 @@ export default {
   font-weight: 600;
   color: #0b1f3a;
   margin-bottom: 12rpx;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-bottom: 8rpx;
+}
+
+.search-meta {
+  font-size: 22rpx;
+  color: #6b7280;
+  margin-bottom: 4rpx;
 }
 
 .item-row {
