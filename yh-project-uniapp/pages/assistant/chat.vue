@@ -1,8 +1,11 @@
 <template>
   <view class="page">
     <view class="header">
-      <view class="title">AI 助手</view>
-      <view class="subtitle">仅老板可用 · 写入需确认</view>
+      <view>
+        <view class="title">AI 助手</view>
+        <view class="subtitle">仅老板可用 · 写入需确认</view>
+      </view>
+      <button size="mini" v-if="isOwner" @tap="clearHistory">清空记录</button>
     </view>
 
     <view v-if="!isOwner" class="empty">仅老板可用，请使用老板账号登录。</view>
@@ -97,13 +100,7 @@ export default {
   data() {
     return {
       role: getRole(),
-      messages: [
-        {
-          id: `msg-${uid++}`,
-          role: 'assistant',
-          content: '你好，我可以查询进价、调整零售价、生成智能套餐。'
-        }
-      ],
+      messages: [],
       input: '',
       loading: false,
       scrollTarget: ''
@@ -118,9 +115,66 @@ export default {
     this.role = getRole()
     if (!this.isOwner) {
       uni.showToast({ title: '仅老板可用', icon: 'none' })
+      return
     }
+    this.loadHistory()
   },
   methods: {
+    historyKey() {
+      return 'yh-ai-assistant-history'
+    },
+    ensureGreeting() {
+      if (this.messages.length) return
+      this.messages = [
+        {
+          id: `msg-${uid++}`,
+          role: 'assistant',
+          content: '你好，我可以查询进价、调整零售价、生成智能套餐。'
+        }
+      ]
+    },
+    loadHistory() {
+      let cached = null
+      try {
+        cached = uni.getStorageSync(this.historyKey())
+      } catch (e) {
+        cached = null
+      }
+      if (Array.isArray(cached) && cached.length) {
+        this.messages = cached.map(msg => ({
+          ...msg,
+          actions: (msg.actions || []).map(action => ({
+            ...action,
+            loading: false
+          }))
+        }))
+      } else {
+        this.ensureGreeting()
+      }
+      this.scrollToBottom()
+    },
+    saveHistory() {
+      const limit = 200
+      const sliced = this.messages.slice(-limit)
+      try {
+        uni.setStorageSync(this.historyKey(), sliced)
+      } catch (e) {}
+    },
+    clearHistory() {
+      uni.showModal({
+        title: '清空记录',
+        content: '确定清空所有对话记录吗？',
+        success: (res) => {
+          if (!res.confirm) return
+          try {
+            uni.removeStorageSync(this.historyKey())
+          } catch (e) {}
+          this.messages = []
+          this.ensureGreeting()
+          this.scrollToBottom()
+        }
+      })
+    },
     formatMoney(value) {
       const num = Number(value)
       if (!Number.isFinite(num)) return '—'
@@ -149,6 +203,7 @@ export default {
           loading: false
         }))
       })
+      this.saveHistory()
       this.scrollToBottom()
     },
     async sendMessage() {
@@ -156,6 +211,7 @@ export default {
       const text = this.input.trim()
       if (!text) return
       this.messages.push({ id: `msg-${uid++}`, role: 'user', content: text })
+      this.saveHistory()
       this.input = ''
       this.loading = true
       this.scrollToBottom()
@@ -196,10 +252,12 @@ export default {
                   ]
                 : []
             })
+            this.saveHistory()
             this.scrollToBottom()
           } catch (err) {
             const msg = err && err.detail ? err.detail : '执行失败'
             this.messages.push({ id: `msg-${uid++}`, role: 'assistant', content: msg })
+            this.saveHistory()
             this.scrollToBottom()
           } finally {
             action.loading = false
@@ -223,6 +281,10 @@ export default {
 
 .header {
   margin-bottom: 12rpx;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12rpx;
 }
 
 .title {

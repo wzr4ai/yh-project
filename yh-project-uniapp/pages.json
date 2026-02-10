@@ -1,16 +1,16 @@
 {
   "pages": [
     {
+      "path": "pages/dashboard/index",
+      "style": {
+        "navigationBarTitleText": "运营总览"
+      }
+    },
+    {
       "path": "pages/auth/login",
       "style": {
         "navigationBarTitleText": "登录",
         "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/dashboard/index",
-      "style": {
-        "navigationBarTitleText": "运营总览"
       }
     },
     {
