@@ -15,6 +15,7 @@ from app.services.logic_catalog import (
     replace_product_barcodes,
     replace_product_categories,
     update_product,
+    update_product_retail_price,
     upsert_category,
 )
 from app.services.logic_ai_insight import (
@@ -191,6 +192,7 @@ __all__ = [
     "shareholder_summary",
     "update_misc_cost",
     "update_product",
+    "update_product_retail_price",
     "update_purchase_order",
     "update_purchase_order_item",
     "upsert_category",

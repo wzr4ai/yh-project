@@ -20,6 +20,12 @@
       }
     },
     {
+      "path": "pages/assistant/chat",
+      "style": {
+        "navigationBarTitleText": "AI 助手"
+      }
+    },
+    {
       "path": "pages/pricing/overview",
       "style": {
         "navigationBarTitleText": "货物定价总览"

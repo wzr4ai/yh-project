@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from . import (
+    ai,
     auth,
     categories,
     dashboard,
@@ -22,6 +23,7 @@ from . import (
 router = APIRouter(prefix="/api")
 
 router.include_router(auth.router)
+router.include_router(ai.router)
 router.include_router(orders.router)
 router.include_router(misc_costs.router)
 router.include_router(llm.router)

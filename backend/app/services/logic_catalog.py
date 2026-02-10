@@ -199,6 +199,24 @@ async def update_product(session: AsyncSession, product_id: str, payload: schema
     return product
 
 
+async def update_product_retail_price(session: AsyncSession, product_id: str, new_price: float | None) -> Product:
+    product = await session.get(Product, product_id)
+    if not product:
+        raise ValueError("product not found")
+    price = None
+    if new_price is not None:
+        try:
+            price_val = float(new_price)
+        except Exception:
+            price_val = None
+        if price_val is not None and price_val > 0:
+            price = price_val
+    product.fixed_retail_price = price
+    product.updated_at = datetime.utcnow()
+    await session.flush()
+    return product
+
+
 async def delete_product(session: AsyncSession, product_id: str):
     product = await session.get(Product, product_id)
     if not product:

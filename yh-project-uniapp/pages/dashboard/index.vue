@@ -125,6 +125,10 @@
     <view class="section">
       <view class="section-title">快捷入口</view>
       <view class="quick-actions">
+        <view class="action" v-if="isOwner" @tap="go('/pages/assistant/chat')">
+          <view class="action-title">AI 助手</view>
+          <view class="action-desc">进价查询、调价与套餐生成</view>
+        </view>
         <view class="action" @tap="go('/pages/inventory/overview')">
           <view class="action-title">库存总览</view>
           <view class="action-desc">库存与潜在售价</view>

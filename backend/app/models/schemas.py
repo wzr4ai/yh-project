@@ -433,6 +433,45 @@ class LLMChatResponse(BaseModel):
     raw_usage: Optional[Dict] = None
 
 
+class AIChatRequest(BaseModel):
+    messages: List[LLMMessage]
+    model_tier: Literal["low", "mid", "high"] = "mid"
+    protocol: Optional[Literal["gemini", "openai", "open"]] = None
+    model: Optional[str] = None
+    temperature: float = 0.4
+    max_output_tokens: int = Field(
+        default=max(
+            1, min(8192, int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "2048") or 2048))
+        ),
+        ge=1,
+        le=8192,
+    )
+
+
+class AIAction(BaseModel):
+    type: str
+    title: str
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    requires_confirmation: bool = False
+    preview: Optional[Dict[str, Any]] = None
+    result: Optional[Dict[str, Any]] = None
+
+
+class AIChatResponse(BaseModel):
+    reply: str
+    actions: List[AIAction] = Field(default_factory=list)
+
+
+class AIActionRequest(BaseModel):
+    type: str
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AIActionResponse(BaseModel):
+    reply: str
+    result: Optional[Dict[str, Any]] = None
+
+
 class OrderAnalyzeRequest(BaseModel):
     raw_text: str
 

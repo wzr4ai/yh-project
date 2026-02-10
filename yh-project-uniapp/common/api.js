@@ -172,6 +172,18 @@ export const api = {
       data: payload || {}
     })
   },
+  aiChat(payload) {
+    return request('/api/ai/chat', {
+      method: 'POST',
+      data: payload || {}
+    })
+  },
+  aiAction(payload) {
+    return request('/api/ai/action', {
+      method: 'POST',
+      data: payload || {}
+    })
+  },
   getPricingMultiplier() {
     return request('/api/system/pricing-multiplier')
   },
