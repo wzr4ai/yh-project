@@ -246,6 +246,11 @@ export const api = {
       data: payload
     })
   },
+  deleteMiscCost(id) {
+    return request(`/api/misc-costs/${id}`, {
+      method: 'DELETE'
+    })
+  },
   listShareholders({ activeOnly = true } = {}) {
     return request(`/api/shareholders?active_only=${activeOnly ? 'true' : 'false'}`)
   },

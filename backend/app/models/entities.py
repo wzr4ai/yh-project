@@ -277,6 +277,12 @@ class MiscCost(Base):
     item: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     quantity: Mapped[float] = mapped_column(sa.Float, nullable=False, default=1)
     amount: Mapped[float] = mapped_column(sa.Float, nullable=False, default=0)
+    cost_payer_type: Mapped[str] = mapped_column(
+        sa.String(20), nullable=False, default="public"
+    )
+    cost_payer_shareholder_id: Mapped[str | None] = mapped_column(
+        sa.String(64), sa.ForeignKey("shareholder.id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow)
     created_by: Mapped[str | None] = mapped_column(sa.String(64), nullable=True)
 

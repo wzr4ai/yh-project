@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict
 Role = Literal["owner", "clerk", "user"]
 BarcodeLevel = Literal["BOX", "UNIT", "PIECE"]
 PricingBasis = Literal["例外价", "分类系数", "全局系数"]
+MiscCostPayerType = Literal["public", "shareholder"]
 
 
 class ORMBase(BaseModel):
@@ -516,6 +517,8 @@ class MiscCostBase(BaseModel):
     item: str
     quantity: float = 1
     amount: float
+    cost_payer_type: MiscCostPayerType = "public"
+    cost_payer_shareholder_id: Optional[str] = None
     created_by: Optional[str] = None
 
 
@@ -532,6 +535,8 @@ class MiscCostUpdate(BaseModel):
     item: Optional[str] = None
     quantity: Optional[float] = None
     amount: Optional[float] = None
+    cost_payer_type: Optional[MiscCostPayerType] = None
+    cost_payer_shareholder_id: Optional[str] = None
     created_by: Optional[str] = None
 
 

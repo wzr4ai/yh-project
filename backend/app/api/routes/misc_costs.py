@@ -33,4 +33,17 @@ async def update_misc_cost(misc_id: str, payload: schemas.MiscCostUpdate, sessio
         return record
     except ValueError as exc:
         await session.rollback()
+        detail = str(exc)
+        status_code = 404 if detail == "misc cost not found" else 400
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+@router.delete("/misc-costs/{misc_id}")
+async def delete_misc_cost(misc_id: str, session: AsyncSession = Depends(get_session)):
+    try:
+        await logic.delete_misc_cost(session, misc_id)
+        await session.commit()
+        return {"ok": True}
+    except ValueError as exc:
+        await session.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc

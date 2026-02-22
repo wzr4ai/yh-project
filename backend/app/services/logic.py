@@ -44,7 +44,12 @@ from app.services.logic_inventory import (
     inventory_overview,
     log_inventory,
 )
-from app.services.logic_misc import create_misc_cost, list_misc_costs, update_misc_cost
+from app.services.logic_misc import (
+    create_misc_cost,
+    delete_misc_cost,
+    list_misc_costs,
+    update_misc_cost,
+)
 from app.services.logic_pricing import (
     _mult_range_from_category,
     _pick_price_from_range,
@@ -138,6 +143,7 @@ __all__ = [
     "dashboard_realtime",
     "dashboard_report",
     "delete_category",
+    "delete_misc_cost",
     "delete_product",
     "delete_purchase_order",
     "get_purchase_order_item",

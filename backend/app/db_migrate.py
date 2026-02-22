@@ -12,9 +12,11 @@ def ensure_columns(conn: Connection) -> None:
     has_category = inspector.has_table("category")
     has_inventory = inspector.has_table("inventory")
     has_purchase_item = inspector.has_table("purchase_item")
+    has_misc_cost = inspector.has_table("misc_cost")
     category_columns = {col["name"] for col in inspector.get_columns("category")} if has_category else set()
     inventory_columns = {col["name"] for col in inspector.get_columns("inventory")} if has_inventory else set()
     purchase_item_columns = {col["name"] for col in inspector.get_columns("purchase_item")} if has_purchase_item else set()
+    misc_cost_columns = {col["name"] for col in inspector.get_columns("misc_cost")} if has_misc_cost else set()
 
     if "retail_multiplier" not in product_columns:
         conn.execute(text("ALTER TABLE product ADD COLUMN IF NOT EXISTS retail_multiplier double precision"))
@@ -54,3 +56,18 @@ def ensure_columns(conn: Connection) -> None:
     if has_purchase_item:
         if "received_units" not in purchase_item_columns:
             conn.execute(text("ALTER TABLE purchase_item ADD COLUMN IF NOT EXISTS received_units integer DEFAULT 0"))
+    if has_misc_cost:
+        if "cost_payer_type" not in misc_cost_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE misc_cost ADD COLUMN IF NOT EXISTS cost_payer_type varchar(20) DEFAULT 'public'"
+                )
+            )
+            conn.execute(text("UPDATE misc_cost SET cost_payer_type = 'public' WHERE cost_payer_type IS NULL"))
+            conn.execute(text("ALTER TABLE misc_cost ALTER COLUMN cost_payer_type SET NOT NULL"))
+        if "cost_payer_shareholder_id" not in misc_cost_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE misc_cost ADD COLUMN IF NOT EXISTS cost_payer_shareholder_id varchar(64)"
+                )
+            )
